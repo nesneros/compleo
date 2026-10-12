@@ -1,0 +1,31 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check-ubuntu:
+    # Not a strategy.matrix over os: act (used by `mise run ci-local`) has a bug where
+    # concurrent matrix entries race on evaluating runs-on: ${{ matrix.os }} and can
+    # read each other's resolved value. Literal runs-on never hits that code path.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+      - run: mise run check
+
+  check-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+      - run: mise run check
+
+  release-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+      - run: mise run release-check

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/nesneros/compleo/internal/parse"
 	"github.com/nesneros/compleo/internal/spec"
@@ -17,14 +18,28 @@ import (
 //go:embed spec.yaml
 var specYAML []byte
 
-// version is overridden at build time via -ldflags "-X main.version=...".
-var version = "dev"
+// version, commit, date are set at build time via GoReleaser's default ldflags
+// (-X main.version=... -X main.commit=... -X main.date=...).
+var (
+	version = "dev"
+	commit  string
+	date    string
+)
 
 func main() {
 	if err := run(os.Args[1:], isPiped(os.Stdin), os.Stdin, os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, "compleo:", err)
 		os.Exit(1)
 	}
+}
+
+// versionString appends commit/date to version for untagged snapshot builds (GoReleaser's
+// default snapshot template includes "SNAPSHOT"), leaving tagged releases unadorned.
+func versionString() string {
+	if strings.Contains(version, "SNAPSHOT") {
+		return fmt.Sprintf("%s (%v) [%v]", version, date, commit)
+	}
+	return version
 }
 
 // run tries args against compleo's own spec first (via parse.Parse, so new flags just
@@ -48,7 +63,7 @@ func run(args []string, piped bool, in io.Reader, out io.Writer) error {
 	if parseErr == nil {
 		switch {
 		case result.Flags["version"].Bool:
-			fmt.Fprintln(out, version)
+			fmt.Fprintln(out, versionString())
 			return nil
 		case result.Flags["validate"].Bool:
 			action = "validate"

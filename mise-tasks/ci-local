@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+#MISE description="Run the ci.yml workflow locally via act (requires Docker)"
+set -euo pipefail
+
+# act doesn't read Docker contexts (unlike the docker CLI itself), so DOCKER_HOST
+# must be set explicitly, from whichever context is actually active.
+if [ -z "${DOCKER_HOST:-}" ]; then
+  host="$(docker context inspect --format '{{.Endpoints.docker.Host}}' 2>/dev/null || true)"
+  if [ -n "$host" ]; then
+    export DOCKER_HOST="$host"
+  fi
+fi
+
+# "-" disables bind-mounting the Docker socket into job containers: our jobs never
+# need to talk to Docker themselves, and the mount fails under VM-based runtimes
+# (Colima, Rancher Desktop) since the host socket path isn't valid inside the VM.
+act push --container-daemon-socket -

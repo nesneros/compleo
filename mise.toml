@@ -2,6 +2,7 @@
 go = "1.27.1"
 golangci-lint = "2.14.0"
 goreleaser = "2.18.3"
+act = "0.2.89"
 
 [tasks.build]
 description = "Build the compleo binary"
