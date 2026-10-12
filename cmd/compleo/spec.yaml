@@ -6,7 +6,4 @@ description: >-
 flags:
   -h, --help: Show this help message and exit.
   --version: Print compleo's version and exit.
-  --validate=: Validate a spec file and exit.
-completion:
-  flag:
-    validate: ["$files"]
+  --validate: Validate the spec piped on stdin and exit.

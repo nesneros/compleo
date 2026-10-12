@@ -1,34 +1,32 @@
-package usage
+package spec
 
 import (
 	"bytes"
 	"strings"
 	"testing"
 
-	carapacespec "github.com/carapace-sh/carapace-spec"
-	"github.com/nesneros/compleo/internal/spec"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPlaceholderRequired(t *testing.T) {
-	got := placeholder(spec.Positional{Name: "file", Required: true})
+	got := placeholder(Positional{Name: "file", Required: true})
 	assert.Equal(t, "<file>", got)
 }
 
 func TestPlaceholderOptional(t *testing.T) {
-	got := placeholder(spec.Positional{Name: "file"})
+	got := placeholder(Positional{Name: "file"})
 	assert.Equal(t, "[file]", got)
 }
 
 func TestPlaceholderRequiredVariadic(t *testing.T) {
-	got := placeholder(spec.Positional{Name: "file", Required: true, Variadic: true})
+	got := placeholder(Positional{Name: "file", Required: true, Variadic: true})
 	assert.Equal(t, "<file>...", got)
 }
 
 func TestPlaceholderOptionalVariadic(t *testing.T) {
-	got := placeholder(spec.Positional{Name: "file", Variadic: true})
+	got := placeholder(Positional{Name: "file", Variadic: true})
 	assert.Equal(t, "[file...]", got)
 }
 
@@ -36,7 +34,7 @@ func TestSynopsisLineWithFlagsAndPositionals(t *testing.T) {
 	cmd := &cobra.Command{Use: "mytool"}
 	cmd.Flags().String("count", "", "how many times")
 
-	got := synopsisLine(cmd, []spec.Positional{
+	got := synopsisLine(cmd, []Positional{
 		{Name: "src", Required: true},
 		{Name: "dst"},
 	})
@@ -47,23 +45,16 @@ func TestSynopsisLineWithFlagsAndPositionals(t *testing.T) {
 func TestSynopsisLineWithoutFlags(t *testing.T) {
 	cmd := &cobra.Command{Use: "mytool"}
 
-	got := synopsisLine(cmd, []spec.Positional{{Name: "src", Required: true}})
+	got := synopsisLine(cmd, []Positional{{Name: "src", Required: true}})
 
 	assert.Equal(t, "mytool <src>", got)
 }
 
-// buildCobra parses a compleo spec and builds the real cobra tree the same way compleo's
-// own CLI wiring would: spec.ParseYAML -> ToCarapace -> carapacespec's ToCobraE -> Apply.
 func buildCobra(t *testing.T, yaml, root string) *cobra.Command {
 	t.Helper()
 
-	sp, err := spec.ParseYAML(strings.NewReader(yaml))
+	cmd, _, err := ParseYAML(strings.NewReader(yaml))
 	require.NoError(t, err)
-
-	cmd, err := carapacespec.Command(sp.ToCarapace()).ToCobraE()
-	require.NoError(t, err)
-
-	Apply(cmd, sp)
 
 	if root == "" {
 		return cmd

@@ -4,22 +4,16 @@ import (
 	"strings"
 	"testing"
 
-	carapacespec "github.com/carapace-sh/carapace-spec"
 	"github.com/nesneros/compleo/internal/spec"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// buildCobra parses a compleo spec and builds the real cobra tree the same way compleo's
-// own CLI wiring would: spec.ParseYAML -> ToCarapace -> carapacespec's ToCobraE.
 func buildCobra(t *testing.T, yaml string) (*cobra.Command, spec.Command) {
 	t.Helper()
 
-	sp, err := spec.ParseYAML(strings.NewReader(yaml))
-	require.NoError(t, err)
-
-	cmd, err := carapacespec.Command(sp.ToCarapace()).ToCobraE()
+	cmd, sp, err := spec.ParseYAML(strings.NewReader(yaml))
 	require.NoError(t, err)
 
 	return cmd, sp

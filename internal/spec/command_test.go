@@ -4,13 +4,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/carapace-sh/carapace/pkg/command"
+	carapacespec "github.com/carapace-sh/carapace-spec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestParseFlagDescriptionAndDefault(t *testing.T) {
-	cmd, err := ParseYAML(strings.NewReader(`
+	cmd, err := decodeYAML(strings.NewReader(`
 name: mytool
 flags:
   --count=: {description: how many times, default: "1"}
@@ -24,7 +24,7 @@ flags:
 }
 
 func TestParseRequiredFlag(t *testing.T) {
-	cmd, err := ParseYAML(strings.NewReader(`
+	cmd, err := decodeYAML(strings.NewReader(`
 name: mytool
 flags:
   --verbose!: verbose output
@@ -37,7 +37,7 @@ flags:
 }
 
 func TestParsePositionalTypeAndRequired(t *testing.T) {
-	cmd, err := ParseYAML(strings.NewReader(`
+	cmd, err := decodeYAML(strings.NewReader(`
 name: mytool
 positionals:
   - name: file
@@ -55,7 +55,7 @@ positionals:
 }
 
 func TestParseFlagTypeOverlay(t *testing.T) {
-	cmd, err := ParseYAML(strings.NewReader(`
+	cmd, err := decodeYAML(strings.NewReader(`
 name: mytool
 flags:
   --count=: consumes a count
@@ -68,7 +68,7 @@ flagtypes:
 }
 
 func TestParseSubcommandCarriesItsOwnPositionals(t *testing.T) {
-	cmd, err := ParseYAML(strings.NewReader(`
+	cmd, err := decodeYAML(strings.NewReader(`
 name: mytool
 commands:
   - name: sub
@@ -92,7 +92,7 @@ commands:
 }
 
 func TestCommandToCarapace(t *testing.T) {
-	cmd, err := ParseYAML(strings.NewReader(`
+	cmd, err := decodeYAML(strings.NewReader(`
 name: mytool
 flags:
   --count=: {description: how many times, default: "1"}
@@ -106,12 +106,12 @@ commands:
 `))
 	require.NoError(t, err)
 
-	converted := cmd.ToCarapace()
+	converted := cmd.toCarapace()
 
 	assert.Equal(t, "mytool", converted.Name)
 	assert.Contains(t, converted.Flags, "count")
 	require.Len(t, converted.Commands, 1)
 	assert.Equal(t, "sub", converted.Commands[0].Name)
 
-	var _ command.Command = converted // ToCarapace must return carapace-spec's own type
+	var _ carapacespec.Command = converted // toCarapace must return carapace-spec's own type
 }

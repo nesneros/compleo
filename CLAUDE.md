@@ -10,7 +10,7 @@ The script calls compleo near the top; compleo parses `"$@"` and prints zsh code
 
 ## Status
 
-Early design phase. A Go project skeleton exists (`go.mod` at `github.com/nesneros/compleo`, `cmd/compleo/`, `internal/spec`, `internal/zsh`, `internal/completion`, mise tooling) but no parsing/completion logic is implemented yet. Treat anything under "Open questions" as undecided and ask before choosing.
+Early design phase. A Go project skeleton exists (`go.mod` at `github.com/nesneros/compleo`, `cmd/compleo/`, `internal/spec`, `internal/parse`, `internal/zsh`, mise tooling). Spec parsing, cobra/usage building, and command-line parsing are implemented; zsh emission (`internal/zsh.Emit`) is still a stub. Treat anything under "Open questions" as undecided and ask before choosing.
 
 ## Design decisions
 
@@ -57,4 +57,5 @@ Use **mise** for tool versions and tasks. Do not add a Makefile.
 - Table-driven tests for parsing logic.
 - The emitted zsh code is the main contract. Cover it with golden-file tests, and execute the output under `zsh -f` in at least some tests.
 - Quoting must be rigorous: arguments can contain spaces, quotes, `$`, backticks, and newlines. Never build emitted shell by naive string concatenation; use one tested quoting function.
-- Keep the spec parser, the zsh emitter, and the completion integration in separate packages so each can be tested alone.
+- Current package split: `internal/spec` (YAML parsing, types, and building the spec's cobra/completion/usage tree — usage can't be its own package without an import cycle, since it needs `spec.Command`), `internal/parse` (binds a parsed command line to a `Result`), `internal/zsh` (emits the script). Each still testable alone.
+- Keep code comments short — one line where possible. Explain the non-obvious *why*, not a paragraph of it.

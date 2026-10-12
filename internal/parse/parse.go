@@ -1,9 +1,6 @@
 // Package parse executes a spec's cobra command tree against a command line and returns
-// the result as a plain Go struct: which (sub)command was invoked, and the values bound
-// to its flags and positional arguments. carapace-spec's ToCobraE gives real cobra/pflag
-// parsing for flags, but nothing for positionals at all — Args is always
-// cobra.ArbitraryArgs — so binding them to spec.Command's Positionals, and validating
-// their arity, is entirely this package's job.
+// the result as a plain Go struct. Positional binding/arity validation is this package's
+// job: cobra's Args is always cobra.ArbitraryArgs, carapace-spec gives it nothing here.
 package parse
 
 import (
@@ -35,10 +32,8 @@ const (
 	KindCount   FlagKind = "count"
 )
 
-// FlagValue is one flag's parsed value. carapace/cobra register every flag as one of
-// four pflag kinds, named by Kind — exactly one of String/Strings/Bool/Count is
-// meaningful. Changed reports whether the flag was actually present on the command
-// line, as opposed to holding its zero or spec-provided default value.
+// FlagValue is one flag's parsed value; only the field named by Kind is meaningful.
+// Changed reports whether the flag was present on the command line, vs. a default.
 type FlagValue struct {
 	Kind    FlagKind
 	Changed bool
@@ -55,14 +50,9 @@ type PositionalValue struct {
 	Values []string
 }
 
-// Parse executes cmd (built from sp, e.g. via spec.Command(sp.ToCarapace()).ToCobraE())
-// against argv and returns the result of whichever (sub)command argv invokes. Any
-// run: the spec may define is irrelevant here and is overridden: compleo parses, it
-// doesn't execute.
-//
-// Subcommands are matched to sp.Commands by name rather than by position: cobra sorts
-// Commands() alphabetically by default (EnableCommandSorting), so it generally won't
-// match sp.Commands' declaration order.
+// Parse executes cmd (built via sp.ToCobraE()) against argv and returns the result of
+// whichever (sub)command argv invokes. Any spec run: is overridden — compleo parses, it
+// doesn't execute. Subcommands are matched by name, not position (cobra sorts them).
 func Parse(cmd *cobra.Command, sp spec.Command, argv []string) (Result, error) {
 	var result Result
 	if err := wire(cmd, sp, &result); err != nil {
@@ -110,10 +100,8 @@ func wire(cmd *cobra.Command, sp spec.Command, result *Result) error {
 	return nil
 }
 
-// validatePositionals checks the shape rules bindPositionals assumes: at most one
-// positional may be variadic and it must be last, and no required positional may follow
-// an optional one (there would be no way to tell, from a flat argument list, which
-// missing argument belongs to which).
+// validatePositionals: at most one variadic, and it must be last; no required
+// positional may follow an optional one.
 func validatePositionals(positionals []spec.Positional) error {
 	seenOptional := false
 	for i, p := range positionals {

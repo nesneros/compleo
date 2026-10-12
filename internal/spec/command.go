@@ -1,41 +1,30 @@
 package spec
 
 import (
+	carapacespec "github.com/carapace-sh/carapace-spec"
 	"github.com/carapace-sh/carapace/pkg/command"
 	yaml "gopkg.in/yaml.v3"
 )
 
-// Command is compleo's superset of carapace-spec's command.Command: it embeds
-// command.Command for every carapace-spec field (name, flags, persistentflags,
-// completion, run, ...), decoding and behaving exactly as carapace-spec itself would, and
-// adds compleo's own extensions — positional argument specs and flag value types — for
-// which carapace-spec has no fields at all: it only carries completion candidates and
-// display text, never a name, required-ness, arity, or type.
-//
-// Commands can't just be left to the embedded command.Command's own Commands field: that
-// always decodes to plain command.Command, with no room for Positionals/FlagTypes on
-// subcommands. It's tagged `yaml:"-"` (invisible to the generic decoder, so it can't
-// collide with the embedded field's own "commands" key) and filled in by UnmarshalYAML
-// below, which re-decodes the same "commands" node into []Command instead.
+// Command is compleo's superset of carapace-spec's command.Command, adding Positionals
+// and FlagTypes, which carapace-spec has no fields for at all.
 type Command struct {
 	command.Command `yaml:",inline"`
 
+	// yaml:"-": decoded separately by UnmarshalYAML, so subcommands get Positionals too.
 	Commands []Command `yaml:"-"`
 
 	Positionals []Positional `yaml:"positionals,omitempty"`
 
-	// FlagTypes maps a flag's bare name (as in command.Flag.Name, dashes and modifiers
-	// stripped) to a compleo value type. carapace-spec's own Flag only distinguishes
-	// string/[]string/bool/count; a flag with no entry here is a plain string.
+	// FlagTypes maps a flag's bare name to a compleo value type (carapace-spec flags are
+	// only ever string/[]string/bool/count).
 	FlagTypes map[string]Type `yaml:"flagtypes,omitempty"`
 }
 
-// UnmarshalYAML decodes every carapace-spec field (via the embedded command.Command) and
-// compleo's own Positionals/FlagTypes normally, then separately re-decodes the "commands"
-// node — already consumed by the embedded command.Command.Commands field — into this
-// Command's own Commands field, so subcommands carry compleo's extensions too.
+// UnmarshalYAML re-decodes "commands" into []Command (not command.Command.Commands'
+// plain []command.Command), so subcommands carry Positionals/FlagTypes too.
 func (c *Command) UnmarshalYAML(value *yaml.Node) error {
-	type alias Command // same fields, no UnmarshalYAML method, to avoid infinite recursion
+	type alias Command // no UnmarshalYAML method, to avoid infinite recursion
 	if err := value.Decode((*alias)(c)); err != nil {
 		return err
 	}
@@ -48,7 +37,7 @@ func (c *Command) UnmarshalYAML(value *yaml.Node) error {
 			break
 		}
 	}
-	c.Command.Commands = nil // superseded by c.Commands; avoid two divergent copies
+	c.Command.Commands = nil // superseded by c.Commands
 	return nil
 }
 
@@ -61,9 +50,7 @@ type Positional struct {
 	Type        Type   `yaml:"type,omitempty"`
 }
 
-// Type is a compleo value type used to coerce a flag's or positional's parsed string
-// value. carapace/cobra parse every flag as string, []string, bool, or count — Type is
-// never seen by cobra, only by compleo after parsing.
+// Type coerces a flag's or positional's parsed string value; cobra never sees it.
 type Type string
 
 const (
@@ -75,14 +62,13 @@ const (
 	TypePath     Type = "path"
 )
 
-// ToCarapace converts the spec, recursively, into carapace-spec's command.Command,
-// discarding compleo's own extensions (Positionals, FlagTypes). The result is ready for
-// carapace-spec's spec.Command(cmd).ToCobraE().
-func (c Command) ToCarapace() command.Command {
+// toCarapace converts c, recursively, into carapace-spec's Command (so ParseYAML can
+// call .ToCobraE() on it directly), dropping Positionals/FlagTypes.
+func (c Command) toCarapace() carapacespec.Command {
 	cmd := c.Command
 	cmd.Commands = make([]command.Command, len(c.Commands))
 	for i, sub := range c.Commands {
-		cmd.Commands[i] = sub.ToCarapace()
+		cmd.Commands[i] = command.Command(sub.toCarapace())
 	}
-	return cmd
+	return carapacespec.Command(cmd)
 }
