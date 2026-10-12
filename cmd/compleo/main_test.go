@@ -2,9 +2,12 @@ package main
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/nesneros/compleo/internal/zsh"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -121,4 +124,87 @@ flags:
 func TestRunParseWithInvalidSpecFails(t *testing.T) {
 	err := run([]string{"parse"}, true, strings.NewReader("not: [valid"), &bytes.Buffer{})
 	assert.Error(t, err)
+}
+
+func TestRunWithActivatePrintsFpathWiring(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("COMPLEO_COMPLETION_DIR", dir)
+
+	var stdout bytes.Buffer
+	err := run([]string{"activate"}, false, strings.NewReader(""), &stdout)
+	require.NoError(t, err)
+	assert.Contains(t, stdout.String(), "fpath+=("+zsh.Quote(dir)+")")
+}
+
+func TestRunWithActivateWritesOwnCompletionFile(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("COMPLEO_COMPLETION_DIR", dir)
+
+	err := run([]string{"activate"}, false, strings.NewReader(""), &bytes.Buffer{})
+	require.NoError(t, err)
+
+	content, err := os.ReadFile(filepath.Join(dir, "_compleo"))
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "#compdef compleo")
+}
+
+func TestRunWithActivateTwiceDoesNotRewriteUnchangedFile(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("COMPLEO_COMPLETION_DIR", dir)
+
+	require.NoError(t, run([]string{"activate"}, false, strings.NewReader(""), &bytes.Buffer{}))
+	path := filepath.Join(dir, "_compleo")
+	before, err := os.Stat(path)
+	require.NoError(t, err)
+
+	require.NoError(t, run([]string{"activate"}, false, strings.NewReader(""), &bytes.Buffer{}))
+	after, err := os.Stat(path)
+	require.NoError(t, err)
+
+	assert.Equal(t, before.ModTime(), after.ModTime())
+}
+
+func TestWriteCompletionFileSkipsRewriteWhenUnchanged(t *testing.T) {
+	dir := t.TempDir()
+
+	require.NoError(t, writeCompletionFile(dir, "_mytool", "content-a"))
+	path := filepath.Join(dir, "_mytool")
+	before, err := os.Stat(path)
+	require.NoError(t, err)
+
+	require.NoError(t, writeCompletionFile(dir, "_mytool", "content-a"))
+	after, err := os.Stat(path)
+	require.NoError(t, err)
+	assert.Equal(t, before.ModTime(), after.ModTime())
+
+	require.NoError(t, writeCompletionFile(dir, "_mytool", "content-b"))
+	content, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, "content-b", string(content))
+}
+
+func TestCompletionDirHonorsEnvOverride(t *testing.T) {
+	t.Setenv("COMPLEO_COMPLETION_DIR", "/some/custom/dir")
+
+	dir, err := completionDir()
+	require.NoError(t, err)
+	assert.Equal(t, "/some/custom/dir", dir)
+}
+
+func TestCompletionDirHonorsXDGDataHome(t *testing.T) {
+	t.Setenv("COMPLEO_COMPLETION_DIR", "")
+	t.Setenv("XDG_DATA_HOME", "/xdg/data")
+
+	dir, err := completionDir()
+	require.NoError(t, err)
+	assert.Equal(t, "/xdg/data/compleo/completions", dir)
+}
+
+func TestCompletionDirDefaultsUnderHome(t *testing.T) {
+	t.Setenv("COMPLEO_COMPLETION_DIR", "")
+	t.Setenv("XDG_DATA_HOME", "")
+
+	dir, err := completionDir()
+	require.NoError(t, err)
+	assert.Contains(t, dir, filepath.Join(".local", "share", "compleo", "completions"))
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/nesneros/compleo/internal/parse"
@@ -92,6 +93,19 @@ func run(args []string, piped bool, in io.Reader, out io.Writer) error {
 			return err
 		}
 		fmt.Fprintln(out, snippet)
+	case "activate":
+		dir, err := completionDir()
+		if err != nil {
+			return err
+		}
+		snippet, err := zsh.Completion(ownCmd, ownSpec)
+		if err != nil {
+			return err
+		}
+		if err := writeCompletionFile(dir, "_compleo", snippet+"\n"); err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "fpath+=(%s)\n", zsh.Quote(dir))
 	default:
 		return ownCmd.Help()
 	}
@@ -142,6 +156,40 @@ func helpRequested(cmd *cobra.Command) bool {
 		}
 	}
 	return false
+}
+
+// completionDir is where "activate" wires fpath to, and where generated completions
+// live: compleo's own (written by "activate" itself) and, eventually, wrapped scripts'.
+func completionDir() (string, error) {
+	if dir := os.Getenv("COMPLEO_COMPLETION_DIR"); dir != "" {
+		return dir, nil
+	}
+
+	dataHome := os.Getenv("XDG_DATA_HOME")
+	if dataHome == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("determining completion directory: %w", err)
+		}
+		dataHome = filepath.Join(home, ".local", "share")
+	}
+	return filepath.Join(dataHome, "compleo", "completions"), nil
+}
+
+// writeCompletionFile writes content to dir/name, creating dir if needed. It skips the
+// write (and the file's mtime bump) when content already matches: activate may well run
+// on every shell startup, and touching the file every time would make compinit think the
+// directory changed, forcing a full fpath rescan instead of using its .zcompdump cache.
+func writeCompletionFile(dir, name, content string) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("creating completion directory: %w", err)
+	}
+
+	path := filepath.Join(dir, name)
+	if existing, err := os.ReadFile(path); err == nil && string(existing) == content {
+		return nil
+	}
+	return os.WriteFile(path, []byte(content), 0o644)
 }
 
 // isPiped reports whether f has data piped in, vs. an interactive terminal.

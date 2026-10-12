@@ -6,6 +6,8 @@ description: >-
 commands:
   - name: version
     description: Print compleo's version and exit.
+  - name: activate
+    description: Print zsh code adding compleo's completions directory to fpath. Eval this in .zshrc before compinit.
   - name: validate
     description: Validate the spec piped on stdin and exit.
   - name: completion
