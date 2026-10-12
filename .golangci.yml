@@ -1,3 +1,14 @@
 version: "2"
 linters:
   default: standard
+  settings:
+    errcheck:
+      # golangci-lint's built-in errcheck exclusions cover provably infallible stdlib
+      # calls (e.g. strings.Builder.Write) but not fmt.Fprint*, since it writes to an
+      # arbitrary io.Writer that can fail in general. Low-stakes here (CLI help/version
+      # text, not the actual zsh script emitted to the wrapped script) — that one write
+      # is checked explicitly instead.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln

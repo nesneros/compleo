@@ -14,4 +14,9 @@ fi
 # "-" disables bind-mounting the Docker socket into job containers: our jobs never
 # need to talk to Docker themselves, and the mount fails under VM-based runtimes
 # (Colima, Rancher Desktop) since the host socket path isn't valid inside the VM.
-act push --container-daemon-socket -
+#
+# -W scopes this to ci.yml: act's push-event simulation doesn't evaluate release.yml's
+# `tags: ["v*"]` filter, so a plain `act push` also runs the real release job and fails
+# on a missing GITHUB_TOKEN. That job only makes sense on a real tag push with real
+# credentials; release-check/release-dry-run already cover validating it locally.
+act push --container-daemon-socket - -W .github/workflows/ci.yml

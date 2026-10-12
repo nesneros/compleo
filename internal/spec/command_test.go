@@ -113,5 +113,7 @@ commands:
 	require.Len(t, converted.Commands, 1)
 	assert.Equal(t, "sub", converted.Commands[0].Name)
 
-	var _ carapacespec.Command = converted // toCarapace must return carapace-spec's own type
+	//nolint:staticcheck // QF1011: the explicit type is the point — it's a compile-time
+	// check that toCarapace returns carapacespec.Command, not just command.Command.
+	var _ carapacespec.Command = converted
 }
