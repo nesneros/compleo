@@ -1,6 +1,7 @@
 [tools]
 go = "1.27.1"
 golangci-lint = "2.14.0"
+goreleaser = "2.18.3"
 
 [tasks.build]
 description = "Build the compleo binary"
@@ -30,3 +31,11 @@ run = [
 [tasks.install]
 description = "Install the compleo binary"
 run = "go install ./cmd/compleo"
+
+[tasks.release-check]
+description = "Validate .goreleaser.yml without building anything"
+run = "goreleaser check"
+
+[tasks.release-dry-run]
+description = "Build release artifacts locally without publishing"
+run = "goreleaser release --snapshot --clean"
