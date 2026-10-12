@@ -1,0 +1,27 @@
+#!/usr/bin/env zsh
+# shellcheck disable=SC1071 # intentionally zsh; ShellCheck does not support it
+#
+# Minimal example of a zsh script using compleo for its own CLI parsing.
+#   mise run build && PATH="$PWD/bin:$PATH" examples/greet world --times 2 --loud
+
+eval "$(compleo parse "$@" <<SPEC # unquoted: $-expansion is on, so any literal $/` below needs escaping
+name: ${0:t}
+description: Print a greeting.
+flags:
+  --loud: {description: shout the greeting}
+  --times=: {description: how many times to repeat, default: "1"}
+flagtypes:
+  times: int
+positionals:
+  - name: name
+    description: who to greet
+    required: true
+SPEC
+)"
+
+greeting="Hello, ${compleo[name]}!"
+[[ $compleo[loud] == true ]] && greeting=${(U)greeting}
+
+for ((i = 0; i < compleo[times]; i++)); do
+  print -r -- "$greeting"
+done

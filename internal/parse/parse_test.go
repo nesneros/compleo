@@ -96,6 +96,45 @@ flags:
 	assert.Equal(t, 3, f.Count)
 }
 
+func TestParseFlagWithIntTypeAcceptsValidValue(t *testing.T) {
+	cmd, sp := buildCobra(t, `
+name: mytool
+flags:
+  --times=: how many times
+flagtypes:
+  times: int
+`)
+
+	result, err := Parse(cmd, sp, []string{"--times", "3"})
+	require.NoError(t, err)
+	assert.Equal(t, "3", result.Flags["times"].String)
+}
+
+func TestParseFlagWithIntTypeRejectsNonNumericValue(t *testing.T) {
+	cmd, sp := buildCobra(t, `
+name: mytool
+flags:
+  --times=: how many times
+flagtypes:
+  times: int
+`)
+
+	_, err := Parse(cmd, sp, []string{"--times", "soon"})
+	assert.Error(t, err)
+}
+
+func TestParsePositionalWithIntTypeRejectsNonNumericValue(t *testing.T) {
+	cmd, sp := buildCobra(t, `
+name: mytool
+positionals:
+  - name: count
+    type: int
+`)
+
+	_, err := Parse(cmd, sp, []string{"abc"})
+	assert.Error(t, err)
+}
+
 func TestParseRequiredPositionalPresent(t *testing.T) {
 	cmd, sp := buildCobra(t, `
 name: mytool

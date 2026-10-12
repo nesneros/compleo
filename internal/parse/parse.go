@@ -43,11 +43,10 @@ type FlagValue struct {
 	Count   int
 }
 
-// PositionalValue is one named positional argument's parsed value(s). Values has more
-// than one element only for a variadic positional, and is empty if an optional
-// positional was omitted.
+// PositionalValue is one positional's value(s); Variadic tells callers like zsh.Emit to render it as a list.
 type PositionalValue struct {
-	Values []string
+	Values   []string
+	Variadic bool
 }
 
 // Parse executes cmd (built via sp.ToCobraE()) against argv and returns the result of
@@ -78,6 +77,7 @@ func wire(cmd *cobra.Command, sp spec.Command, result *Result) error {
 	}
 
 	positionals := sp.Positionals
+	flagTypes := sp.FlagTypes
 	cmd.Args = func(c *cobra.Command, args []string) error {
 		_, err := bindPositionals(positionals, args)
 		return err
@@ -87,9 +87,13 @@ func wire(cmd *cobra.Command, sp spec.Command, result *Result) error {
 		if err != nil {
 			return err
 		}
+		flags, err := bindFlags(c, flagTypes)
+		if err != nil {
+			return err
+		}
 		result.Path = commandPath(c)
 		result.Positionals = bound
-		result.Flags = bindFlags(c)
+		result.Flags = flags
 		return nil
 	}
 
@@ -135,7 +139,12 @@ func bindPositionals(positionals []spec.Positional, args []string) (map[string]P
 			if p.Required && len(rest) == 0 {
 				return nil, fmt.Errorf("missing required argument %q", p.Name)
 			}
-			bound[p.Name] = PositionalValue{Values: append([]string(nil), rest...)}
+			for _, v := range rest {
+				if err := p.Type.Validate(v); err != nil {
+					return nil, fmt.Errorf("argument %q: %w", p.Name, err)
+				}
+			}
+			bound[p.Name] = PositionalValue{Values: append([]string(nil), rest...), Variadic: true}
 			i = len(args)
 			continue
 		}
@@ -145,6 +154,9 @@ func bindPositionals(positionals []spec.Positional, args []string) (map[string]P
 			}
 			bound[p.Name] = PositionalValue{}
 			continue
+		}
+		if err := p.Type.Validate(args[i]); err != nil {
+			return nil, fmt.Errorf("argument %q: %w", p.Name, err)
 		}
 		bound[p.Name] = PositionalValue{Values: []string{args[i]}}
 		i++
@@ -164,9 +176,15 @@ func commandPath(c *cobra.Command) []string {
 	return path
 }
 
-func bindFlags(cmd *cobra.Command) map[string]FlagValue {
+// bindFlags also validates against flagTypes: cobra/pflag only ever parse a compleo
+// Type as a plain string, so this is the only place an invalid value is caught.
+func bindFlags(cmd *cobra.Command, flagTypes map[string]spec.Type) (map[string]FlagValue, error) {
 	flags := make(map[string]FlagValue)
+	var firstErr error
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+		if firstErr != nil {
+			return
+		}
 		fv := FlagValue{Changed: f.Changed}
 		switch f.Value.Type() {
 		case "bool":
@@ -180,11 +198,24 @@ func bindFlags(cmd *cobra.Command) map[string]FlagValue {
 			if sv, ok := f.Value.(pflag.SliceValue); ok {
 				fv.Strings = sv.GetSlice()
 			}
+			for _, v := range fv.Strings {
+				if err := flagTypes[f.Name].Validate(v); err != nil {
+					firstErr = fmt.Errorf("--%s: %w", f.Name, err)
+					return
+				}
+			}
 		default:
 			fv.Kind = KindString
 			fv.String = f.Value.String()
+			if err := flagTypes[f.Name].Validate(fv.String); err != nil {
+				firstErr = fmt.Errorf("--%s: %w", f.Name, err)
+				return
+			}
 		}
 		flags[f.Name] = fv
 	})
-	return flags
+	if firstErr != nil {
+		return nil, firstErr
+	}
+	return flags, nil
 }

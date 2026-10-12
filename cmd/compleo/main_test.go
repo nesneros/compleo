@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -97,9 +99,46 @@ flags:
 	assert.NotEqual(t, "dev\n", stdout.String())
 }
 
-func TestRunParseWithUnknownFlagFails(t *testing.T) {
-	err := run([]string{"parse", "--bogus"}, true, strings.NewReader("name: mytool\n"), &bytes.Buffer{})
-	assert.Error(t, err)
+// A wrapped-script argv error is encoded into the output (print to stderr + exit 2), not
+// returned as a Go error: eval alone should stop the script, no caller exit-code check needed.
+func TestRunParseWithUnknownFlagEmitsSelfExitingError(t *testing.T) {
+	var stdout bytes.Buffer
+	err := run([]string{"parse", "--bogus"}, true, strings.NewReader("name: mytool\n"), &stdout)
+	require.NoError(t, err)
+	assert.Contains(t, stdout.String(), "exit 2")
+}
+
+func TestRunParseErrorIncludesScriptName(t *testing.T) {
+	var stdout bytes.Buffer
+	err := run([]string{"parse", "--bogus"}, true, strings.NewReader("name: greet\n"), &stdout)
+	require.NoError(t, err)
+	assert.Contains(t, stdout.String(), "greet:")
+}
+
+// Regression test: cobra used to write its own "Error: ...\nUsage:..." straight to the
+// real os.Stderr for the wrapped command, duplicating the error already in stdout.
+func TestRunParseErrorDoesNotDuplicateOntoRealStderr(t *testing.T) {
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	origStderr := os.Stderr
+	os.Stderr = w
+	defer func() { os.Stderr = origStderr }()
+
+	specReader := strings.NewReader(`
+name: mytool
+flags:
+  --times=: how many times
+flagtypes:
+  times: int
+`)
+	runErr := run([]string{"parse", "--times", "x"}, true, specReader, &bytes.Buffer{})
+
+	require.NoError(t, w.Close())
+	captured, err := io.ReadAll(r)
+	require.NoError(t, err)
+
+	assert.NoError(t, runErr)
+	assert.Empty(t, string(captured))
 }
 
 func TestRunParseRequiresPipedStdin(t *testing.T) {
@@ -119,6 +158,58 @@ flags:
 	require.NoError(t, err)
 
 	assert.NotEmpty(t, stdout.String())
+}
+
+func TestRunParseWithHelpEmitsHelpAsZsh(t *testing.T) {
+	specReader := strings.NewReader(`
+name: mytool
+description: A tool.
+flags:
+  --count=: how many times
+`)
+	var stdout bytes.Buffer
+
+	err := run([]string{"parse", "--help"}, true, specReader, &stdout)
+	require.NoError(t, err)
+
+	assert.Contains(t, stdout.String(), "A tool.")
+	assert.Contains(t, stdout.String(), "exit 0")
+}
+
+// Regression test for the bug this fixes: cobra used to write the wrapped command's
+// --help straight to stdout, corrupting the zsh the wrapped script evals.
+func TestRunParseWithHelpOutputEvalsCleanlyUnderRealZsh(t *testing.T) {
+	specReader := strings.NewReader(`
+name: mytool
+description: A tool.
+flags:
+  --count=: how many times
+`)
+	var stdout bytes.Buffer
+
+	require.NoError(t, run([]string{"parse", "--help"}, true, specReader, &stdout))
+
+	cmd := exec.Command("zsh", "-fc", stdout.String())
+	out, err := cmd.Output()
+	require.NoError(t, err)
+	assert.Contains(t, string(out), "A tool.")
+}
+
+// Proves eval alone is enough to stop the script on a bad arg, no "|| exit $?" needed:
+// an unreachable statement after the eval must not run, and the real exit code must be 2.
+func TestRunParseErrorOutputStopsScriptWhenEvaldUnderRealZsh(t *testing.T) {
+	var stdout bytes.Buffer
+	require.NoError(t, run([]string{"parse", "--bogus"}, true, strings.NewReader("name: greet\n"), &stdout))
+
+	script := `eval "$SNIPPET"` + "\n" + `print -r -- "unreachable"`
+	cmd := exec.Command("zsh", "-fc", script)
+	cmd.Env = append(os.Environ(), "SNIPPET="+stdout.String())
+	out, err := cmd.Output()
+
+	var exitErr *exec.ExitError
+	require.ErrorAs(t, err, &exitErr)
+	assert.Equal(t, 2, exitErr.ExitCode())
+	assert.Empty(t, out)
 }
 
 func TestRunParseWithInvalidSpecFails(t *testing.T) {

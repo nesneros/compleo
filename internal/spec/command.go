@@ -1,6 +1,10 @@
 package spec
 
 import (
+	"fmt"
+	"strconv"
+	"time"
+
 	carapacespec "github.com/carapace-sh/carapace-spec"
 	"github.com/carapace-sh/carapace/pkg/command"
 	yaml "gopkg.in/yaml.v3"
@@ -62,13 +66,56 @@ const (
 	TypePath     Type = "path"
 )
 
+// Validate reports whether s is a valid t: cobra only ever parses these as plain strings.
+func (t Type) Validate(s string) error {
+	switch t {
+	case TypeInt:
+		if _, err := strconv.Atoi(s); err != nil {
+			return fmt.Errorf("invalid int value %q", s)
+		}
+	case TypeFloat:
+		if _, err := strconv.ParseFloat(s, 64); err != nil {
+			return fmt.Errorf("invalid float value %q", s)
+		}
+	case TypeBool:
+		if _, err := strconv.ParseBool(s); err != nil {
+			return fmt.Errorf("invalid bool value %q", s)
+		}
+	case TypeDuration:
+		if _, err := time.ParseDuration(s); err != nil {
+			return fmt.Errorf("invalid duration value %q", s)
+		}
+	}
+	return nil
+}
+
 // toCarapace converts c, recursively, into carapace-spec's Command (so ParseYAML can
-// call .ToCobraE() on it directly), dropping Positionals/FlagTypes.
+// call .ToCobraE() on it directly), dropping Positionals (FlagTypes is consumed into
+// flag description hints, see addFlagTypeHints, then dropped too).
 func (c Command) toCarapace() carapacespec.Command {
 	cmd := c.Command
+	cmd.Flags = addFlagTypeHints(cmd.Flags, c.FlagTypes)
 	cmd.Commands = make([]command.Command, len(c.Commands))
 	for i, sub := range c.Commands {
 		cmd.Commands[i] = command.Command(sub.toCarapace())
 	}
 	return carapacespec.Command(cmd)
+}
+
+// addFlagTypeHints appends a backtick-quoted type name to each typed flag's description,
+// so cobra's usage text shows e.g. "--times int" instead of pflag's registered "string":
+// pflag.UnquoteUsage looks for a backtick-quoted segment in the usage string before
+// falling back to the flag's actual registered type (confirmed in pflag's source).
+func addFlagTypeHints(flags command.FlagSet, flagTypes map[string]Type) command.FlagSet {
+	if len(flagTypes) == 0 {
+		return flags
+	}
+	hinted := make(command.FlagSet, len(flags))
+	for name, f := range flags {
+		if t, ok := flagTypes[name]; ok && t != TypeString {
+			f.Description += " (`" + string(t) + "`)"
+		}
+		hinted[name] = f
+	}
+	return hinted
 }

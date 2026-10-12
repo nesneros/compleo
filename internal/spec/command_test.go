@@ -115,3 +115,77 @@ commands:
 
 	var _ carapacespec.Command = converted //nolint:staticcheck // QF1011: type is the point, asserts toCarapace's return type
 }
+
+func TestToCarapaceAddsTypeHintToTypedFlagDescription(t *testing.T) {
+	cmd, err := decodeYAML(strings.NewReader(`
+name: mytool
+flags:
+  --times=: how many times
+flagtypes:
+  times: int
+`))
+	require.NoError(t, err)
+
+	converted := cmd.toCarapace()
+
+	assert.Equal(t, "how many times (`int`)", converted.Flags["times"].Description)
+}
+
+func TestToCarapaceLeavesUntypedFlagDescriptionAlone(t *testing.T) {
+	cmd, err := decodeYAML(strings.NewReader(`
+name: mytool
+flags:
+  --name=: a name
+`))
+	require.NoError(t, err)
+
+	converted := cmd.toCarapace()
+
+	assert.Equal(t, "a name", converted.Flags["name"].Description)
+}
+
+// End-to-end: confirms the hint actually changes cobra's rendered usage text, not just
+// the intermediate carapace-spec struct — pflag.UnquoteUsage is what does this, and it's
+// easy to get its backtick convention subtly wrong without seeing the real output.
+func TestParseYAMLUsageShowsDeclaredFlagType(t *testing.T) {
+	cmd, _, err := ParseYAML(strings.NewReader(`
+name: mytool
+flags:
+  --times=: how many times
+flagtypes:
+  times: int
+`))
+	require.NoError(t, err)
+
+	assert.Contains(t, cmd.UsageString(), "--times int")
+	assert.NotContains(t, cmd.UsageString(), "--times string")
+}
+
+func TestTypeValidateIntAcceptsValidValue(t *testing.T) {
+	assert.NoError(t, TypeInt.Validate("3"))
+}
+
+func TestTypeValidateIntRejectsNonNumeric(t *testing.T) {
+	assert.Error(t, TypeInt.Validate("abc"))
+}
+
+func TestTypeValidateFloatRejectsNonNumeric(t *testing.T) {
+	assert.Error(t, TypeFloat.Validate("abc"))
+}
+
+func TestTypeValidateBoolRejectsNonBool(t *testing.T) {
+	assert.Error(t, TypeBool.Validate("maybe"))
+}
+
+func TestTypeValidateDurationRejectsInvalid(t *testing.T) {
+	assert.Error(t, TypeDuration.Validate("soon"))
+}
+
+func TestTypeValidateDurationAcceptsValid(t *testing.T) {
+	assert.NoError(t, TypeDuration.Validate("5m"))
+}
+
+func TestTypeValidateStringAndPathAcceptAnything(t *testing.T) {
+	assert.NoError(t, TypeString.Validate("anything at all"))
+	assert.NoError(t, TypePath.Validate("anything at all"))
+}

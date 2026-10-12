@@ -24,9 +24,7 @@ flags:
 	assert.Contains(t, snippet, "compdef _mytool_completion mytool")
 }
 
-// Rebuilding the cobra tree from the same spec must produce byte-identical output: a
-// caller that only rewrites a completion file when its content changed (to avoid
-// bumping the directory's mtime and forcing compinit to rescan) depends on this.
+// Same spec must produce byte-identical output: write-only-if-changed callers depend on this.
 func TestCompletionIsDeterministic(t *testing.T) {
 	yaml := `
 name: mytool

@@ -28,7 +28,7 @@ var (
 
 func main() {
 	if err := run(os.Args[1:], isPiped(os.Stdin), os.Stdin, os.Stdout); err != nil {
-		fmt.Fprintln(os.Stderr, "compleo:", err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
@@ -117,13 +117,30 @@ func runPassthrough(args []string, piped bool, in io.Reader, out io.Writer) erro
 	if !piped {
 		return errors.New("no spec piped on stdin (compleo expects its target script's spec on stdin)")
 	}
-	wrappedCmd, wrappedSpec, err := spec.ParseYAML(in)
+	cmd, sp, err := spec.ParseYAML(in)
 	if err != nil {
 		return fmt.Errorf("invalid spec: %w", err)
 	}
 
-	parseResult, err := parse.Parse(wrappedCmd, wrappedSpec, args)
+	// cobra's help writes straight to os.Stdout by default; buffer it so it can be
+	// re-wrapped as zsh instead of corrupting the real zsh.Emit output on the same stream.
+	var helpBuf bytes.Buffer
+	cmd.SetOut(&helpBuf)
+	// Silenced: main() already reports the error; avoid cobra printing its own.
+	cmd.SilenceErrors = true
+	cmd.SilenceUsage = true
+
+	parseResult, err := parse.Parse(cmd, sp, args)
 	if err != nil {
+		// Encoded into the output, not returned as a Go error: the wrapped script's own
+		// end-user args were bad, not compleo's invocation, so eval alone should stop the
+		// script (print + exit 2) without the caller needing its own exit-code check.
+		_, werr := fmt.Fprintln(out, zsh.EmitError(sp.Name, err))
+		return werr
+	}
+
+	if helpRequested(cmd) {
+		_, err := fmt.Fprintln(out, zsh.EmitHelp(helpBuf.String()))
 		return err
 	}
 
