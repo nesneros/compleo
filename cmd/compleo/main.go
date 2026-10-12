@@ -89,8 +89,7 @@ func run(args []string, piped bool, in io.Reader, out io.Writer) error {
 			return err
 		}
 
-		// Checked: unlike the other Fprint* calls here, a failed write here means the
-		// wrapped script gets truncated zsh to eval — worth surfacing as an error.
+		// Checked, unlike the other Fprint* calls: a failed write here truncates the zsh the wrapped script evals.
 		if _, err := fmt.Fprintln(out, zsh.Emit(parseResult)); err != nil {
 			return err
 		}
