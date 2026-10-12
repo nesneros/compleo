@@ -1,0 +1,32 @@
+[tools]
+go = "1.27.1"
+golangci-lint = "2.14.0"
+
+[tasks.build]
+description = "Build the compleo binary"
+run = "go build -o bin/compleo ./cmd/compleo"
+
+[tasks.test]
+description = "Run the test suite"
+run = "go test ./..."
+
+[tasks.fmt]
+description = "Format source files"
+run = "gofmt -l -w ."
+
+[tasks.lint]
+description = "Run golangci-lint"
+run = "golangci-lint run ./..."
+
+[tasks.check]
+description = "fmt check, vet, lint, and test"
+run = [
+  "test -z \"$(gofmt -l .)\"",
+  "go vet ./...",
+  "golangci-lint run ./...",
+  "go test ./...",
+]
+
+[tasks.install]
+description = "Install the compleo binary"
+run = "go install ./cmd/compleo"

@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://carapace.sh/schemas/command.json
+name: compleo
+description: >-
+  Parses a zsh script's command line, emits its usage text, and generates
+  zsh completion — all from one spec file.
+flags:
+  -h, --help: Show this help message and exit.
+  --version: Print compleo's version and exit.
+  --validate=: Validate a spec file and exit.
+completion:
+  flag:
+    validate: ["$files"]
