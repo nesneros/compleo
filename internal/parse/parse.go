@@ -54,6 +54,12 @@ type PositionalValue struct {
 // whichever (sub)command argv invokes. Any spec run: is overridden — compleo parses, it
 // doesn't execute. Subcommands are matched by name, not position (cobra sorts them).
 func Parse(cmd *cobra.Command, sp spec.Command, argv []string) (Result, error) {
+	// A nil argv (as opposed to an empty, non-nil slice) makes cobra's Execute fall back
+	// to the real os.Args, since cobra can't tell "explicitly no args" from "never set".
+	if argv == nil {
+		panic("parse.Parse: argv must not be nil (use an empty slice for \"no arguments\")")
+	}
+
 	var result Result
 	if err := wire(cmd, sp, &result); err != nil {
 		return Result{}, err

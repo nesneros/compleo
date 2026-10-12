@@ -42,7 +42,7 @@ flags:
   --name=: {description: a name, default: bob}
 `)
 
-	result, err := Parse(cmd, sp, nil)
+	result, err := Parse(cmd, sp, []string{})
 	require.NoError(t, err)
 
 	f := result.Flags["name"]
@@ -118,7 +118,7 @@ positionals:
     required: true
 `)
 
-	_, err := Parse(cmd, sp, nil)
+	_, err := Parse(cmd, sp, []string{})
 	assert.Error(t, err)
 }
 
@@ -129,7 +129,7 @@ positionals:
   - name: file
 `)
 
-	result, err := Parse(cmd, sp, nil)
+	result, err := Parse(cmd, sp, []string{})
 	require.NoError(t, err)
 
 	assert.Empty(t, result.Positionals["file"].Values)
@@ -186,4 +186,15 @@ commands:
 	assert.Equal(t, []string{"mytool", "banana"}, result.Path)
 	assert.Equal(t, []string{"yellow"}, result.Positionals["peel"].Values)
 	assert.NotContains(t, result.Positionals, "core")
+}
+
+// A nil argv (as opposed to an empty slice) makes cobra's Execute fall back to the real
+// process os.Args, since cobra can't tell "explicitly no args" from "never set" (SetArgs
+// wasn't called) — so this is a caller bug, not something to normalize silently.
+func TestParsePanicsOnNilArgv(t *testing.T) {
+	cmd, sp := buildCobra(t, `name: mytool`)
+
+	assert.Panics(t, func() {
+		_, _ = Parse(cmd, sp, nil)
+	})
 }

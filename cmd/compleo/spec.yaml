@@ -3,7 +3,12 @@ name: compleo
 description: >-
   Parses a zsh script's command line, emits its usage text, and generates
   zsh completion — all from one spec file.
-flags:
-  -h, --help: Show this help message and exit.
-  --version: Print compleo's version and exit.
-  --validate: Validate the spec piped on stdin and exit.
+commands:
+  - name: version
+    description: Print compleo's version and exit.
+  - name: validate
+    description: Validate the spec piped on stdin and exit.
+  - name: completion
+    description: Print compleo's own zsh completion script and exit.
+  - name: parse
+    description: Parse the wrapped script's command line against the spec piped on stdin.
