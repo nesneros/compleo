@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://carapace.sh/schemas/command.json
+#
+# Tiny companion spec for examples/macros' "$spec(...)" demo: $spec delegates
+# completion to an entirely separate spec file's own command tree.
+name: subspec
+description: A separate spec, completed via $spec(...) from examples/macros.
+flags:
+  --color=: {description: a color, default: red}
+positionals:
+  - name: fruit
+    description: a fruit name
