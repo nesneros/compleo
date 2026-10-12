@@ -36,7 +36,7 @@ run = [
 
 [tasks.install]
 description = "Install the compleo binary"
-run = "go install ./cmd/compleo"
+run = 'go install -ldflags "-X main.commit=$(git rev-parse HEAD) -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" ./cmd/compleo'
 
 [tasks.release-check]
 description = "Validate .goreleaser.yml without building anything"

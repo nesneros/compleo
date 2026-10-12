@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/nesneros/compleo/internal/parse"
 	"github.com/nesneros/compleo/internal/spec"
@@ -19,26 +18,11 @@ import (
 //go:embed spec.yaml
 var specYAML []byte
 
-// version, commit, date are set at build time via GoReleaser's default ldflags.
-var (
-	version = "dev"
-	commit  string
-	date    string
-)
-
 func main() {
 	if err := run(os.Args[1:], isPiped(os.Stdin), os.Stdin, os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-}
-
-// versionString adds commit/date for untagged snapshot builds (GoReleaser's default snapshot template includes "SNAPSHOT").
-func versionString() string {
-	if strings.Contains(version, "SNAPSHOT") {
-		return fmt.Sprintf("%s (%v) [%v]", version, date, commit)
-	}
-	return version
 }
 
 // run routes on an explicit "parse" token, since --help/--version could otherwise be compleo's or the wrapped script's.
