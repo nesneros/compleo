@@ -47,52 +47,22 @@ func run(args []string, piped bool, in io.Reader, out io.Writer) error {
 		panic("run: args must not be nil (use an empty slice for \"no arguments\")")
 	}
 
-	var arg0 string
-	if len(args) > 0 {
-		arg0 = args[0]
-	}
-
-	if arg0 == "parse" {
-		return runPassthrough(args[1:], piped, in, out)
-	}
-
 	ownCmd, ownSpec, err := compleoCmd(out)
 	if err != nil {
 		return err
 	}
 
-	result, parseErr := parse.Parse(ownCmd, ownSpec, args)
-	if parseErr != nil {
-		return parseErr
+	result, err := parse.Parse(ownCmd, ownSpec, args)
+	if err != nil || result.HelpRequested {
+		return err
 	}
 
 	// _carapace is carapace's own hidden subcommand (wired by carapace.Gen); it already ran above.
-	if arg0 == "_carapace" {
-		return nil
-	}
-
-	// cobra already printed --help and never reaches result.Flags; check Changed instead.
-	if helpRequested(ownCmd) {
+	if len(args) > 0 && args[0] == "_carapace" {
 		return nil
 	}
 
 	switch result.Path[len(result.Path)-1] {
-	case "version":
-		fmt.Fprintln(out, versionString())
-	case "validate":
-		if !piped {
-			return errors.New("no spec piped on stdin (compleo expects a spec to validate on stdin)")
-		}
-		if _, _, err := spec.ParseYAML(in); err != nil {
-			return fmt.Errorf("invalid spec: %w", err)
-		}
-		fmt.Fprintln(out, "ok")
-	case "completion":
-		snippet, err := zsh.Completion(ownCmd, ownSpec)
-		if err != nil {
-			return err
-		}
-		fmt.Fprintln(out, snippet)
 	case "activate":
 		dir, err := completionDir()
 		if err != nil {
@@ -106,14 +76,38 @@ func run(args []string, piped bool, in io.Reader, out io.Writer) error {
 			return err
 		}
 		fmt.Fprintf(out, "fpath+=(%s)\n", zsh.Quote(dir))
+	case "completion":
+		snippet, err := zsh.Completion(ownCmd, ownSpec)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(out, snippet)
+	case "parse":
+		// A variadic positional with zero values binds to nil, not an empty slice; Parse panics on nil.
+		wrappedArgs := result.Positionals["args"].Values
+		if wrappedArgs == nil {
+			wrappedArgs = []string{}
+		}
+		return runParse(wrappedArgs, piped, in, out, result.Flags["dump"].Bool)
+	case "validate":
+		if !piped {
+			return errors.New("no spec piped on stdin (compleo expects a spec to validate on stdin)")
+		}
+		if _, _, err := spec.ParseYAML(in); err != nil {
+			return fmt.Errorf("invalid spec: %w", err)
+		}
+		fmt.Fprintln(out, "ok")
+	case "version":
+		fmt.Fprintln(out, versionString())
 	default:
 		return ownCmd.Help()
 	}
 	return nil
 }
 
-// runPassthrough parses the wrapped script's own args against its spec piped on stdin.
-func runPassthrough(args []string, piped bool, in io.Reader, out io.Writer) error {
+// runParse parses the wrapped script's own args against its spec piped on stdin.
+// dump, if set, writes the resulting zsh to stderr too, before writing it to out.
+func runParse(args []string, piped bool, in io.Reader, out io.Writer, dump bool) error {
 	if !piped {
 		return errors.New("no spec piped on stdin (compleo expects its target script's spec on stdin)")
 	}
@@ -130,22 +124,25 @@ func runPassthrough(args []string, piped bool, in io.Reader, out io.Writer) erro
 	cmd.SilenceErrors = true
 	cmd.SilenceUsage = true
 
+	var output string
 	parseResult, err := parse.Parse(cmd, sp, args)
-	if err != nil {
-		// Encoded into the output, not returned as a Go error: the wrapped script's own
-		// end-user args were bad, not compleo's invocation, so eval alone should stop the
-		// script (print + exit 2) without the caller needing its own exit-code check.
-		_, werr := fmt.Fprintln(out, zsh.EmitError(sp.Name, err))
-		return werr
+	switch {
+	// Encoded into the output, not returned as a Go error: the wrapped script's own
+	// end-user args were bad, not compleo's invocation, so eval alone should stop the
+	// script (print + exit 2) without the caller needing its own exit-code check.
+	case err != nil:
+		output = zsh.EmitError(sp.Name, err)
+	case parseResult.HelpRequested:
+		output = zsh.EmitHelp(helpBuf.String())
+	default:
+		output = zsh.Emit(parseResult)
 	}
 
-	if helpRequested(cmd) {
-		_, err := fmt.Fprintln(out, zsh.EmitHelp(helpBuf.String()))
-		return err
+	if dump {
+		fmt.Fprintln(os.Stderr, output)
 	}
-
 	// Checked: a failed write here truncates the zsh the wrapped script evals.
-	_, err = fmt.Fprintln(out, zsh.Emit(parseResult))
+	_, err = fmt.Fprintln(out, output)
 	return err
 }
 
@@ -160,19 +157,6 @@ func compleoCmd(stdout io.Writer) (*cobra.Command, spec.Command, error) {
 	cmd.SilenceErrors = true
 	cmd.SilenceUsage = true
 	return cmd, sp, nil
-}
-
-// helpRequested reports whether --help was changed anywhere in cmd's tree.
-func helpRequested(cmd *cobra.Command) bool {
-	if cmd.Flags().Changed("help") {
-		return true
-	}
-	for _, sub := range cmd.Commands() {
-		if helpRequested(sub) {
-			return true
-		}
-	}
-	return false
 }
 
 // completionDir is where "activate" wires fpath to, and where generated completions

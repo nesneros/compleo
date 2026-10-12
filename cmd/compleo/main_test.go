@@ -94,7 +94,7 @@ flags:
   --version: mytool's own version flag, not compleo's
 `)
 	var stdout bytes.Buffer
-	err := run([]string{"parse", "--version"}, true, specReader, &stdout)
+	err := run([]string{"parse", "--", "--version"}, true, specReader, &stdout)
 	require.NoError(t, err)
 	assert.NotEqual(t, "dev\n", stdout.String())
 }
@@ -103,14 +103,14 @@ flags:
 // returned as a Go error: eval alone should stop the script, no caller exit-code check needed.
 func TestRunParseWithUnknownFlagEmitsSelfExitingError(t *testing.T) {
 	var stdout bytes.Buffer
-	err := run([]string{"parse", "--bogus"}, true, strings.NewReader("name: mytool\n"), &stdout)
+	err := run([]string{"parse", "--", "--bogus"}, true, strings.NewReader("name: mytool\n"), &stdout)
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "exit 2")
 }
 
 func TestRunParseErrorIncludesScriptName(t *testing.T) {
 	var stdout bytes.Buffer
-	err := run([]string{"parse", "--bogus"}, true, strings.NewReader("name: greet\n"), &stdout)
+	err := run([]string{"parse", "--", "--bogus"}, true, strings.NewReader("name: greet\n"), &stdout)
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "greet:")
 }
@@ -118,12 +118,6 @@ func TestRunParseErrorIncludesScriptName(t *testing.T) {
 // Regression test: cobra used to write its own "Error: ...\nUsage:..." straight to the
 // real os.Stderr for the wrapped command, duplicating the error already in stdout.
 func TestRunParseErrorDoesNotDuplicateOntoRealStderr(t *testing.T) {
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-	origStderr := os.Stderr
-	os.Stderr = w
-	defer func() { os.Stderr = origStderr }()
-
 	specReader := strings.NewReader(`
 name: mytool
 flags:
@@ -131,18 +125,92 @@ flags:
 flagtypes:
   times: int
 `)
-	runErr := run([]string{"parse", "--times", "x"}, true, specReader, &bytes.Buffer{})
+	var runErr error
+	stderr := captureRealStderr(t, func() {
+		runErr = run([]string{"parse", "--", "--times", "x"}, true, specReader, &bytes.Buffer{})
+	})
+
+	assert.NoError(t, runErr)
+	assert.Empty(t, stderr)
+}
+
+// captureRealStderr redirects the real os.Stderr for fn's duration and returns what it wrote.
+func captureRealStderr(t *testing.T, fn func()) string {
+	t.Helper()
+
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	origStderr := os.Stderr
+	os.Stderr = w
+	defer func() { os.Stderr = origStderr }()
+
+	fn()
 
 	require.NoError(t, w.Close())
 	captured, err := io.ReadAll(r)
 	require.NoError(t, err)
+	return string(captured)
+}
 
-	assert.NoError(t, runErr)
-	assert.Empty(t, string(captured))
+func TestRunDumpWritesSuccessOutputToStderrTooBeforeStdout(t *testing.T) {
+	specReader := strings.NewReader("name: mytool\nflags:\n  --count=: how many\n")
+	var stdout bytes.Buffer
+
+	stderr := captureRealStderr(t, func() {
+		require.NoError(t, run([]string{"parse", "--dump", "--", "--count", "3"}, true, specReader, &stdout))
+	})
+
+	assert.Equal(t, stdout.String(), stderr)
+}
+
+func TestRunDumpWritesErrorOutputToStderrTooBeforeStdout(t *testing.T) {
+	specReader := strings.NewReader("name: mytool\nflags:\n  --times=: how many\nflagtypes:\n  times: int\n")
+	var stdout bytes.Buffer
+
+	stderr := captureRealStderr(t, func() {
+		require.NoError(t, run([]string{"parse", "--dump", "--", "--times", "x"}, true, specReader, &stdout))
+	})
+
+	assert.Equal(t, stdout.String(), stderr)
+	assert.Contains(t, stdout.String(), "exit 2")
+}
+
+func TestRunWithoutDumpWritesNothingToRealStderrOnSuccess(t *testing.T) {
+	specReader := strings.NewReader("name: mytool\nflags:\n  --count=: how many\n")
+	var stdout bytes.Buffer
+
+	stderr := captureRealStderr(t, func() {
+		require.NoError(t, run([]string{"parse", "--", "--count", "3"}, true, specReader, &stdout))
+	})
+
+	assert.Empty(t, stderr)
+	assert.NotEmpty(t, stdout.String())
+}
+
+// "--" is not actually required: it's only needed to disambiguate a wrapped script's own
+// flag from one of compleo's own "parse" flags (--dump). With no collision, it's optional.
+func TestRunParseWithoutDashWorksWhenNoCollision(t *testing.T) {
+	var stdout bytes.Buffer
+	err := run([]string{"parse", "world"}, true, strings.NewReader("name: mytool\npositionals:\n  - name: who\n"), &stdout)
+	require.NoError(t, err)
+	assert.Contains(t, stdout.String(), "compleo[who]='world'")
+}
+
+// A flag compleo's own "parse" doesn't recognize errors regardless of "--" or position.
+func TestRunParseUnrecognizedCompleoFlagFails(t *testing.T) {
+	err := run([]string{"parse", "--not-a-real-compleo-flag", "world"}, true, strings.NewReader("name: mytool\n"), &bytes.Buffer{})
+	assert.Error(t, err)
+}
+
+// Regression test: a wrapped script with zero of its own args binds the variadic "args"
+// positional to nil, not an empty slice, which used to panic in parse.Parse.
+func TestRunParseWithNoWrappedArgsDoesNotPanic(t *testing.T) {
+	err := run([]string{"parse"}, true, strings.NewReader("name: mytool\n"), &bytes.Buffer{})
+	assert.NoError(t, err)
 }
 
 func TestRunParseRequiresPipedStdin(t *testing.T) {
-	err := run([]string{"parse", "--count", "3"}, false, strings.NewReader(""), &bytes.Buffer{})
+	err := run([]string{"parse", "--", "--count", "3"}, false, strings.NewReader(""), &bytes.Buffer{})
 	assert.Error(t, err)
 }
 
@@ -154,7 +222,7 @@ flags:
 `)
 	var stdout bytes.Buffer
 
-	err := run([]string{"parse", "--count", "3"}, true, specReader, &stdout)
+	err := run([]string{"parse", "--", "--count", "3"}, true, specReader, &stdout)
 	require.NoError(t, err)
 
 	assert.NotEmpty(t, stdout.String())
@@ -169,7 +237,7 @@ flags:
 `)
 	var stdout bytes.Buffer
 
-	err := run([]string{"parse", "--help"}, true, specReader, &stdout)
+	err := run([]string{"parse", "--", "--help"}, true, specReader, &stdout)
 	require.NoError(t, err)
 
 	assert.Contains(t, stdout.String(), "A tool.")
@@ -187,7 +255,7 @@ flags:
 `)
 	var stdout bytes.Buffer
 
-	require.NoError(t, run([]string{"parse", "--help"}, true, specReader, &stdout))
+	require.NoError(t, run([]string{"parse", "--", "--help"}, true, specReader, &stdout))
 
 	cmd := exec.Command("zsh", "-fc", stdout.String())
 	out, err := cmd.Output()
@@ -199,7 +267,7 @@ flags:
 // an unreachable statement after the eval must not run, and the real exit code must be 2.
 func TestRunParseErrorOutputStopsScriptWhenEvaldUnderRealZsh(t *testing.T) {
 	var stdout bytes.Buffer
-	require.NoError(t, run([]string{"parse", "--bogus"}, true, strings.NewReader("name: greet\n"), &stdout))
+	require.NoError(t, run([]string{"parse", "--", "--bogus"}, true, strings.NewReader("name: greet\n"), &stdout))
 
 	script := `eval "$SNIPPET"` + "\n" + `print -r -- "unreachable"`
 	cmd := exec.Command("zsh", "-fc", script)
@@ -213,7 +281,7 @@ func TestRunParseErrorOutputStopsScriptWhenEvaldUnderRealZsh(t *testing.T) {
 }
 
 func TestRunParseWithInvalidSpecFails(t *testing.T) {
-	err := run([]string{"parse"}, true, strings.NewReader("not: [valid"), &bytes.Buffer{})
+	err := run([]string{"parse", "--"}, true, strings.NewReader("not: [valid"), &bytes.Buffer{})
 	assert.Error(t, err)
 }
 

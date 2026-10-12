@@ -5,6 +5,7 @@ package parse
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/nesneros/compleo/internal/spec"
@@ -17,6 +18,11 @@ import (
 type Result struct {
 	// Path is the invoked (sub)command's name path, e.g. ["mytool", "sub"].
 	Path []string
+
+	// HelpRequested reports whether --help was set anywhere in the resolved command's
+	// tree. Cobra intercepts --help before RunE runs, so Path/Flags/Positionals stay
+	// zero-valued whenever this is true — check it before relying on them.
+	HelpRequested bool
 
 	Flags       map[string]FlagValue
 	Positionals map[string]PositionalValue
@@ -68,7 +74,15 @@ func Parse(cmd *cobra.Command, sp spec.Command, argv []string) (Result, error) {
 	if err := cmd.Execute(); err != nil {
 		return Result{}, err
 	}
+	result.HelpRequested = helpRequested(cmd)
 	return result, nil
+}
+
+// helpRequested reports whether --help was changed anywhere in cmd's tree: cobra
+// intercepts --help before RunE runs, so there's no other way to detect it per
+// resolved command.
+func helpRequested(cmd *cobra.Command) bool {
+	return cmd.Flags().Changed("help") || slices.ContainsFunc(cmd.Commands(), helpRequested)
 }
 
 func wire(cmd *cobra.Command, sp spec.Command, result *Result) error {

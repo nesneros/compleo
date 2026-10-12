@@ -4,13 +4,18 @@ description: >-
   Parses a zsh script's command line, emits its usage text, and generates
   zsh completion — all from one spec file.
 commands:
-  - name: version
-    description: Print compleo's version and exit.
   - name: activate
     description: Print zsh code adding compleo's completions directory to fpath. Eval this in .zshrc before compinit.
-  - name: validate
-    description: Validate the spec piped on stdin and exit.
   - name: completion
     description: Print compleo's own zsh completion script and exit.
   - name: parse
     description: Parse the wrapped script's command line against the spec piped on stdin.
+    flags:
+      --dump: Print the result to stderr too, before stdout (for debugging).
+    positionals:
+      - name: args
+        variadic: true
+  - name: validate
+    description: Validate the spec piped on stdin and exit.
+  - name: version
+    description: Print compleo's version and exit.

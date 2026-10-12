@@ -13,7 +13,7 @@
 # extension filter - to show a macro being reused differently per flag. Named so they
 # sort next to each other in --help, since pflag always lists flags alphabetically.
 
-eval "$(compleo parse "$@" <<SPEC # unquoted: $-expansion is on, so any literal $/` below needs escaping
+eval "$(compleo parse -- "$@" <<SPEC # unquoted: $-expansion is on, so any literal $/` below needs escaping
 name: ${0:t}
 description: Demo of every core carapace-spec macro.
 flags:
