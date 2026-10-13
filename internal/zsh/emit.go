@@ -3,6 +3,7 @@ package zsh
 import (
 	"cmp"
 	"fmt"
+	"io"
 	"maps"
 	"slices"
 	"strconv"
@@ -11,21 +12,23 @@ import (
 	"github.com/nesneros/compleo/internal/parse"
 )
 
-// EmitHelp wraps captured --help text as zsh that prints it and exits 0. Uses exit, not
+// EmitHelp writes captured --help text as zsh that prints it and exits 0. Uses exit, not
 // return, since the eval'd code may run at a script's top level where return isn't valid.
-func EmitHelp(text string) string {
-	return "print -r -- " + Quote(strings.TrimRight(text, "\n")) + "\nexit 0"
+func EmitHelp(w io.Writer, text string) error {
+	_, err := fmt.Fprintf(w, "print -r -- %s\nexit 0\n", Quote(strings.TrimRight(text, "\n")))
+	return err
 }
 
-// EmitError wraps a wrapped script's own parse error as zsh that prints "name: err" to
+// EmitError writes a wrapped script's own parse error as zsh that prints "name: err" to
 // stderr and exits 2 (the conventional Unix "bad usage" code, distinct from main()'s
 // generic exit(1) for compleo's own invocation failures) — so simply eval'ing compleo's
 // output is enough to stop the script, no separate exit-code check needed by the caller.
-func EmitError(name string, err error) string {
-	return "print -u2 -- " + Quote(fmt.Sprintf("%s: %s", name, err)) + "\nexit 2"
+func EmitError(w io.Writer, name string, parseErr error) error {
+	_, err := fmt.Fprintf(w, "print -u2 -- %s\nexit 2\n", Quote(fmt.Sprintf("%s: %s", name, parseErr)))
+	return err
 }
 
-// EmitGenerated wraps a COMPLEO_MODE=generate confirmation as zsh, same convention as
+// EmitGenerated writes a COMPLEO_MODE=generate confirmation as zsh, same convention as
 // EmitHelp/EmitError. Includes an activation hint for the current shell, since an
 // already-running shell won't notice the new file without a compinit rerun (rescans all of
 // $fpath) or this cheaper per-file equivalent: compleo can't run it directly, since compleo
@@ -33,34 +36,47 @@ func EmitError(name string, err error) string {
 // Must autoload "_<name>" (the file's own name), not "_<name>_completion" (the function
 // WrappedCompletion defines inside it) — autoload resolves by filename, and only "_<name>"
 // matches a real file; calling it is what actually defines and rebinds the inner function.
-func EmitGenerated(name, path string) string {
-	msg := fmt.Sprintf(
+func EmitGenerated(w io.Writer, name, path string) error {
+	msg := Quote(fmt.Sprintf(
 		"%s: generated completion at %s (new shells pick it up automatically; to use it in this one now: autoload -Uz _%s && compdef _%s %s)",
 		name, path, name, name, name,
-	)
-	return "print -u2 -- " + Quote(msg) + "\nexit 0"
+	))
+	_, err := fmt.Fprintf(w, "print -u2 -- %s\nexit 0\n", msg)
+	return err
 }
 
-// EmitComplete wraps a COMPLEO_MODE=complete result (carapace's raw completion wire format,
+// EmitComplete writes a COMPLEO_MODE=complete result (carapace's raw completion wire format,
 // not zsh) the same way EmitHelp wraps --help text: the wrapped script's own eval would
 // otherwise try to execute the wire format as code, instead of the generated completion
 // function's own "lines=$(...)" just capturing it as a string.
-func EmitComplete(wireFormat string) string {
-	return "print -r -- " + Quote(strings.TrimRight(wireFormat, "\n")) + "\nexit 0"
+func EmitComplete(w io.Writer, wireFormat string) error {
+	_, err := fmt.Fprintf(w, "print -r -- %s\nexit 0\n", Quote(strings.TrimRight(wireFormat, "\n")))
+	return err
 }
 
 // Emit fills a fixed "compleo" assoc array with scalar values; a repeatable flag or
-// variadic positional instead gets its own real zsh array, since assoc values are scalars only.
-func Emit(result parse.Result) string {
-	var scalars, arrays []string
+// variadic positional instead gets its own real zsh array, since assoc values are scalars
+// only. Scalars write immediately; arrays are deferred so they still print after every
+// scalar, matching the old build-a-string-then-print order without needing a buffer for it.
+func Emit(w io.Writer, result parse.Result) error {
+	var writeErr error
+	write := func(s string) {
+		if writeErr != nil {
+			return
+		}
+		_, writeErr = fmt.Fprintln(w, s)
+	}
 
+	write("typeset -A compleo=()")
+
+	var arrays []string
 	for _, name := range sortedKeys(result.Flags) {
 		fv := result.Flags[name]
 		if fv.Kind == parse.KindStrings {
 			arrays = append(arrays, arrayAssignment(name, fv.Strings))
 			continue
 		}
-		scalars = append(scalars, scalarAssignment(name, flagScalar(fv)))
+		write(scalarAssignment(name, flagScalar(fv)))
 	}
 
 	for _, name := range sortedKeys(result.Positionals) {
@@ -73,20 +89,13 @@ func Emit(result parse.Result) string {
 		if len(pv.Values) > 0 {
 			value = pv.Values[0]
 		}
-		scalars = append(scalars, scalarAssignment(name, value))
+		write(scalarAssignment(name, value))
 	}
 
-	var b strings.Builder
-	b.WriteString("typeset -A compleo=()\n")
-	for _, line := range scalars {
-		b.WriteString(line)
-		b.WriteByte('\n')
-	}
 	for _, line := range arrays {
-		b.WriteString(line)
-		b.WriteByte('\n')
+		write(line)
 	}
-	return strings.TrimSuffix(b.String(), "\n")
+	return writeErr
 }
 
 // flagScalar renders a non-repeatable flag's value for "compleo".

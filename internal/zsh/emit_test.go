@@ -16,12 +16,47 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func emitResult(t *testing.T, result parse.Result) string {
+	t.Helper()
+	var buf bytes.Buffer
+	require.NoError(t, Emit(&buf, result))
+	return buf.String()
+}
+
+func emitHelp(t *testing.T, text string) string {
+	t.Helper()
+	var buf bytes.Buffer
+	require.NoError(t, EmitHelp(&buf, text))
+	return buf.String()
+}
+
+func emitError(t *testing.T, name string, err error) string {
+	t.Helper()
+	var buf bytes.Buffer
+	require.NoError(t, EmitError(&buf, name, err))
+	return buf.String()
+}
+
+func emitGenerated(t *testing.T, name, path string) string {
+	t.Helper()
+	var buf bytes.Buffer
+	require.NoError(t, EmitGenerated(&buf, name, path))
+	return buf.String()
+}
+
+func emitComplete(t *testing.T, wireFormat string) string {
+	t.Helper()
+	var buf bytes.Buffer
+	require.NoError(t, EmitComplete(&buf, wireFormat))
+	return buf.String()
+}
+
 func TestEmitScalarStringFlag(t *testing.T) {
 	result := parse.Result{Flags: map[string]parse.FlagValue{
 		"name": {Kind: parse.KindString, Changed: true, String: "Jan"},
 	}}
 
-	assert.Contains(t, Emit(result), "compleo[name]='Jan'")
+	assert.Contains(t, emitResult(t, result), "compleo[name]='Jan'")
 }
 
 func TestEmitBoolFlagTrue(t *testing.T) {
@@ -29,7 +64,7 @@ func TestEmitBoolFlagTrue(t *testing.T) {
 		"loud": {Kind: parse.KindBool, Bool: true},
 	}}
 
-	assert.Contains(t, Emit(result), "compleo[loud]='true'")
+	assert.Contains(t, emitResult(t, result), "compleo[loud]='true'")
 }
 
 func TestEmitBoolFlagFalse(t *testing.T) {
@@ -37,7 +72,7 @@ func TestEmitBoolFlagFalse(t *testing.T) {
 		"loud": {Kind: parse.KindBool, Bool: false},
 	}}
 
-	assert.Contains(t, Emit(result), "compleo[loud]='false'")
+	assert.Contains(t, emitResult(t, result), "compleo[loud]='false'")
 }
 
 func TestEmitCountFlag(t *testing.T) {
@@ -45,7 +80,7 @@ func TestEmitCountFlag(t *testing.T) {
 		"verbose": {Kind: parse.KindCount, Count: 3},
 	}}
 
-	assert.Contains(t, Emit(result), "compleo[verbose]='3'")
+	assert.Contains(t, emitResult(t, result), "compleo[verbose]='3'")
 }
 
 func TestEmitRepeatableFlagAsSeparateArray(t *testing.T) {
@@ -53,7 +88,7 @@ func TestEmitRepeatableFlagAsSeparateArray(t *testing.T) {
 		"tag": {Kind: parse.KindStrings, Strings: []string{"a", "b"}},
 	}}
 
-	snippet := Emit(result)
+	snippet := emitResult(t, result)
 	assert.Contains(t, snippet, "typeset -a compleo_tag=()")
 	assert.Contains(t, snippet, "compleo_tag=('a' 'b')")
 	assert.NotContains(t, snippet, "compleo[tag]")
@@ -64,7 +99,7 @@ func TestEmitRepeatableFlagNeverPassedIsEmptyArray(t *testing.T) {
 		"tag": {Kind: parse.KindStrings, Strings: nil},
 	}}
 
-	snippet := Emit(result)
+	snippet := emitResult(t, result)
 	assert.Contains(t, snippet, "typeset -a compleo_tag=()")
 	assert.Contains(t, snippet, "compleo_tag=()")
 }
@@ -74,7 +109,7 @@ func TestEmitScalarPositional(t *testing.T) {
 		"file": {Values: []string{"input.txt"}},
 	}}
 
-	assert.Contains(t, Emit(result), "compleo[file]='input.txt'")
+	assert.Contains(t, emitResult(t, result), "compleo[file]='input.txt'")
 }
 
 func TestEmitOmittedOptionalPositionalIsEmptyString(t *testing.T) {
@@ -82,7 +117,7 @@ func TestEmitOmittedOptionalPositionalIsEmptyString(t *testing.T) {
 		"file": {},
 	}}
 
-	assert.Contains(t, Emit(result), "compleo[file]=''")
+	assert.Contains(t, emitResult(t, result), "compleo[file]=''")
 }
 
 func TestEmitVariadicPositionalAsSeparateArray(t *testing.T) {
@@ -90,7 +125,7 @@ func TestEmitVariadicPositionalAsSeparateArray(t *testing.T) {
 		"files": {Values: []string{"a.txt", "b.txt"}, Variadic: true},
 	}}
 
-	snippet := Emit(result)
+	snippet := emitResult(t, result)
 	assert.Contains(t, snippet, "typeset -a compleo_files=()")
 	assert.Contains(t, snippet, "compleo_files=('a.txt' 'b.txt')")
 	assert.NotContains(t, snippet, "compleo[files]")
@@ -101,7 +136,7 @@ func TestEmitSanitizesHyphenInArrayVarName(t *testing.T) {
 		"dry-run-tag": {Kind: parse.KindStrings, Strings: []string{"x"}},
 	}}
 
-	snippet := Emit(result)
+	snippet := emitResult(t, result)
 	assert.Contains(t, snippet, "typeset -a compleo_dry_run_tag=()")
 	assert.Contains(t, snippet, "compleo_dry_run_tag=('x')")
 }
@@ -111,11 +146,11 @@ func TestEmitQuotesValuesWithSpecialCharacters(t *testing.T) {
 		"name": {Kind: parse.KindString, String: "it's $dangerous"},
 	}}
 
-	assert.Contains(t, Emit(result), "compleo[name]="+Quote("it's $dangerous"))
+	assert.Contains(t, emitResult(t, result), "compleo[name]="+Quote("it's $dangerous"))
 }
 
 func TestEmitDeclaresMainArrayEvenWhenEmpty(t *testing.T) {
-	assert.Equal(t, "typeset -A compleo=()", Emit(parse.Result{}))
+	assert.Equal(t, "typeset -A compleo=()\n", emitResult(t, parse.Result{}))
 }
 
 // zshEval sources snippet then prints each expr, proving the emitted code is valid zsh.
@@ -158,7 +193,7 @@ positionals:
 	})
 	require.NoError(t, err)
 
-	snippet := Emit(result)
+	snippet := emitResult(t, result)
 
 	lines := zshEval(t, snippet,
 		`$compleo[loud]`,
@@ -177,7 +212,7 @@ positionals:
 }
 
 func TestEmitHelpPrintsTextAndExitsZero(t *testing.T) {
-	snippet := EmitHelp("Usage:\n  mytool [flags]")
+	snippet := emitHelp(t, "Usage:\n  mytool [flags]")
 
 	cmd := exec.Command("zsh", "-fc", snippet)
 	out, err := cmd.Output()
@@ -186,7 +221,7 @@ func TestEmitHelpPrintsTextAndExitsZero(t *testing.T) {
 }
 
 func TestEmitHelpQuotesSpecialCharacters(t *testing.T) {
-	snippet := EmitHelp("it's $dangerous `too`")
+	snippet := emitHelp(t, "it's $dangerous `too`")
 
 	cmd := exec.Command("zsh", "-fc", snippet)
 	out, err := cmd.Output()
@@ -195,7 +230,7 @@ func TestEmitHelpQuotesSpecialCharacters(t *testing.T) {
 }
 
 func TestEmitErrorPrintsNameAndErrToStderrAndExitsTwo(t *testing.T) {
-	snippet := EmitError("mytool", errors.New("bad flag"))
+	snippet := emitError(t, "mytool", errors.New("bad flag"))
 
 	cmd := exec.Command("zsh", "-fc", snippet)
 	var stderr bytes.Buffer
@@ -209,7 +244,7 @@ func TestEmitErrorPrintsNameAndErrToStderrAndExitsTwo(t *testing.T) {
 }
 
 func TestEmitErrorQuotesSpecialCharacters(t *testing.T) {
-	snippet := EmitError("it's", errors.New("$dangerous `too`"))
+	snippet := emitError(t, "it's", errors.New("$dangerous `too`"))
 
 	cmd := exec.Command("zsh", "-fc", snippet)
 	var stderr bytes.Buffer
@@ -230,7 +265,7 @@ function main {
 main
 print -r -- "outer after main"
 `)
-	cmd.Env = append(os.Environ(), "SNIPPET="+EmitHelp("help text"))
+	cmd.Env = append(os.Environ(), "SNIPPET="+emitHelp(t, "help text"))
 
 	out, err := cmd.Output()
 	require.NoError(t, err)
@@ -238,7 +273,7 @@ print -r -- "outer after main"
 }
 
 func TestEmitGeneratedPrintsConfirmationToStderrAndExitsZero(t *testing.T) {
-	snippet := EmitGenerated("greet", "/some/dir/_greet")
+	snippet := emitGenerated(t, "greet", "/some/dir/_greet")
 
 	cmd := exec.Command("zsh", "-fc", snippet)
 	var stderr bytes.Buffer
@@ -264,7 +299,7 @@ func TestEmitGeneratedActivationHintActuallyWorksFromColdStart(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(fpathDir, "_greet"), []byte(content), 0o644))
 
 	activate := "autoload -Uz _greet && compdef _greet greet"
-	require.Contains(t, EmitGenerated("greet", "/some/path"), activate,
+	require.Contains(t, emitGenerated(t, "greet", "/some/path"), activate,
 		"test exercises the exact instruction EmitGenerated prints, not a hand-derived one")
 
 	script := fmt.Sprintf(`
@@ -284,7 +319,7 @@ print -r -- "${_comps[greet]}"
 func TestEmitCompletePrintsWireFormatVerbatimAndExitsZero(t *testing.T) {
 	// Deliberately includes characters a naive eval could misinterpret as zsh syntax,
 	// the same failure this is meant to prevent (see CLAUDE.md).
-	snippet := EmitComplete("=(#b)(--loud)([ ]## -- *)=0==2")
+	snippet := emitComplete(t, "=(#b)(--loud)([ ]## -- *)=0==2")
 
 	cmd := exec.Command("zsh", "-fc", snippet)
 	out, err := cmd.Output()

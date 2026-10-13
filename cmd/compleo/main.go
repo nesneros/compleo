@@ -135,8 +135,7 @@ func runComplete(cmd *cobra.Command, args []string, out io.Writer) error {
 	}
 	// Wrapped like EmitHelp/EmitError: carapace's wire format isn't zsh, and the wrapped
 	// script's unconditional eval would otherwise try to execute it as code.
-	_, err := fmt.Fprintln(out, zsh.EmitComplete(carapaceBuf.String()))
-	return err
+	return zsh.EmitComplete(out, carapaceBuf.String())
 }
 
 // runEmit parses args against sp and writes the resulting zsh to out — or, for --help or a
@@ -147,25 +146,22 @@ func runEmit(cmd *cobra.Command, sp spec.Command, args []string, out io.Writer, 
 	var helpBuf bytes.Buffer
 	cmd.SetOut(&helpBuf)
 
-	var output string
+	w := out
+	if dump {
+		w = io.MultiWriter(out, os.Stderr)
+	}
+
 	parseResult, err := parse.Parse(cmd, sp, args)
 	switch {
 	// Encoded into the output, not a Go error: eval alone should stop the script on a bad
 	// arg, no caller-side exit-code check needed.
 	case err != nil:
-		output = zsh.EmitError(sp.Name, err)
+		return zsh.EmitError(w, sp.Name, err)
 	case parseResult.HelpRequested:
-		output = zsh.EmitHelp(helpBuf.String())
+		return zsh.EmitHelp(w, helpBuf.String())
 	default:
-		output = zsh.Emit(parseResult)
+		return zsh.Emit(w, parseResult)
 	}
-
-	if dump {
-		fmt.Fprintln(os.Stderr, output)
-	}
-	// Checked: a failed write here truncates the zsh the wrapped script evals.
-	_, err = fmt.Fprintln(out, output)
-	return err
 }
 
 // runGenerate writes sp's completion file (skip-if-unchanged, like activate's own _compleo)
@@ -183,8 +179,7 @@ func runGenerate(cmd *cobra.Command, sp spec.Command, out io.Writer) error {
 	if err := writeCompletionFile(dir, name, snippet); err != nil {
 		return err
 	}
-	_, err = fmt.Fprintln(out, zsh.EmitGenerated(sp.Name, filepath.Join(dir, name)))
-	return err
+	return zsh.EmitGenerated(out, sp.Name, filepath.Join(dir, name))
 }
 
 // runGenerateFor is the "generate" subcommand: a convenience wrapper that runs name
