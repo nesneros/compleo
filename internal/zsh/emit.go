@@ -54,6 +54,24 @@ func EmitComplete(w io.Writer, wireFormat string) error {
 	return err
 }
 
+// EmitActivate writes "activate"'s output: fpath+=(dir), plus a guarded autoload+compdef for
+// every file already in dir. The guard matters: compdef isn't even defined until compinit has
+// run once (confirmed empirically), and activate's documented use is to run *before*
+// compinit — where this is a harmless no-op, since compinit's own scan moments later already
+// autoloads and registers everything in dir anyway. The guarded block only does real work if
+// activate is (re-)run in an already-initialized shell, where nothing else would otherwise
+// pick up dir's contents. dir is never empty (it always holds at least compleo's own "_compleo"),
+// so the glob is guaranteed to match.
+func EmitActivate(w io.Writer, dir string) error {
+	_, err := fmt.Fprintf(w, `fpath+=(%[1]s)
+autoload -Uz %[1]s/*
+if (( $+functions[compdef] )); then
+  for f (%[1]s/*) compdef ${f:t} ${f:t:s/_//}
+fi
+`, Quote(dir))
+	return err
+}
+
 // Emit fills a fixed "compleo" assoc array with scalar values; a repeatable flag or
 // variadic positional instead gets its own real zsh array, since assoc values are scalars
 // only. Scalars write immediately; arrays are deferred so they still print after every

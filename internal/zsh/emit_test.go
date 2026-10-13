@@ -51,6 +51,13 @@ func emitComplete(t *testing.T, wireFormat string) string {
 	return buf.String()
 }
 
+func emitActivate(t *testing.T, dir string) string {
+	t.Helper()
+	var buf bytes.Buffer
+	require.NoError(t, EmitActivate(&buf, dir))
+	return buf.String()
+}
+
 func TestEmitScalarStringFlag(t *testing.T) {
 	result := parse.Result{Flags: map[string]parse.FlagValue{
 		"name": {Kind: parse.KindString, Changed: true, String: "Jan"},
@@ -333,4 +340,41 @@ func TestRawWireFormatIsNotValidZsh(t *testing.T) {
 	cmd := exec.Command("zsh", "-fc", "=(#b)(--loud)([ ]## -- *)=0==2")
 	_, err := cmd.Output()
 	assert.Error(t, err)
+}
+
+func TestEmitActivatePrintsFpathWiring(t *testing.T) {
+	assert.Contains(t, emitActivate(t, "/some/dir"), "fpath+=('/some/dir')")
+}
+
+// Before compinit runs, compdef doesn't even exist (confirmed empirically) — activate's
+// guarded autoload+compdef block must be a true no-op there, not an error, since activate's
+// documented use is to run before compinit.
+func TestEmitActivateIsNoopBeforeCompinit(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "_compleo"), []byte("#compdef compleo\n"), 0o644))
+
+	cmd := exec.Command("zsh", "-fc", emitActivate(t, dir))
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "output: %s", out)
+}
+
+// Regression test for the scenario activate's guard exists for: compinit already ran earlier
+// this session (so fpath additions from this activate wouldn't otherwise be noticed) —
+// confirms the guarded block actually registers every file in dir, not just a no-op.
+func TestEmitActivateRegistersEveryFileWhenCompdefAlreadyAvailable(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "_compleo"), []byte("#compdef compleo\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "_greet"), []byte("#compdef greet\n"), 0o644))
+
+	script := fmt.Sprintf(`
+autoload -Uz compinit
+compinit -d %[1]s
+%[2]s
+print -r -- "compleo: ${_comps[compleo]:-<none>}"
+print -r -- "greet: ${_comps[greet]:-<none>}"
+`, Quote(filepath.Join(t.TempDir(), "zcompdump")), emitActivate(t, dir))
+
+	out, err := exec.Command("zsh", "-fc", script).Output()
+	require.NoError(t, err)
+	assert.Equal(t, "compleo: _compleo\ngreet: _greet\n", string(out))
 }

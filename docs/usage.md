@@ -92,7 +92,8 @@ eval "$(compleo activate)"
 
 This adds compleo's completions directory to `$fpath` (and writes compleo's own completion
 there). `compinit`'s own `$fpath` scan only sees what's already there when it runs, hence
-"before `compinit`."
+"before `compinit`." Re-running it later in an already-open shell also works — it activates
+everything already in the directory immediately, the same trick `generate`'s hint uses.
 
 **Once per script** (and again whenever its spec changes), with the script resolvable on
 `$PATH` under the name its spec uses as `name:` (`${0:t}` in the example above means: on

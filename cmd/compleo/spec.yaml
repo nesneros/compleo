@@ -5,7 +5,7 @@ description: >-
   zsh completion — all from one spec file.
 commands:
   - name: activate
-    description: Print zsh code adding compleo's completions directory to fpath. Eval this in .zshrc before compinit.
+    description: Print zsh code adding compleo's completions directory to fpath. Eval this in .zshrc before compinit, e.g. eval "$(compleo activate)".
   - name: completion
     description: Print compleo's own zsh completion script and exit.
   - name: generate

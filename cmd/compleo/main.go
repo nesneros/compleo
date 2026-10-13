@@ -67,7 +67,7 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, mode string) er
 		if err := writeCompletionFile(dir, "_compleo", snippet); err != nil {
 			return err
 		}
-		fmt.Fprintf(out, "fpath+=(%s)\n", zsh.Quote(dir))
+		return zsh.EmitActivate(out, dir)
 	case "completion":
 		snippet, err := zsh.Completion(ownCmd)
 		if err != nil {
