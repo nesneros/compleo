@@ -28,7 +28,7 @@ func main() {
 // run routes on an explicit "parse" token, since --help/--version could otherwise be compleo's or the wrapped script's.
 func run(args []string, piped bool, in io.Reader, out io.Writer) error {
 	if args == nil {
-		panic("run: args must not be nil (use an empty slice for \"no arguments\")")
+		panic("run: args must not be nil (use an empty slice for 'no arguments')")
 	}
 
 	ownCmd, ownSpec, err := compleoCmd(out)
@@ -52,20 +52,20 @@ func run(args []string, piped bool, in io.Reader, out io.Writer) error {
 		if err != nil {
 			return err
 		}
-		snippet, err := zsh.Completion(ownCmd, ownSpec)
+		snippet, err := zsh.Completion(ownCmd)
 		if err != nil {
 			return err
 		}
-		if err := writeCompletionFile(dir, "_compleo", snippet+"\n"); err != nil {
+		if err := writeCompletionFile(dir, "_compleo", snippet); err != nil {
 			return err
 		}
 		fmt.Fprintf(out, "fpath+=(%s)\n", zsh.Quote(dir))
 	case "completion":
-		snippet, err := zsh.Completion(ownCmd, ownSpec)
+		snippet, err := zsh.Completion(ownCmd)
 		if err != nil {
 			return err
 		}
-		fmt.Fprintln(out, snippet)
+		fmt.Fprint(out, snippet)
 	case "parse":
 		// A variadic positional with zero values binds to nil, not an empty slice; Parse panics on nil.
 		wrappedArgs := result.Positionals["args"].Values

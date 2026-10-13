@@ -10,18 +10,19 @@ import (
 )
 
 func TestCompletionGeneratesZshSnippet(t *testing.T) {
-	cmd, sp, err := spec.ParseYAML(strings.NewReader(`
+	cmd, _, err := spec.ParseYAML(strings.NewReader(`
 name: mytool
 flags:
   --count=: how many times
 `))
 	require.NoError(t, err)
 
-	snippet, err := Completion(cmd, sp)
+	snippet, err := Completion(cmd)
 	require.NoError(t, err)
 
 	assert.Contains(t, snippet, "#compdef mytool")
 	assert.Contains(t, snippet, "compdef _mytool_completion mytool")
+	assert.True(t, strings.HasSuffix(snippet, "\n"))
 }
 
 // Same spec must produce byte-identical output: write-only-if-changed callers depend on this.
@@ -37,14 +38,14 @@ commands:
     flags:
       --tag=: a tag
 `
-	cmd1, sp1, err := spec.ParseYAML(strings.NewReader(yaml))
+	cmd1, _, err := spec.ParseYAML(strings.NewReader(yaml))
 	require.NoError(t, err)
-	snippet1, err := Completion(cmd1, sp1)
+	snippet1, err := Completion(cmd1)
 	require.NoError(t, err)
 
-	cmd2, sp2, err := spec.ParseYAML(strings.NewReader(yaml))
+	cmd2, _, err := spec.ParseYAML(strings.NewReader(yaml))
 	require.NoError(t, err)
-	snippet2, err := Completion(cmd2, sp2)
+	snippet2, err := Completion(cmd2)
 	require.NoError(t, err)
 
 	assert.Equal(t, snippet1, snippet2)
