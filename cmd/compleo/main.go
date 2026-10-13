@@ -189,6 +189,9 @@ func runGenerateFor(name string, out io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("generate: %w", err)
 	}
+	if !spec.IsCompleoScript(path) {
+		return fmt.Errorf("generate: %s does not look like a compleo-wrapped script", name)
+	}
 
 	cmd := exec.Command(path)
 	cmd.Env = append(os.Environ(), "COMPLEO_MODE="+modeGenerate)

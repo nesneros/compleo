@@ -434,7 +434,7 @@ func TestRunParseCompleteModeOutputEvalsCleanlyUnderRealZsh(t *testing.T) {
 func TestRunGenerateSetsCompleoModeEnvVarOnTheResolvedExecutable(t *testing.T) {
 	dir := t.TempDir()
 	scriptPath := filepath.Join(dir, "fake-wrapped")
-	require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/sh\necho \"mode=$COMPLEO_MODE\"\n"), 0o755))
+	require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/sh\n# calls compleo\necho \"mode=$COMPLEO_MODE\"\n"), 0o755))
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	var stdout bytes.Buffer
@@ -445,5 +445,16 @@ func TestRunGenerateSetsCompleoModeEnvVarOnTheResolvedExecutable(t *testing.T) {
 
 func TestRunGenerateFailsForUnknownExecutable(t *testing.T) {
 	err := run([]string{"generate", "definitely-not-a-real-command-xyz"}, false, strings.NewReader(""), &bytes.Buffer{}, "")
+	assert.Error(t, err)
+}
+
+// Regression test: "generate" used to run whatever exec.LookPath resolved with no check at
+// all — happily executing any binary on PATH with COMPLEO_MODE set, compleo-wrapped or not.
+func TestRunGenerateRefusesExecutableThatIsNotCompleoWrapped(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "not-wrapped"), []byte("#!/bin/sh\necho hi\n"), 0o755))
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	err := run([]string{"generate", "not-wrapped"}, false, strings.NewReader(""), &bytes.Buffer{}, "")
 	assert.Error(t, err)
 }

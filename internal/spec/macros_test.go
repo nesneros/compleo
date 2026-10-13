@@ -11,23 +11,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLooksWrappedAcceptsShebangScriptMentioningCompleo(t *testing.T) {
+func TestIsCompleoScriptAcceptsShebangScriptMentioningCompleo(t *testing.T) {
 	path := writeFile(t, "#!/bin/sh\neval \"$(compleo parse -- \"$@\")\"\n")
-	assert.True(t, looksWrapped(path))
+	assert.True(t, IsCompleoScript(path))
 }
 
-func TestLooksWrappedRejectsScriptWithoutShebang(t *testing.T) {
+func TestIsCompleoScriptRejectsScriptWithoutShebang(t *testing.T) {
 	path := writeFile(t, "compleo parse -- \"$@\"\n")
-	assert.False(t, looksWrapped(path))
+	assert.False(t, IsCompleoScript(path))
 }
 
-func TestLooksWrappedRejectsShebangScriptNotMentioningCompleo(t *testing.T) {
+func TestIsCompleoScriptRejectsShebangScriptNotMentioningCompleo(t *testing.T) {
 	path := writeFile(t, "#!/bin/sh\necho hi\n")
-	assert.False(t, looksWrapped(path))
+	assert.False(t, IsCompleoScript(path))
 }
 
-func TestLooksWrappedRejectsMissingFile(t *testing.T) {
-	assert.False(t, looksWrapped(filepath.Join(t.TempDir(), "does-not-exist")))
+func TestIsCompleoScriptRejectsMissingFile(t *testing.T) {
+	assert.False(t, IsCompleoScript(filepath.Join(t.TempDir(), "does-not-exist")))
 }
 
 func writeFile(t *testing.T, content string) string {

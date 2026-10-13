@@ -35,7 +35,7 @@ func ActionScripts() carapace.Action {
 				if err != nil || info.Mode()&0o111 == 0 {
 					continue
 				}
-				if looksWrapped(filepath.Join(dir, name)) {
+				if IsCompleoScript(filepath.Join(dir, name)) {
 					seen[name] = true
 					names = append(names, name)
 				}
@@ -46,14 +46,15 @@ func ActionScripts() carapace.Action {
 	})
 }
 
-// looksWrapped checks path's first 4KB for a shebang (is this a script) plus "compleo"
-// (does it call compleo) — done natively instead of shelling out to "file" per candidate.
-func looksWrapped(path string) bool {
+// IsCompleoScript heuristically checks for a shebang plus "compleo" in path's first 4KB —
+// a cheap native check (no "file" subprocess), not a guarantee either way. Used by
+// $compleo.scripts and compleo generate's sanity check before executing anything.
+func IsCompleoScript(path string) bool {
 	f, err := os.Open(path)
 	if err != nil {
 		return false
 	}
-	defer func() { _ = f.Close() }() // read-only; a close error here doesn't change the answer
+	defer f.Close() //nolint:errcheck
 
 	buf := make([]byte, 4096)
 	n, _ := f.Read(buf)
