@@ -3,8 +3,10 @@ package zsh
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -244,7 +246,39 @@ func TestEmitGeneratedPrintsConfirmationToStderrAndExitsZero(t *testing.T) {
 	out, err := cmd.Output()
 	require.NoError(t, err)
 	assert.Empty(t, out)
-	assert.Equal(t, "greet: generated completion at /some/dir/_greet\n", stderr.String())
+	assert.Contains(t, stderr.String(), "greet: generated completion at /some/dir/_greet")
+	assert.Contains(t, stderr.String(), "autoload -Uz _greet && compdef _greet greet")
+}
+
+// Regression test: an earlier hint ("compdef _greet_completion greet" directly) looked right
+// and even set _comps[greet] correctly, but _greet_completion was never defined or
+// autoloaded, so real completion failed with "command not found". Uses real generated
+// content and actually calls the autoloaded name, not just checking what _comps[greet] holds.
+func TestEmitGeneratedActivationHintActuallyWorksFromColdStart(t *testing.T) {
+	cmd, _, err := spec.ParseYAML(strings.NewReader("name: greet\nflags:\n  --loud: shout\n"))
+	require.NoError(t, err)
+	content, err := WrappedCompletion(cmd)
+	require.NoError(t, err)
+
+	fpathDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(fpathDir, "_greet"), []byte(content), 0o644))
+
+	activate := "autoload -Uz _greet && compdef _greet greet"
+	require.Contains(t, EmitGenerated("greet", "/some/path"), activate,
+		"test exercises the exact instruction EmitGenerated prints, not a hand-derived one")
+
+	script := fmt.Sprintf(`
+fpath+=(%[1]s)
+autoload -Uz compinit
+compinit -d %[2]s
+%[3]s
+_greet
+print -r -- "${_comps[greet]}"
+`, Quote(fpathDir), Quote(filepath.Join(t.TempDir(), "zcompdump")), activate)
+
+	out, err := exec.Command("zsh", "-fc", script).Output()
+	require.NoError(t, err)
+	assert.Equal(t, "_greet_completion\n", string(out))
 }
 
 func TestEmitCompletePrintsWireFormatVerbatimAndExitsZero(t *testing.T) {

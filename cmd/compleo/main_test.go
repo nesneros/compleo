@@ -426,3 +426,24 @@ func TestRunParseCompleteModeOutputEvalsCleanlyUnderRealZsh(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(out), "loud")
 }
+
+// "generate" is a convenience wrapper around running a wrapped script by hand with
+// COMPLEO_MODE=generate set — this checks runGenerateFor's own wiring (PATH resolution,
+// env var, stdout passthrough), not the full parse/generate pipeline (already covered by
+// the TestRunParseGenerateMode* tests above).
+func TestRunGenerateSetsCompleoModeEnvVarOnTheResolvedExecutable(t *testing.T) {
+	dir := t.TempDir()
+	scriptPath := filepath.Join(dir, "fake-wrapped")
+	require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/sh\necho \"mode=$COMPLEO_MODE\"\n"), 0o755))
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	var stdout bytes.Buffer
+	err := run([]string{"generate", "fake-wrapped"}, false, strings.NewReader(""), &stdout, "")
+	require.NoError(t, err)
+	assert.Equal(t, "mode=generate\n", stdout.String())
+}
+
+func TestRunGenerateFailsForUnknownExecutable(t *testing.T) {
+	err := run([]string{"generate", "definitely-not-a-real-command-xyz"}, false, strings.NewReader(""), &bytes.Buffer{}, "")
+	assert.Error(t, err)
+}

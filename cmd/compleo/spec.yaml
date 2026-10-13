@@ -8,6 +8,15 @@ commands:
     description: Print zsh code adding compleo's completions directory to fpath. Eval this in .zshrc before compinit.
   - name: completion
     description: Print compleo's own zsh completion script and exit.
+  - name: generate
+    description: Generate zsh completion for an executable on PATH that wraps compleo (equivalent to running it with COMPLEO_MODE=generate set).
+    positionals:
+      - name: name
+        description: Executable to generate completion for, resolved via $PATH.
+        required: true
+    completion:
+      positional:
+        - ["$compleo.scripts"]
   - name: parse
     description: Parse the wrapped script's command line against the spec piped on stdin.
     flags:

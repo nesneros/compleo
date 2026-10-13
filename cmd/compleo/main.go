@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/nesneros/compleo/internal/parse"
@@ -18,11 +19,8 @@ import (
 //go:embed spec.yaml
 var specYAML []byte
 
-// COMPLEO_MODE values: how a wrapped script's own "compleo parse -- "$@"" call behaves,
-// beyond its default of parsing "$@". Set by the generated completion file ("complete")
-// or by hand to (re)install it ("generate") — in both cases the wrapped script's own
-// heredoc re-delivers its spec exactly as it does for a normal run, so no separate
-// spec-delivery mechanism is needed for either mode.
+// COMPLEO_MODE values: what "compleo parse" does beyond parsing "$@" — same heredoc
+// re-delivers the spec either way, so no mode-aware logic is needed in the script itself.
 const (
 	modeGenerate = "generate"
 	modeComplete = "complete"
@@ -76,6 +74,8 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, mode string) er
 			return err
 		}
 		fmt.Fprint(out, snippet)
+	case "generate":
+		return runGenerateFor(result.Positionals["name"].Values[0], out)
 	case "parse":
 		// A variadic positional with zero values binds to nil, not an empty slice; Parse panics on nil.
 		wrappedArgs := result.Positionals["args"].Values
@@ -99,9 +99,8 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, mode string) er
 	return nil
 }
 
-// runParse parses the wrapped script's own args against its spec piped on stdin, unless
-// mode selects one of the COMPLEO_MODE variants instead (see the consts above).
-// dump, if set, writes the resulting zsh to stderr too, before writing it to out.
+// runParse parses args against the piped spec, or dispatches to a COMPLEO_MODE variant.
+// dump, if set, also writes the result to stderr before writing it to out.
 func runParse(args []string, piped bool, in io.Reader, out io.Writer, dump bool, mode string) error {
 	if !piped {
 		return errors.New("no spec piped on stdin (compleo expects its target script's spec on stdin)")
@@ -124,41 +123,35 @@ func runParse(args []string, piped bool, in io.Reader, out io.Writer, dump bool,
 	}
 }
 
-// runComplete serves one live Tab-press completion request against cmd's own hidden
-// _carapace subcommand (already wired by ToCobraE()), reporting the result the same way
-// runEmit's EmitError/EmitHelp do: zsh the caller just evals, not a Go-level return value.
+// runComplete serves one live Tab-press request via cmd's own hidden _carapace subcommand,
+// reporting the result the same eval'd-zsh way EmitError/EmitHelp do.
 func runComplete(cmd *cobra.Command, args []string, out io.Writer) error {
-	// args[0] is the typed command name (per carapace's own "_carapace zsh <name> <words>"
-	// convention) — it's already there since args is the compline verbatim.
+	// args[0] is the typed command name, per carapace's own "_carapace zsh <name> <words>" convention.
 	var carapaceBuf bytes.Buffer
 	cmd.SetArgs(append([]string{"_carapace", "zsh"}, args...))
 	cmd.SetOut(&carapaceBuf)
 	if err := cmd.Execute(); err != nil {
 		return err
 	}
-	// carapace's wire format isn't zsh: the generated completion function captures it as
-	// a plain string (its own lines="$(xargs greet ...)"), so wrap it the same way
-	// EmitHelp/EmitError wrap their payloads, or the wrapped script's unconditional
-	// eval would try to execute it as code instead of just passing it through.
+	// Wrapped like EmitHelp/EmitError: carapace's wire format isn't zsh, and the wrapped
+	// script's unconditional eval would otherwise try to execute it as code.
 	_, err := fmt.Fprintln(out, zsh.EmitComplete(carapaceBuf.String()))
 	return err
 }
 
-// runEmit parses the wrapped script's own args against sp and writes the resulting zsh to
-// out — or, for --help/a bad arg, the equivalently-wrapped help/error text instead.
-// dump, if set, writes the same output to stderr too, before writing it to out.
+// runEmit parses args against sp and writes the resulting zsh to out — or, for --help or a
+// bad arg, the equivalently-wrapped help/error text instead. dump also writes it to stderr.
 func runEmit(cmd *cobra.Command, sp spec.Command, args []string, out io.Writer, dump bool) error {
-	// cobra's help writes straight to os.Stdout by default; buffer it so it can be
-	// re-wrapped as zsh instead of corrupting the real zsh.Emit output on the same stream.
+	// cobra's help writes straight to stdout; buffer it so it can be re-wrapped instead of
+	// corrupting Emit's own output on the same stream.
 	var helpBuf bytes.Buffer
 	cmd.SetOut(&helpBuf)
 
 	var output string
 	parseResult, err := parse.Parse(cmd, sp, args)
 	switch {
-	// Encoded into the output, not returned as a Go error: the wrapped script's own
-	// end-user args were bad, not compleo's invocation, so eval alone should stop the
-	// script (print + exit 2) without the caller needing its own exit-code check.
+	// Encoded into the output, not a Go error: eval alone should stop the script on a bad
+	// arg, no caller-side exit-code check needed.
 	case err != nil:
 		output = zsh.EmitError(sp.Name, err)
 	case parseResult.HelpRequested:
@@ -175,9 +168,8 @@ func runEmit(cmd *cobra.Command, sp spec.Command, args []string, out io.Writer, 
 	return err
 }
 
-// runGenerate writes sp's wrapped-script completion file to completionDir() (same directory
-// and skip-if-unchanged behavior as "activate"'s own _compleo) and reports success the same
-// way EmitHelp/EmitError do: zsh that the caller just evals, not a Go-level return value.
+// runGenerate writes sp's completion file (skip-if-unchanged, like activate's own _compleo)
+// and reports success the same eval'd-zsh way EmitHelp/EmitError do.
 func runGenerate(cmd *cobra.Command, sp spec.Command, out io.Writer) error {
 	dir, err := completionDir()
 	if err != nil {
@@ -195,6 +187,22 @@ func runGenerate(cmd *cobra.Command, sp spec.Command, out io.Writer) error {
 	return err
 }
 
+// runGenerateFor is the "generate" subcommand: a convenience wrapper that runs name
+// (resolved via $PATH) with COMPLEO_MODE=generate set, same as doing it by hand.
+func runGenerateFor(name string, out io.Writer) error {
+	path, err := exec.LookPath(name)
+	if err != nil {
+		return fmt.Errorf("generate: %w", err)
+	}
+
+	cmd := exec.Command(path)
+	cmd.Env = append(os.Environ(), "COMPLEO_MODE="+modeGenerate)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = out
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
 // compleoCmd builds compleo's own cobra command tree from its embedded spec.
 func compleoCmd(stdout io.Writer) (*cobra.Command, spec.Command, error) {
 	cmd, sp, err := spec.ParseYAML(bytes.NewReader(specYAML))
@@ -208,8 +216,7 @@ func compleoCmd(stdout io.Writer) (*cobra.Command, spec.Command, error) {
 	return cmd, sp, nil
 }
 
-// completionDir is where "activate" wires fpath to, and where generated completions
-// live: compleo's own (written by "activate" itself) and, eventually, wrapped scripts'.
+// completionDir is where "activate" wires fpath to, and where generated completions live.
 func completionDir() (string, error) {
 	if dir := os.Getenv("COMPLEO_COMPLETION_DIR"); dir != "" {
 		return dir, nil
@@ -226,10 +233,8 @@ func completionDir() (string, error) {
 	return filepath.Join(dataHome, "compleo", "completions"), nil
 }
 
-// writeCompletionFile writes content to dir/name, creating dir if needed. It skips the
-// write (and the file's mtime bump) when content already matches: activate may well run
-// on every shell startup, and touching the file every time would make compinit think the
-// directory changed, forcing a full fpath rescan instead of using its .zcompdump cache.
+// writeCompletionFile skips the write when content is unchanged, so activate (which may run
+// on every shell startup) doesn't bump the dir's mtime and force a full compinit rescan.
 func writeCompletionFile(dir, name, content string) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("creating completion directory: %w", err)

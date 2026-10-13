@@ -25,11 +25,20 @@ func EmitError(name string, err error) string {
 	return "print -u2 -- " + Quote(fmt.Sprintf("%s: %s", name, err)) + "\nexit 2"
 }
 
-// EmitGenerated wraps a COMPLEO_MODE=generate confirmation as zsh: printed to stderr (so
-// stdout stays eval-safe even though nothing but exit 0 actually needs to run) and exits,
-// same convention as EmitHelp/EmitError.
+// EmitGenerated wraps a COMPLEO_MODE=generate confirmation as zsh, same convention as
+// EmitHelp/EmitError. Includes an activation hint for the current shell, since an
+// already-running shell won't notice the new file without a compinit rerun (rescans all of
+// $fpath) or this cheaper per-file equivalent: compleo can't run it directly, since compleo
+// only ever runs as a subprocess, which can't modify its parent shell's completion state.
+// Must autoload "_<name>" (the file's own name), not "_<name>_completion" (the function
+// WrappedCompletion defines inside it) — autoload resolves by filename, and only "_<name>"
+// matches a real file; calling it is what actually defines and rebinds the inner function.
 func EmitGenerated(name, path string) string {
-	return "print -u2 -- " + Quote(fmt.Sprintf("%s: generated completion at %s", name, path)) + "\nexit 0"
+	msg := fmt.Sprintf(
+		"%s: generated completion at %s (new shells pick it up automatically; to use it in this one now: autoload -Uz _%s && compdef _%s %s)",
+		name, path, name, name, name,
+	)
+	return "print -u2 -- " + Quote(msg) + "\nexit 0"
 }
 
 // EmitComplete wraps a COMPLEO_MODE=complete result (carapace's raw completion wire format,

@@ -15,8 +15,13 @@ tool-specific macros (`$carapace.tools.git.branches`, and ~130 more); compleo do
 those in directly, but they still work transparently at Tab-press time by shelling out to a
 separately-installed `carapace` binary — see
 [carapace-bin's macro documentation](https://carapace-sh.github.io/carapace-bin/spec/macros.html)
-for that list. Macro names are never compleo's own invention — compleo uses exactly the same
-names either way.
+for that list.
+
+compleo also registers one macro of its own, `$compleo.scripts` — like `$executables`, but
+narrowed to executables on `$PATH` that look like they actually wrap compleo (a shebang, plus
+the word "compleo" somewhere in the file). Used for `compleo generate <TAB>`; available in any
+spec compleo parses, not just its own. Any other `$name.macro` is this same pattern — the
+currently-running binary's own name, namespacing its own macros, same as `$carapace.*`.
 
 ## What carapace-spec gives you
 
