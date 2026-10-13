@@ -25,6 +25,21 @@ func EmitError(name string, err error) string {
 	return "print -u2 -- " + Quote(fmt.Sprintf("%s: %s", name, err)) + "\nexit 2"
 }
 
+// EmitGenerated wraps a COMPLEO_MODE=generate confirmation as zsh: printed to stderr (so
+// stdout stays eval-safe even though nothing but exit 0 actually needs to run) and exits,
+// same convention as EmitHelp/EmitError.
+func EmitGenerated(name, path string) string {
+	return "print -u2 -- " + Quote(fmt.Sprintf("%s: generated completion at %s", name, path)) + "\nexit 0"
+}
+
+// EmitComplete wraps a COMPLEO_MODE=complete result (carapace's raw completion wire format,
+// not zsh) the same way EmitHelp wraps --help text: the wrapped script's own eval would
+// otherwise try to execute the wire format as code, instead of the generated completion
+// function's own "lines=$(...)" just capturing it as a string.
+func EmitComplete(wireFormat string) string {
+	return "print -r -- " + Quote(strings.TrimRight(wireFormat, "\n")) + "\nexit 0"
+}
+
 // Emit fills a fixed "compleo" assoc array with scalar values; a repeatable flag or
 // variadic positional instead gets its own real zsh array, since assoc values are scalars only.
 func Emit(result parse.Result) string {

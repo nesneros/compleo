@@ -6,8 +6,14 @@ act = "0.2.89"
 
 [env]
 # So "go run ./cmd/compleo activate" during development writes into the project
-# instead of the real ~/.local/share/compleo/completions.
+# instead of the derault ~/.local/share/compleo/completions.
 COMPLEO_COMPLETION_DIR = "{{config_root}}/.completions"
+
+# So the demo scripts resolve as plain commands (e.g. "greet"), not just "./examples/greet" —
+# needed for their generated completions to work at all: the completion file's own xargs
+# callback re-invokes the script itself by bare name, which fails silently (stderr is
+# suppressed) if it's not on PATH.
+_.path = ["{{config_root}}/examples"]
 
 [tasks.build]
 description = "Build the compleo binary"

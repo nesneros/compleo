@@ -12,7 +12,9 @@ import (
 // found by a different library's decoder.
 func decodeYAML(r io.Reader) (Command, error) {
 	var cmd Command
-	err := yaml.NewDecoder(r).Decode(&cmd)
+	decoder := yaml.NewDecoder(r)
+	decoder.KnownFields(true)
+	err := decoder.Decode(&cmd)
 	return cmd, err
 }
 

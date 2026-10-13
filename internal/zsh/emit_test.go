@@ -234,3 +234,34 @@ print -r -- "outer after main"
 	require.NoError(t, err)
 	assert.Equal(t, "help text\n", string(out))
 }
+
+func TestEmitGeneratedPrintsConfirmationToStderrAndExitsZero(t *testing.T) {
+	snippet := EmitGenerated("greet", "/some/dir/_greet")
+
+	cmd := exec.Command("zsh", "-fc", snippet)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	require.NoError(t, err)
+	assert.Empty(t, out)
+	assert.Equal(t, "greet: generated completion at /some/dir/_greet\n", stderr.String())
+}
+
+func TestEmitCompletePrintsWireFormatVerbatimAndExitsZero(t *testing.T) {
+	// Deliberately includes characters a naive eval could misinterpret as zsh syntax,
+	// the same failure this is meant to prevent (see CLAUDE.md).
+	snippet := EmitComplete("=(#b)(--loud)([ ]## -- *)=0==2")
+
+	cmd := exec.Command("zsh", "-fc", snippet)
+	out, err := cmd.Output()
+	require.NoError(t, err)
+	assert.Equal(t, "=(#b)(--loud)([ ]## -- *)=0==2\n", string(out))
+}
+
+// Proves the bug EmitComplete fixes: eval'ing carapace's raw wire format directly (as the
+// wrapped script's unconditional eval line would, without this wrapper) is a zsh parse error.
+func TestRawWireFormatIsNotValidZsh(t *testing.T) {
+	cmd := exec.Command("zsh", "-fc", "=(#b)(--loud)([ ]## -- *)=0==2")
+	_, err := cmd.Output()
+	assert.Error(t, err)
+}

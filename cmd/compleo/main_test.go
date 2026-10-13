@@ -16,20 +16,20 @@ import (
 
 func TestRunWithNoArgsAndNotPipedShowsHelp(t *testing.T) {
 	var stdout bytes.Buffer
-	err := run([]string{}, false, strings.NewReader(""), &stdout)
+	err := run([]string{}, false, strings.NewReader(""), &stdout, "")
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "Usage:")
 }
 
 func TestRunPanicsOnNilArgs(t *testing.T) {
 	assert.Panics(t, func() {
-		_ = run(nil, false, strings.NewReader(""), &bytes.Buffer{})
+		_ = run(nil, false, strings.NewReader(""), &bytes.Buffer{}, "")
 	})
 }
 
 func TestRunWithHelpFlagSucceedsEvenWhenNotPiped(t *testing.T) {
 	var stdout bytes.Buffer
-	err := run([]string{"--help"}, false, strings.NewReader(""), &stdout)
+	err := run([]string{"--help"}, false, strings.NewReader(""), &stdout, "")
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "Usage:")
 }
@@ -38,50 +38,50 @@ func TestRunWithHelpFlagSucceedsEvenWhenNotPiped(t *testing.T) {
 func TestRunCarapaceCallbackSucceedsEvenWhenNotPiped(t *testing.T) {
 	var stdout bytes.Buffer
 	// args: dispatch, shell, typed name (ignored by carapace), word being completed (empty = list all).
-	err := run([]string{"_carapace", "zsh", "compleo", ""}, false, strings.NewReader(""), &stdout)
+	err := run([]string{"_carapace", "zsh", "compleo", ""}, false, strings.NewReader(""), &stdout, "")
 	require.NoError(t, err)
 	assert.NotEmpty(t, stdout.String())
 }
 
 func TestRunWithVersionCommandPrintsVersion(t *testing.T) {
 	var stdout bytes.Buffer
-	err := run([]string{"version"}, false, strings.NewReader(""), &stdout)
+	err := run([]string{"version"}, false, strings.NewReader(""), &stdout, "")
 	require.NoError(t, err)
 	assert.Equal(t, "dev\n", stdout.String())
 }
 
 func TestRunWithOldVersionFlagFails(t *testing.T) {
-	err := run([]string{"--version"}, false, strings.NewReader(""), &bytes.Buffer{})
+	err := run([]string{"--version"}, false, strings.NewReader(""), &bytes.Buffer{}, "")
 	assert.Error(t, err)
 }
 
 func TestRunWithHelpAsArgumentFails(t *testing.T) {
-	err := run([]string{"help"}, false, strings.NewReader(""), &bytes.Buffer{})
+	err := run([]string{"help"}, false, strings.NewReader(""), &bytes.Buffer{}, "")
 	assert.Error(t, err)
 }
 
 func TestRunWithValidateOnValidSpecFromStdinSucceeds(t *testing.T) {
 	var stdout bytes.Buffer
-	err := run([]string{"validate"}, true, strings.NewReader("name: mytool\n"), &stdout)
+	err := run([]string{"validate"}, true, strings.NewReader("name: mytool\n"), &stdout, "")
 	require.NoError(t, err)
 	assert.Equal(t, "ok\n", stdout.String())
 }
 
 func TestRunWithValidateOnInvalidSpecFromStdinFails(t *testing.T) {
-	err := run([]string{"validate"}, true, strings.NewReader("not: [valid"), &bytes.Buffer{})
+	err := run([]string{"validate"}, true, strings.NewReader("not: [valid"), &bytes.Buffer{}, "")
 	assert.Error(t, err)
 }
 
 func TestRunWithValidateHelpSucceedsEvenWhenNotPiped(t *testing.T) {
 	var stdout bytes.Buffer
-	err := run([]string{"validate", "--help"}, false, strings.NewReader(""), &stdout)
+	err := run([]string{"validate", "--help"}, false, strings.NewReader(""), &stdout, "")
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "Usage:")
 }
 
 func TestRunWithCompletionPrintsZshSnippetEvenWhenNotPiped(t *testing.T) {
 	var stdout bytes.Buffer
-	err := run([]string{"completion"}, false, strings.NewReader(""), &stdout)
+	err := run([]string{"completion"}, false, strings.NewReader(""), &stdout, "")
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "#compdef compleo")
 }
@@ -94,7 +94,7 @@ flags:
   --version: mytool's own version flag, not compleo's
 `)
 	var stdout bytes.Buffer
-	err := run([]string{"parse", "--", "--version"}, true, specReader, &stdout)
+	err := run([]string{"parse", "--", "--version"}, true, specReader, &stdout, "")
 	require.NoError(t, err)
 	assert.NotEqual(t, "dev\n", stdout.String())
 }
@@ -103,14 +103,14 @@ flags:
 // returned as a Go error: eval alone should stop the script, no caller exit-code check needed.
 func TestRunParseWithUnknownFlagEmitsSelfExitingError(t *testing.T) {
 	var stdout bytes.Buffer
-	err := run([]string{"parse", "--", "--bogus"}, true, strings.NewReader("name: mytool\n"), &stdout)
+	err := run([]string{"parse", "--", "--bogus"}, true, strings.NewReader("name: mytool\n"), &stdout, "")
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "exit 2")
 }
 
 func TestRunParseErrorIncludesScriptName(t *testing.T) {
 	var stdout bytes.Buffer
-	err := run([]string{"parse", "--", "--bogus"}, true, strings.NewReader("name: greet\n"), &stdout)
+	err := run([]string{"parse", "--", "--bogus"}, true, strings.NewReader("name: greet\n"), &stdout, "")
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "greet:")
 }
@@ -127,7 +127,7 @@ flagtypes:
 `)
 	var runErr error
 	stderr := captureRealStderr(t, func() {
-		runErr = run([]string{"parse", "--", "--times", "x"}, true, specReader, &bytes.Buffer{})
+		runErr = run([]string{"parse", "--", "--times", "x"}, true, specReader, &bytes.Buffer{}, "")
 	})
 
 	assert.NoError(t, runErr)
@@ -157,7 +157,7 @@ func TestRunDumpWritesSuccessOutputToStderrTooBeforeStdout(t *testing.T) {
 	var stdout bytes.Buffer
 
 	stderr := captureRealStderr(t, func() {
-		require.NoError(t, run([]string{"parse", "--dump", "--", "--count", "3"}, true, specReader, &stdout))
+		require.NoError(t, run([]string{"parse", "--dump", "--", "--count", "3"}, true, specReader, &stdout, ""))
 	})
 
 	assert.Equal(t, stdout.String(), stderr)
@@ -168,7 +168,7 @@ func TestRunDumpWritesErrorOutputToStderrTooBeforeStdout(t *testing.T) {
 	var stdout bytes.Buffer
 
 	stderr := captureRealStderr(t, func() {
-		require.NoError(t, run([]string{"parse", "--dump", "--", "--times", "x"}, true, specReader, &stdout))
+		require.NoError(t, run([]string{"parse", "--dump", "--", "--times", "x"}, true, specReader, &stdout, ""))
 	})
 
 	assert.Equal(t, stdout.String(), stderr)
@@ -180,7 +180,7 @@ func TestRunWithoutDumpWritesNothingToRealStderrOnSuccess(t *testing.T) {
 	var stdout bytes.Buffer
 
 	stderr := captureRealStderr(t, func() {
-		require.NoError(t, run([]string{"parse", "--", "--count", "3"}, true, specReader, &stdout))
+		require.NoError(t, run([]string{"parse", "--", "--count", "3"}, true, specReader, &stdout, ""))
 	})
 
 	assert.Empty(t, stderr)
@@ -191,26 +191,26 @@ func TestRunWithoutDumpWritesNothingToRealStderrOnSuccess(t *testing.T) {
 // flag from one of compleo's own "parse" flags (--dump). With no collision, it's optional.
 func TestRunParseWithoutDashWorksWhenNoCollision(t *testing.T) {
 	var stdout bytes.Buffer
-	err := run([]string{"parse", "world"}, true, strings.NewReader("name: mytool\npositionals:\n  - name: who\n"), &stdout)
+	err := run([]string{"parse", "world"}, true, strings.NewReader("name: mytool\npositionals:\n  - name: who\n"), &stdout, "")
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "compleo[who]='world'")
 }
 
 // A flag compleo's own "parse" doesn't recognize errors regardless of "--" or position.
 func TestRunParseUnrecognizedCompleoFlagFails(t *testing.T) {
-	err := run([]string{"parse", "--not-a-real-compleo-flag", "world"}, true, strings.NewReader("name: mytool\n"), &bytes.Buffer{})
+	err := run([]string{"parse", "--not-a-real-compleo-flag", "world"}, true, strings.NewReader("name: mytool\n"), &bytes.Buffer{}, "")
 	assert.Error(t, err)
 }
 
 // Regression test: a wrapped script with zero of its own args binds the variadic "args"
 // positional to nil, not an empty slice, which used to panic in parse.Parse.
 func TestRunParseWithNoWrappedArgsDoesNotPanic(t *testing.T) {
-	err := run([]string{"parse"}, true, strings.NewReader("name: mytool\n"), &bytes.Buffer{})
+	err := run([]string{"parse"}, true, strings.NewReader("name: mytool\n"), &bytes.Buffer{}, "")
 	assert.NoError(t, err)
 }
 
 func TestRunParseRequiresPipedStdin(t *testing.T) {
-	err := run([]string{"parse", "--", "--count", "3"}, false, strings.NewReader(""), &bytes.Buffer{})
+	err := run([]string{"parse", "--", "--count", "3"}, false, strings.NewReader(""), &bytes.Buffer{}, "")
 	assert.Error(t, err)
 }
 
@@ -222,7 +222,7 @@ flags:
 `)
 	var stdout bytes.Buffer
 
-	err := run([]string{"parse", "--", "--count", "3"}, true, specReader, &stdout)
+	err := run([]string{"parse", "--", "--count", "3"}, true, specReader, &stdout, "")
 	require.NoError(t, err)
 
 	assert.NotEmpty(t, stdout.String())
@@ -237,7 +237,7 @@ flags:
 `)
 	var stdout bytes.Buffer
 
-	err := run([]string{"parse", "--", "--help"}, true, specReader, &stdout)
+	err := run([]string{"parse", "--", "--help"}, true, specReader, &stdout, "")
 	require.NoError(t, err)
 
 	assert.Contains(t, stdout.String(), "A tool.")
@@ -255,7 +255,7 @@ flags:
 `)
 	var stdout bytes.Buffer
 
-	require.NoError(t, run([]string{"parse", "--", "--help"}, true, specReader, &stdout))
+	require.NoError(t, run([]string{"parse", "--", "--help"}, true, specReader, &stdout, ""))
 
 	cmd := exec.Command("zsh", "-fc", stdout.String())
 	out, err := cmd.Output()
@@ -267,7 +267,7 @@ flags:
 // an unreachable statement after the eval must not run, and the real exit code must be 2.
 func TestRunParseErrorOutputStopsScriptWhenEvaldUnderRealZsh(t *testing.T) {
 	var stdout bytes.Buffer
-	require.NoError(t, run([]string{"parse", "--", "--bogus"}, true, strings.NewReader("name: greet\n"), &stdout))
+	require.NoError(t, run([]string{"parse", "--", "--bogus"}, true, strings.NewReader("name: greet\n"), &stdout, ""))
 
 	script := `eval "$SNIPPET"` + "\n" + `print -r -- "unreachable"`
 	cmd := exec.Command("zsh", "-fc", script)
@@ -281,7 +281,7 @@ func TestRunParseErrorOutputStopsScriptWhenEvaldUnderRealZsh(t *testing.T) {
 }
 
 func TestRunParseWithInvalidSpecFails(t *testing.T) {
-	err := run([]string{"parse", "--"}, true, strings.NewReader("not: [valid"), &bytes.Buffer{})
+	err := run([]string{"parse", "--"}, true, strings.NewReader("not: [valid"), &bytes.Buffer{}, "")
 	assert.Error(t, err)
 }
 
@@ -290,7 +290,7 @@ func TestRunWithActivatePrintsFpathWiring(t *testing.T) {
 	t.Setenv("COMPLEO_COMPLETION_DIR", dir)
 
 	var stdout bytes.Buffer
-	err := run([]string{"activate"}, false, strings.NewReader(""), &stdout)
+	err := run([]string{"activate"}, false, strings.NewReader(""), &stdout, "")
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "fpath+=("+zsh.Quote(dir)+")")
 }
@@ -299,7 +299,7 @@ func TestRunWithActivateWritesOwnCompletionFile(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("COMPLEO_COMPLETION_DIR", dir)
 
-	err := run([]string{"activate"}, false, strings.NewReader(""), &bytes.Buffer{})
+	err := run([]string{"activate"}, false, strings.NewReader(""), &bytes.Buffer{}, "")
 	require.NoError(t, err)
 
 	content, err := os.ReadFile(filepath.Join(dir, "_compleo"))
@@ -311,12 +311,12 @@ func TestRunWithActivateTwiceDoesNotRewriteUnchangedFile(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("COMPLEO_COMPLETION_DIR", dir)
 
-	require.NoError(t, run([]string{"activate"}, false, strings.NewReader(""), &bytes.Buffer{}))
+	require.NoError(t, run([]string{"activate"}, false, strings.NewReader(""), &bytes.Buffer{}, ""))
 	path := filepath.Join(dir, "_compleo")
 	before, err := os.Stat(path)
 	require.NoError(t, err)
 
-	require.NoError(t, run([]string{"activate"}, false, strings.NewReader(""), &bytes.Buffer{}))
+	require.NoError(t, run([]string{"activate"}, false, strings.NewReader(""), &bytes.Buffer{}, ""))
 	after, err := os.Stat(path)
 	require.NoError(t, err)
 
@@ -366,4 +366,63 @@ func TestCompletionDirDefaultsUnderHome(t *testing.T) {
 	dir, err := completionDir()
 	require.NoError(t, err)
 	assert.Contains(t, dir, filepath.Join(".local", "share", "compleo", "completions"))
+}
+
+func TestRunParseGenerateModeWritesWrappedScriptsCompletionFile(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("COMPLEO_COMPLETION_DIR", dir)
+
+	err := run([]string{"parse"}, true, strings.NewReader("name: greet\nflags:\n  --loud: shout\n"), &bytes.Buffer{}, modeGenerate)
+	require.NoError(t, err)
+
+	content, err := os.ReadFile(filepath.Join(dir, "_greet"))
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "#compdef greet")
+	assert.Contains(t, string(content), "COMPLEO_MODE=complete xargs greet")
+}
+
+func TestRunParseGenerateModeReportsSuccessAsSelfExitingZsh(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("COMPLEO_COMPLETION_DIR", dir)
+
+	var stdout bytes.Buffer
+	err := run([]string{"parse"}, true, strings.NewReader("name: greet\n"), &stdout, modeGenerate)
+	require.NoError(t, err)
+	assert.Contains(t, stdout.String(), "exit 0")
+	assert.Contains(t, stdout.String(), "generated completion")
+}
+
+func TestRunParseGenerateModeDoesNotRequireWrappedArgs(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("COMPLEO_COMPLETION_DIR", dir)
+
+	// Unlike a normal parse, generate mode doesn't parse "$@" at all, so a script run as
+	// "COMPLEO_MODE=generate ./greet" (no args of its own) must not fail or need "--".
+	err := run([]string{"parse"}, true, strings.NewReader("name: greet\npositionals:\n  - name: who\n    required: true\n"), &bytes.Buffer{}, modeGenerate)
+	assert.NoError(t, err)
+}
+
+// Simulates one Tab-press callback: the wrapped script's own "$@" is the compline
+// (typed name first, per carapace's "_carapace zsh <name> <words>" convention), not the
+// script's real arguments.
+func TestRunParseCompleteModeReturnsCandidates(t *testing.T) {
+	var stdout bytes.Buffer
+	err := run([]string{"parse", "--", "greet", "--l"}, true, strings.NewReader("name: greet\nflags:\n  --loud: shout\n"), &stdout, modeComplete)
+	require.NoError(t, err)
+	assert.Contains(t, stdout.String(), "loud")
+	assert.Contains(t, stdout.String(), "exit 0")
+}
+
+// Regression test for the bug this fixes: the wrapped script's eval is unconditional, so
+// without EmitComplete's wrapping it would try to execute carapace's raw wire format as
+// zsh code instead of just reproducing it on stdout for the generated completion file to capture.
+func TestRunParseCompleteModeOutputEvalsCleanlyUnderRealZsh(t *testing.T) {
+	var stdout bytes.Buffer
+	require.NoError(t, run([]string{"parse", "--", "greet", "--l"}, true, strings.NewReader("name: greet\nflags:\n  --loud: shout\n"), &stdout, modeComplete))
+
+	cmd := exec.Command("zsh", "-fc", `lines="$(eval "$SNIPPET")"; print -r -- "$lines"`)
+	cmd.Env = append(os.Environ(), "SNIPPET="+stdout.String())
+	out, err := cmd.Output()
+	require.NoError(t, err)
+	assert.Contains(t, string(out), "loud")
 }
