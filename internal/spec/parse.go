@@ -37,9 +37,8 @@ func ParseYAML(r io.Reader, name string) (*cobra.Command, Command, error) {
 	if err != nil {
 		return nil, Command{}, err
 	}
-	// Without a name:, cmd.Use would be "" — cobra's Name() reads "" as the first word of
-	// Use, which renders as a stray blank in --help's "Usage:" line. <script> fills that
-	// gap honestly: compleo has no other way to know the invoking name (never sees $0).
+	// Without a name:, cmd.Use would be "", rendering as a stray blank in "Usage:" — compleo
+	// has no other way to know the invoking name (never sees $0), so <script> fills the gap.
 	if sp.Name == "" {
 		cmd.Use = "<script>"
 	}

@@ -11,7 +11,7 @@
 #   mise run build && PATH="$PWD/bin:$PATH" examples/other_spec --help
 #   source <(PATH="$PWD/bin:$PATH" compleo completion) # then Tab-complete after --other-spec
 
-eval "$(compleo use <<SPEC
+eval "$(compleo up <<SPEC
 description: Demo of the \$spec(...) macro - delegates completion to a separate spec file.
 flags:
   --other-spec=: {description: "\$spec - delegates completion to a whole separate spec file"}

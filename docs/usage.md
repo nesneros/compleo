@@ -9,7 +9,7 @@ For what you can put in the spec (flags, positionals, types, completion), see
 Near the top of the script, before anything that uses its arguments:
 
 ```zsh
-eval "$(compleo use <<'SPEC'
+eval "$(compleo up <<'SPEC'
 description: Print a greeting.
 flags:
   --loud: {description: shout the greeting}
@@ -21,22 +21,22 @@ SPEC
 )"
 ```
 
-That's it — `compleo use` reads the spec, fills in the script's own name and `"$@"`, and
+That's it — `compleo up` reads the spec, fills in the script's own name and `"$@"`, and
 prints zsh that the outer `eval` runs, setting the parsed values (see step 2). `--help`, bad
 arguments, and errors are all handled automatically from this one line; nothing else is
 needed for those (see "What the `eval` can do on its own," below).
 
 The heredoc is quoted (`<<'SPEC'`), so nothing in it needs escaping, not even `$` or `` ` ``
-in description text. `use` is the convenient form — for finer control over the invocation
+in description text. `up` is the convenient form — for finer control over the invocation
 itself, use `compleo parse --name="${0:t}" -- "$@"` directly instead.
 
 ### Or: an external spec file
 
 compleo just reads the spec from its stdin — a heredoc is only one way to supply it. A file
-works too, and still doesn't need its own `name:` (`use` fills that in):
+works too, and still doesn't need its own `name:` (`up` fills that in):
 
 ```zsh
-eval "$(compleo use < "${0:A:h}/greet.spec.yaml")"
+eval "$(compleo up < "${0:A:h}/greet.spec.yaml")"
 ```
 
 ## 2. Read the parsed values
@@ -69,7 +69,7 @@ Everything below happens from that one `eval` line — no extra code needed in t
   `|| exit $?` needed after the `eval` — exiting is already part of what gets `eval`'d.
 - The one gap this doesn't cover: if the `compleo` binary itself can't even run (missing, not
   executable, ...), there's nothing to `eval` at all — an explicit exit-code check on the
-  `eval` is the only way to catch it. `use` re-invokes `compleo parse` internally, so in
+  `eval` is the only way to catch it. `up` re-invokes `compleo parse` internally, so in
   principle this gap applies twice; in practice, if the first call ran, the second will too.
 
 ## 3. Enable completion
@@ -120,7 +120,7 @@ than with a message.
 ```zsh
 #!/usr/bin/env zsh
 
-eval "$(compleo use <<'SPEC'
+eval "$(compleo up <<'SPEC'
 description: Print a greeting.
 flags:
   --loud: {description: shout the greeting}

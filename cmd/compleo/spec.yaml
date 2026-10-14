@@ -5,11 +5,11 @@ description: >-
   zsh completion — all from one spec file.
 commands:
   - name: activate
-    description: Print zsh code adding compleo's completions directory to fpath. Eval this in .zshrc before compinit, e.g. eval "$(compleo activate)".
+    description: Enable Tab-completion for compleo-wrapped scripts in this shell. Add to .zshrc before compinit runs, e.g. eval "$(compleo activate)".
   - name: completion
-    description: Print compleo's own zsh completion script and exit.
+    description: Print compleo's own zsh completion script. Most users want "activate" instead; this is for embedding compleo's completion into a custom setup.
   - name: generate
-    description: Generate zsh completion for a script that wraps compleo (equivalent to running it with COMPLEO_MODE=generate set).
+    description: Generate Tab-completion for a compleo-wrapped script. Run once after writing or editing the script; a new shell (or "compleo activate" in the current one) picks it up.
     positionals:
       - name: script
         description: The script to generate completion for — a bare name resolved via $PATH, or a path.
@@ -18,14 +18,14 @@ commands:
       positional:
         - ["$compleo.scripts"]
   - name: parse
-    description: Parse the wrapped script's command line against the spec piped on stdin. You will typically want to use "use" instead.
+    description: Parse the wrapped script's command line against the spec piped on stdin, printing zsh for the script to eval. Most scripts should use "up" instead; reach for this directly when you need control over the name or arguments passed.
     flags:
-      --name=: The script's own invoking name (e.g. "${0:t}"), for --help/error text and completion — lets a spec's heredoc skip name:, and stay quoted (no $/`-escaping needed).
+      --name=: "The script's own name (e.g. \"${0:t}\"), shown in --help/error text and used for completion. Lets the spec's heredoc skip name: and stay quoted, so nothing needs escaping."
     positionals:
       - name: args
         variadic: true
-  - name: use
-    description: Print zsh that re-invokes "compleo parse" with --name and -- "$@" filled in from the spec piped on stdin. Simplest way to wire compleo into a script, e.g. eval "$(compleo use <<SPEC ... SPEC)"; use "parse" directly for finer control.
+  - name: up
+    description: Wire compleo into a script from the spec piped on stdin — the simplest way to integrate compleo, e.g. eval "$(compleo up <<SPEC ... SPEC)". Use "parse" directly if you need finer control over the invocation.
   - name: validate
     description: Validate the spec piped on stdin and exit.
   - name: version

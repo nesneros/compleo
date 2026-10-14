@@ -216,14 +216,14 @@ func TestRunParseRequiresPipedStdin(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestRunUseRequiresPipedStdin(t *testing.T) {
-	err := run([]string{"use"}, false, strings.NewReader(""), &bytes.Buffer{}, "")
+func TestRunUpRequiresPipedStdin(t *testing.T) {
+	err := run([]string{"up"}, false, strings.NewReader(""), &bytes.Buffer{}, "")
 	assert.Error(t, err)
 }
 
-func TestRunUseEmitsReinvocationSnippet(t *testing.T) {
+func TestRunUpEmitsReinvocationSnippet(t *testing.T) {
 	var stdout bytes.Buffer
-	err := run([]string{"use"}, true, strings.NewReader("flags:\n  --loud: shout\n"), &stdout, "")
+	err := run([]string{"up"}, true, strings.NewReader("flags:\n  --loud: shout\n"), &stdout, "")
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), `compleo parse --name="${0:t}" -- "$@"`)
 }
@@ -429,11 +429,9 @@ func TestRunParseGenerateModeDoesNotRequireWrappedArgs(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// Simulates one Tab-press callback for a wrapped script's own completion file: COMPLEO_SPEC_FILE
-// is what WrappedCompletion embeds (see internal/zsh) — a path to the companion spec file
-// written at generate time — and args[0] is the typed command name (carapace's own "_carapace
-// zsh <name> <words>" convention) — already there verbatim, since the generated file's xargs
-// call passes the compline straight through.
+// Simulates one Tab-press callback: COMPLEO_SPEC_FILE is the companion spec file path
+// WrappedCompletion embeds; args[0] is the typed command name (carapace's "_carapace zsh
+// <name> <words>" convention).
 func TestRunCarapaceWithCompleoSpecFileCompletesTheReferencedSpec(t *testing.T) {
 	specFile := filepath.Join(t.TempDir(), ".greet.spec.yaml")
 	require.NoError(t, os.WriteFile(specFile, []byte("name: greet\nflags:\n  --loud: shout\n"), 0o644))
@@ -461,10 +459,8 @@ func TestRunCarapaceWithMissingCompleoSpecFileFails(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// "generate" is a convenience wrapper around running a wrapped script by hand with
-// COMPLEO_MODE=generate set — this checks runGenerateFor's own wiring (PATH resolution,
-// env var, stdout passthrough), not the full parse/generate pipeline (already covered by
-// the TestRunParseGenerateMode* tests above).
+// Checks runGenerateFor's own wiring (PATH resolution, env var, stdout passthrough), not
+// the full parse/generate pipeline (covered by the TestRunParseGenerateMode* tests above).
 func TestRunGenerateSetsCompleoModeEnvVarOnTheResolvedExecutable(t *testing.T) {
 	dir := t.TempDir()
 	scriptPath := filepath.Join(dir, "fake-wrapped")

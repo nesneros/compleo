@@ -79,10 +79,8 @@ func TestWrappedCompletionIsSyntacticallyValidZsh(t *testing.T) {
 	require.NoError(t, exec.Command("zsh", "-n", "-c", snippet).Run())
 }
 
-// Regression test for the actual bug this mechanism fixes: a spec's declared name: can
-// drift from the script's real, invokable name (e.g. a spec file with a hardcoded name:
-// that no longer matches the script it's for) — #compdef registration has to use the real
-// name regardless of what the spec says, or Tab-completion silently never triggers at all.
+// #compdef registration must use the given name, not whatever a spec's own (possibly
+// stale) name: declares, or Tab-completion silently never triggers.
 func TestWrappedCompletionUsesGivenNameNotCmdName(t *testing.T) {
 	cmd, _, err := spec.ParseYAML(strings.NewReader("name: carapace-bin-macros\nflags:\n  --loud: shout\n"), "")
 	require.NoError(t, err)
@@ -96,12 +94,9 @@ func TestWrappedCompletionUsesGivenNameNotCmdName(t *testing.T) {
 	assert.Contains(t, snippet, "compdef _carapace_bin_macros_completion carapace_bin_macros")
 }
 
-// The embedded path must survive being spliced into zsh source as a single-quoted string
-// and read back out exactly, including a path with spaces/quotes/$ in it — same rigor
-// Quote()'s own tests already require of it for ordinary values. COMPLEO_SPEC_FILE is
-// function-local (see WrappedCompletion), so it can't be read after the function returns —
-// a fake "xargs" (shadowing the real one) captures it to a file instead, from inside the one
-// real call site that would otherwise pass it to compleo.
+// The embedded path must round-trip exactly (spaces/quotes/$ included) through being
+// spliced in as a single-quoted string. COMPLEO_SPEC_FILE is function-local, so a fake
+// "xargs" captures it to a file instead of it being readable after the function returns.
 func TestWrappedCompletionSpecFilePathRoundTripsThroughRealZsh(t *testing.T) {
 	specPath := "/some dir/with '$pecial `chars/.greet.spec.yaml"
 	cmd, _, err := spec.ParseYAML(strings.NewReader("name: greet\nflags:\n  --loud: shout\n"), "")

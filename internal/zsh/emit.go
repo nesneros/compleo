@@ -19,23 +19,18 @@ func EmitHelp(w io.Writer, text string) error {
 	return err
 }
 
-// EmitError writes a wrapped script's own parse error as zsh that prints "name: err" to
-// stderr and exits 2 (the conventional Unix "bad usage" code, distinct from main()'s
-// generic exit(1) for compleo's own invocation failures) — so simply eval'ing compleo's
-// output is enough to stop the script, no separate exit-code check needed by the caller.
+// EmitError prints "name: err" to stderr and exits 2 (conventional "bad usage", distinct
+// from main()'s generic exit(1) for compleo's own failures) — eval'ing the output alone
+// stops the script, no separate exit-code check needed by the caller.
 func EmitError(w io.Writer, name string, parseErr error) error {
 	_, err := fmt.Fprintf(w, "print -u2 -- %s\nexit 2\n", Quote(fmt.Sprintf("%s: %s", name, parseErr)))
 	return err
 }
 
-// EmitGenerated writes an activation hint for the current shell as zsh, same convention as
-// EmitHelp/EmitError. An already-running shell won't notice the new completion file without
-// a compinit rerun (rescans all of $fpath) or this cheaper per-file equivalent: compleo can't
-// run it directly, since compleo only ever runs as a subprocess, which can't modify its
-// parent shell's completion state. Must autoload "_<name>" (the file's own name), not
-// "_<name>_completion" (the function WrappedCompletion defines inside it) — autoload resolves
-// by filename, and only "_<name>" matches a real file; calling it is what actually defines
-// and rebinds the inner function.
+// EmitGenerated prints the activation hint for the current shell (compleo can't run it
+// itself — a subprocess can't touch its parent shell's state). Must autoload "_<name>" (the
+// file), not "_<name>_completion" (the function inside it) — only the file is a real
+// autoload target; calling it is what defines and rebinds the inner function.
 func EmitGenerated(w io.Writer, name string) error {
 	msg := Quote(fmt.Sprintf(
 		"To activate completion for %s in this shell, run: autoload -Uz _%s && compdef _%s %s",
@@ -45,24 +40,18 @@ func EmitGenerated(w io.Writer, name string) error {
 	return err
 }
 
-// EmitUse writes zsh that re-invokes "compleo parse" with --name and -- "$@" filled in,
-// embedding rawSpec as a quoted here-string — so a script's own eval line doesn't need to
-// specify any of that itself. Not mode-aware on purpose: the generated command just inherits
-// whatever COMPLEO_MODE the real invocation already runs under (confirmed empirically), so
-// this works unchanged for COMPLEO_MODE=generate too.
-func EmitUse(w io.Writer, rawSpec string) error {
+// EmitUp wires compleo into a script without it writing --name/--/"$@" itself: the printed
+// zsh fills those in and embeds rawSpec as a quoted here-string. Not mode-aware — the
+// generated command just inherits whatever COMPLEO_MODE the real invocation runs under.
+func EmitUp(w io.Writer, rawSpec string) error {
 	_, err := fmt.Fprintf(w, `eval "$(compleo parse --name="${0:t}" -- "$@" <<<%s)"`+"\n", Quote(rawSpec))
 	return err
 }
 
-// EmitActivate writes "activate"'s output: fpath+=(dir), plus a guarded autoload+compdef for
-// every file already in dir. The guard matters: compdef isn't even defined until compinit has
-// run once (confirmed empirically), and activate's documented use is to run *before*
-// compinit — where this is a harmless no-op, since compinit's own scan moments later already
-// autoloads and registers everything in dir anyway. The guarded block only does real work if
-// activate is (re-)run in an already-initialized shell, where nothing else would otherwise
-// pick up dir's contents. dir is never empty (it always holds at least compleo's own "_compleo"),
-// so the glob is guaranteed to match.
+// EmitActivate adds dir to fpath plus a guarded autoload+compdef for everything already in
+// it. Guarded because compdef doesn't exist until compinit has run once — before compinit
+// (the documented use) this is a harmless no-op; it only does real work when activate
+// (re-)runs in an already-initialized shell. dir always has at least "_compleo".
 func EmitActivate(w io.Writer, dir string) error {
 	_, err := fmt.Fprintf(w, `fpath+=(%[1]s)
 autoload -Uz %[1]s/*
@@ -74,9 +63,8 @@ fi
 }
 
 // Emit fills a fixed "compleo" assoc array with scalar values; a repeatable flag or
-// variadic positional instead gets its own real zsh array, since assoc values are scalars
-// only. Scalars write immediately; arrays are deferred so they still print after every
-// scalar, matching the old build-a-string-then-print order without needing a buffer for it.
+// variadic positional gets its own real zsh array instead, since assoc values are scalars
+// only. Arrays are deferred so they still print after every scalar.
 func Emit(w io.Writer, result parse.Result) error {
 	var writeErr error
 	write := func(s string) {

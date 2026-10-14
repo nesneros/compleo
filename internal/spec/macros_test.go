@@ -37,11 +37,9 @@ func writeFile(t *testing.T, content string) string {
 	return path
 }
 
-// TestCompleoScriptsMacroCompletesOnlyWrappedExecutablesOnPath drives $_.scripts (the macro
-// registered as $compleo.scripts) end-to-end through a real cobra _carapace dispatch — the
-// same path "compleo generate <TAB>" uses. $_.scripts is the raw internal form: $compleo.scripts
-// only resolves to it when the running binary is actually named "compleo" (confirmed manually
-// against the real built binary), which isn't true for a go test binary.
+// Drives $_.scripts (the macro registered as $compleo.scripts — "compleo." only resolves
+// when the running binary is actually named compleo, not a go test binary) through a real
+// cobra _carapace dispatch, the same path "compleo generate <TAB>" uses.
 func TestCompleoScriptsMacroCompletesOnlyWrappedExecutablesOnPath(t *testing.T) {
 	dir := t.TempDir()
 	write := func(name, content string) {

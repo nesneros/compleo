@@ -58,30 +58,30 @@ type Positional struct {
 type Type string
 
 const (
-	TypeString   Type = ""
-	TypeInt      Type = "int"
-	TypeFloat    Type = "float"
-	TypeBool     Type = "bool"
-	TypeDuration Type = "duration"
-	TypePath     Type = "path"
+	typeString   Type = ""
+	typeInt      Type = "int"
+	typeFloat    Type = "float"
+	typeBool     Type = "bool"
+	typeDuration Type = "duration"
+	typePath     Type = "path"
 )
 
 // Validate reports whether s is a valid t: cobra only ever parses these as plain strings.
 func (t Type) Validate(s string) error {
 	switch t {
-	case TypeInt:
+	case typeInt:
 		if _, err := strconv.Atoi(s); err != nil {
 			return fmt.Errorf("invalid int value %q", s)
 		}
-	case TypeFloat:
+	case typeFloat:
 		if _, err := strconv.ParseFloat(s, 64); err != nil {
 			return fmt.Errorf("invalid float value %q", s)
 		}
-	case TypeBool:
+	case typeBool:
 		if _, err := strconv.ParseBool(s); err != nil {
 			return fmt.Errorf("invalid bool value %q", s)
 		}
-	case TypeDuration:
+	case typeDuration:
 		if _, err := time.ParseDuration(s); err != nil {
 			return fmt.Errorf("invalid duration value %q", s)
 		}
@@ -102,17 +102,16 @@ func (c Command) toCarapace() carapacespec.Command {
 	return carapacespec.Command(cmd)
 }
 
-// addFlagTypeHints appends a backtick-quoted type name to each typed flag's description,
-// so cobra's usage text shows e.g. "--times int" instead of pflag's registered "string":
-// pflag.UnquoteUsage looks for a backtick-quoted segment in the usage string before
-// falling back to the flag's actual registered type (confirmed in pflag's source).
+// addFlagTypeHints appends a backtick-quoted type name to each typed flag's description, so
+// usage shows e.g. "--times int" — pflag.UnquoteUsage prefers a backtick-quoted segment over
+// the flag's actual registered type.
 func addFlagTypeHints(flags command.FlagSet, flagTypes map[string]Type) command.FlagSet {
 	if len(flagTypes) == 0 {
 		return flags
 	}
 	hinted := make(command.FlagSet, len(flags))
 	for name, f := range flags {
-		if t, ok := flagTypes[name]; ok && t != TypeString {
+		if t, ok := flagTypes[name]; ok && t != typeString {
 			f.Description += " (`" + string(t) + "`)"
 		}
 		hinted[name] = f

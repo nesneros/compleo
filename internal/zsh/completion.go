@@ -23,12 +23,9 @@ func Completion(cmd *cobra.Command) (string, error) {
 }
 
 // WrappedCompletion generates the completion function for a wrapped script's cmd, registered
-// under name — the real, invokable name, not necessarily cmd.Name() (which is just whatever
-// the spec declares and can drift from it; the caller's call, not inferred here).
+// under name — the real, invokable name, not necessarily cmd.Name() (the caller's call).
 // specFilePath is where the caller already wrote the spec on disk; only the path is embedded
-// (as a function-local exported COMPLEO_SPEC_FILE), to avoid an env var's size limits.
-// carapace's own invocation is left untouched, so a Tab press reads that file directly — the
-// wrapped script itself only needs to be on $PATH once, at generate time.
+// (as COMPLEO_SPEC_FILE), to avoid an env var's size limits.
 func WrappedCompletion(cmd *cobra.Command, name string, specFilePath string) (string, error) {
 	renameCommand(cmd, name)
 	snippet, err := Completion(cmd)

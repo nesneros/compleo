@@ -68,7 +68,7 @@ completion:
     usage: ["$usage(custom)"]
 SPEC
 )
-eval "$(compleo use <<<"$spec")"
+eval "$(compleo up <<<"$spec")"
 
 for key in "${(k)compleo[@]}"; do
   [[ -n $compleo[$key] ]] && print -r -- "$key = $compleo[$key]"

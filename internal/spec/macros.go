@@ -11,15 +11,14 @@ import (
 )
 
 func init() {
-	carapacespec.AddMacro("scripts", carapacespec.MacroN(func() carapace.Action { return ActionScripts() }),
+	carapacespec.AddMacro("scripts", carapacespec.MacroN(func() carapace.Action { return actionScripts() }),
 		`Executables on $PATH that look like they wrap compleo (have a shebang and mention "compleo")`)
 }
 
-// ActionScripts implements $compleo.scripts: like $executables, but narrowed to executables
-// that look like they wrap compleo, for "compleo generate <TAB>" (any PATH binary is useless
-// there). Merged with plain file completion, since "generate" also accepts a path (unfiltered
-// there — carapace's path completion has no hook to filter candidates by file content).
-func ActionScripts() carapace.Action {
+// actionScripts implements $compleo.scripts: like $executables, narrowed to compleo-wrapped
+// ones, merged with plain file completion (generate also accepts a path, unfiltered there —
+// carapace's path completion has no hook to filter by file content).
+func actionScripts() carapace.Action {
 	return carapace.Batch(actionPathScripts(), carapace.ActionFiles()).ToA()
 }
 
@@ -52,9 +51,8 @@ func actionPathScripts() carapace.Action {
 	})
 }
 
-// IsCompleoScript heuristically checks for a shebang plus "compleo" in path's first 4KB —
-// a cheap native check (no "file" subprocess), not a guarantee either way. Used by
-// $compleo.scripts and compleo generate's sanity check before executing anything.
+// IsCompleoScript checks for a shebang plus "compleo" in path's first 4KB — cheap, not a
+// guarantee. Used by $compleo.scripts and generate's sanity check.
 func IsCompleoScript(path string) bool {
 	f, err := os.Open(path)
 	if err != nil {

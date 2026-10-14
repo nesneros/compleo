@@ -97,8 +97,8 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, mode string) er
 			wrappedArgs = []string{}
 		}
 		return runParse(wrappedArgs, piped, in, out, result.Flags["name"].String, mode)
-	case "use":
-		return runUse(piped, in, out)
+	case "up":
+		return runUp(piped, in, out)
 	case "validate":
 		if !piped {
 			return errors.New("no spec piped on stdin (compleo expects a spec to validate on stdin)")
@@ -140,10 +140,10 @@ func runParse(args []string, piped bool, in io.Reader, out io.Writer, name strin
 	return runEmit(cmd, sp, args, out)
 }
 
-// runUse reads the piped spec and writes zsh that re-invokes "compleo parse" with it
-// embedded (see zsh.EmitUse) — doesn't validate the spec itself, that happens naturally
+// runUp reads the piped spec and writes zsh that re-invokes "compleo parse" with it
+// embedded (see zsh.EmitUp) — doesn't validate the spec itself, that happens naturally
 // once the generated command actually runs.
-func runUse(piped bool, in io.Reader, out io.Writer) error {
+func runUp(piped bool, in io.Reader, out io.Writer) error {
 	if !piped {
 		return errors.New("no spec piped on stdin (compleo expects its target script's spec on stdin)")
 	}
@@ -151,14 +151,12 @@ func runUse(piped bool, in io.Reader, out io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("reading spec: %w", err)
 	}
-	return zsh.EmitUse(out, string(rawSpec))
+	return zsh.EmitUp(out, string(rawSpec))
 }
 
-// runCarapace serves one live Tab-press request for a wrapped script's own completion:
-// specYAML is the companion file its generated completion points at (see WrappedCompletion),
-// built into a fresh cobra tree and dispatched into directly, without re-invoking the wrapped
-// script at all. _carapace's own Run never returns a Go error (it reports failures to its
-// own stderr), so there's no error-wrapping needed the way runEmit's cases have.
+// runCarapace serves one live Tab-press request: specYAML is the companion file its
+// generated completion points at, built into a fresh cobra tree and dispatched into
+// directly. _carapace's own Run never returns a Go error (reports failures to stderr itself).
 func runCarapace(specYAML io.Reader, args []string, out io.Writer) error {
 	cmd, _, err := spec.ParseYAML(specYAML, "")
 	if err != nil {
@@ -200,11 +198,8 @@ func runGenerate(cmd *cobra.Command, sp spec.Command, rawSpec string, out io.Wri
 		return err
 	}
 
-	// name is what completion gets registered under. "compleo generate <name>" always
-	// knows the real, invokable name (resolved via $PATH) and passes it via
-	// COMPLEO_GENERATE_NAME: an undeclared name: is filled in from that, but a declared one
-	// that disagrees is an error — generating under the wrong name would silently break
-	// Tab-completion for what's actually typed.
+	// name is what completion gets registered under. COMPLEO_GENERATE_NAME (from "generate
+	// <script>") fills in an undeclared name:, but a declared one that disagrees is an error.
 	name := sp.Name
 	if requested := os.Getenv("COMPLEO_GENERATE_NAME"); requested != "" {
 		if sp.Name != "" && sp.Name != requested {

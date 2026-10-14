@@ -51,7 +51,7 @@ positionals:
 	p := cmd.Positionals[0]
 	assert.Equal(t, "file", p.Name)
 	assert.True(t, p.Required)
-	assert.Equal(t, TypePath, p.Type)
+	assert.Equal(t, typePath, p.Type)
 }
 
 func TestParseFlagTypeOverlay(t *testing.T) {
@@ -64,7 +64,7 @@ flagtypes:
 `))
 	require.NoError(t, err)
 
-	assert.Equal(t, TypeInt, cmd.FlagTypes["count"])
+	assert.Equal(t, typeInt, cmd.FlagTypes["count"])
 }
 
 func TestParseSubcommandCarriesItsOwnPositionals(t *testing.T) {
@@ -162,30 +162,30 @@ flagtypes:
 }
 
 func TestTypeValidateIntAcceptsValidValue(t *testing.T) {
-	assert.NoError(t, TypeInt.Validate("3"))
+	assert.NoError(t, typeInt.Validate("3"))
 }
 
 func TestTypeValidateIntRejectsNonNumeric(t *testing.T) {
-	assert.Error(t, TypeInt.Validate("abc"))
+	assert.Error(t, typeInt.Validate("abc"))
 }
 
 func TestTypeValidateFloatRejectsNonNumeric(t *testing.T) {
-	assert.Error(t, TypeFloat.Validate("abc"))
+	assert.Error(t, typeFloat.Validate("abc"))
 }
 
 func TestTypeValidateBoolRejectsNonBool(t *testing.T) {
-	assert.Error(t, TypeBool.Validate("maybe"))
+	assert.Error(t, typeBool.Validate("maybe"))
 }
 
 func TestTypeValidateDurationRejectsInvalid(t *testing.T) {
-	assert.Error(t, TypeDuration.Validate("soon"))
+	assert.Error(t, typeDuration.Validate("soon"))
 }
 
 func TestTypeValidateDurationAcceptsValid(t *testing.T) {
-	assert.NoError(t, TypeDuration.Validate("5m"))
+	assert.NoError(t, typeDuration.Validate("5m"))
 }
 
 func TestTypeValidateStringAndPathAcceptAnything(t *testing.T) {
-	assert.NoError(t, TypeString.Validate("anything at all"))
-	assert.NoError(t, TypePath.Validate("anything at all"))
+	assert.NoError(t, typeString.Validate("anything at all"))
+	assert.NoError(t, typePath.Validate("anything at all"))
 }

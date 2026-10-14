@@ -285,10 +285,9 @@ func TestEmitGeneratedPrintsConfirmationToStderrAndExitsZero(t *testing.T) {
 	assert.Contains(t, stderr.String(), "autoload -Uz _greet && compdef _greet greet")
 }
 
-// Regression test: an earlier hint ("compdef _greet_completion greet" directly) looked right
-// and even set _comps[greet] correctly, but _greet_completion was never defined or
-// autoloaded, so real completion failed with "command not found". Uses real generated
-// content and actually calls the autoloaded name, not just checking what _comps[greet] holds.
+// Uses real generated content and calls the autoloaded name, not just checking
+// _comps[greet] — a hint that only sets _comps correctly without a real autoload target
+// still fails at the actual Tab press with "command not found".
 func TestEmitGeneratedActivationHintActuallyWorksFromColdStart(t *testing.T) {
 	cmd, _, err := spec.ParseYAML(strings.NewReader("name: greet\nflags:\n  --loud: shout\n"), "")
 	require.NoError(t, err)
@@ -316,31 +315,29 @@ print -r -- "${_comps[greet]}"
 	assert.Equal(t, "_greet_completion\n", string(out))
 }
 
-func TestEmitUseGeneratesReinvocationWithNameAndArgsFilledIn(t *testing.T) {
+func TestEmitUpGeneratesReinvocationWithNameAndArgsFilledIn(t *testing.T) {
 	var buf bytes.Buffer
-	require.NoError(t, EmitUse(&buf, "flags:\n  --loud: shout\n"))
+	require.NoError(t, EmitUp(&buf, "flags:\n  --loud: shout\n"))
 
 	snippet := buf.String()
 	assert.Contains(t, snippet, `compleo parse --name="${0:t}" -- "$@"`)
 	assert.Contains(t, snippet, "<<<")
 }
 
-func TestEmitUseIsSyntacticallyValidZsh(t *testing.T) {
+func TestEmitUpIsSyntacticallyValidZsh(t *testing.T) {
 	var buf bytes.Buffer
-	require.NoError(t, EmitUse(&buf, "flags:\n  --loud: shout\n"))
+	require.NoError(t, EmitUp(&buf, "flags:\n  --loud: shout\n"))
 
 	require.NoError(t, exec.Command("zsh", "-n", "-c", buf.String()).Run())
 }
 
-// EmitUse's generated code re-invokes "compleo parse" as a real subprocess — stub it with a
-// fake shell function to capture exactly what it receives, same technique
-// TestWrappedCompletionEmbeddedSpecRoundTripsThroughRealZsh uses for xargs. Confirms the
-// script's own name/args reach the inner call, and the spec round-trips byte for byte
-// (including a quote, $, and backtick) despite going through the <<< here-string.
-func TestEmitUseGeneratedCodeInvokesParseWithNameArgsAndSpec(t *testing.T) {
+// Stubs "compleo" as a fake shell function to capture what the generated code's inner
+// invocation receives — confirms name/args reach it, and the spec round-trips byte for byte
+// through the <<< here-string.
+func TestEmitUpGeneratedCodeInvokesParseWithNameArgsAndSpec(t *testing.T) {
 	original := "description: it's $dangerous `here`\nflags:\n  --loud: shout\n"
 	var buf bytes.Buffer
-	require.NoError(t, EmitUse(&buf, original))
+	require.NoError(t, EmitUp(&buf, original))
 
 	captureFile := filepath.Join(t.TempDir(), "captured")
 	script := fmt.Sprintf(`
