@@ -59,7 +59,7 @@ positionals:
 completion:
   positional:
     - ["$_.scripts"]
-`))
+`), "")
 	require.NoError(t, err)
 
 	var buf bytes.Buffer
@@ -70,4 +70,29 @@ completion:
 	assert.Contains(t, buf.String(), "my-wrapped-tool")
 	assert.NotContains(t, buf.String(), "my-plain-script")
 	assert.NotContains(t, buf.String(), "my-compleo-mention-binary")
+}
+
+// Confirms the merge with carapace's own file completion actually works: $compleo.scripts
+// must also offer path candidates, since "compleo generate" now accepts a path too.
+func TestCompleoScriptsMacroAlsoCompletesFilePaths(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "some-file"), []byte("x"), 0o644))
+	t.Setenv("PATH", "")
+
+	cmd, _, err := ParseYAML(strings.NewReader(`
+name: mytool
+positionals:
+  - name: target
+completion:
+  positional:
+    - ["$_.scripts"]
+`), "")
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	cmd.SetArgs([]string{"_carapace", "zsh", "mytool", dir + "/"})
+	cmd.SetOut(&buf)
+	require.NoError(t, cmd.Execute())
+
+	assert.Contains(t, buf.String(), "some-file")
 }

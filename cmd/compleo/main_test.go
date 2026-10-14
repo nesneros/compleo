@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nesneros/compleo/internal/spec"
 	"github.com/nesneros/compleo/internal/zsh"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -113,6 +114,30 @@ func TestRunParseErrorIncludesScriptName(t *testing.T) {
 	err := run([]string{"parse", "--", "--bogus"}, true, strings.NewReader("name: greet\n"), &stdout, "")
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "greet:")
+}
+
+// --name fills in a missing name: without needing an unquoted, escape-requiring heredoc.
+func TestRunParseNameFlagFillsInMissingSpecName(t *testing.T) {
+	var stdout bytes.Buffer
+	err := run([]string{"parse", "--name", "greet", "--", "--bogus"}, true, strings.NewReader("flags:\n  --loud: shout\n"), &stdout, "")
+	require.NoError(t, err)
+	assert.Contains(t, stdout.String(), "greet:")
+}
+
+func TestRunParseNameFlagMatchingDeclaredNameSucceeds(t *testing.T) {
+	var stdout bytes.Buffer
+	err := run([]string{"parse", "--name", "greet", "--", "--bogus"}, true, strings.NewReader("name: greet\n"), &stdout, "")
+	require.NoError(t, err)
+	assert.Contains(t, stdout.String(), "greet:")
+}
+
+// The matching logic itself is spec.ParseYAML's (internal/spec/parse_test.go); this just
+// confirms --name is wired through to it.
+func TestRunParseNameFlagMismatchWithDeclaredNameFails(t *testing.T) {
+	err := run([]string{"parse", "--name", "other-name", "--", "world"}, true, strings.NewReader("name: greet\n"), &bytes.Buffer{}, "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `spec declares name: "greet"`)
+	assert.Contains(t, err.Error(), `"other-name" was given`)
 }
 
 // Regression test: cobra used to write its own "Error: ...\nUsage:..." straight to the
@@ -242,6 +267,15 @@ flags:
 
 	assert.Contains(t, stdout.String(), "A tool.")
 	assert.Contains(t, stdout.String(), "exit 0")
+}
+
+// --name must also correct the --help/"Usage:" synopsis, not just error text — spec.ParseYAML
+// applies it before building cmd, so cmd.Use already reflects it from the start.
+func TestRunParseNameFlagCorrectsUsageSynopsis(t *testing.T) {
+	var stdout bytes.Buffer
+	err := run([]string{"parse", "--name", "greet", "--", "--help"}, true, strings.NewReader("flags:\n  --loud: shout\n"), &stdout, "")
+	require.NoError(t, err)
+	assert.Contains(t, stdout.String(), "Usage:\n  greet [flags]")
 }
 
 // Regression test for the bug this fixes: cobra used to write the wrapped command's
@@ -378,7 +412,11 @@ func TestRunParseGenerateModeWritesWrappedScriptsCompletionFile(t *testing.T) {
 	content, err := os.ReadFile(filepath.Join(dir, "_greet"))
 	require.NoError(t, err)
 	assert.Contains(t, string(content), "#compdef greet")
-	assert.Contains(t, string(content), "COMPLEO_MODE=complete xargs greet")
+	assert.Contains(t, string(content), "local -x COMPLEO_SPEC_FILE="+zsh.Quote(filepath.Join(dir, ".greet.spec.yaml")))
+
+	specContent, err := os.ReadFile(filepath.Join(dir, ".greet.spec.yaml"))
+	require.NoError(t, err)
+	assert.Equal(t, "name: greet\nflags:\n  --loud: shout\n", string(specContent))
 }
 
 func TestRunParseGenerateModeReportsSuccessAsSelfExitingZsh(t *testing.T) {
@@ -402,29 +440,36 @@ func TestRunParseGenerateModeDoesNotRequireWrappedArgs(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// Simulates one Tab-press callback: the wrapped script's own "$@" is the compline
-// (typed name first, per carapace's "_carapace zsh <name> <words>" convention), not the
-// script's real arguments.
-func TestRunParseCompleteModeReturnsCandidates(t *testing.T) {
+// Simulates one Tab-press callback for a wrapped script's own completion file: COMPLEO_SPEC_FILE
+// is what WrappedCompletion embeds (see internal/zsh) — a path to the companion spec file
+// written at generate time — and args[0] is the typed command name (carapace's own "_carapace
+// zsh <name> <words>" convention) — already there verbatim, since the generated file's xargs
+// call passes the compline straight through.
+func TestRunCarapaceWithCompleoSpecFileCompletesTheReferencedSpec(t *testing.T) {
+	specFile := filepath.Join(t.TempDir(), ".greet.spec.yaml")
+	require.NoError(t, os.WriteFile(specFile, []byte("name: greet\nflags:\n  --loud: shout\n"), 0o644))
+	t.Setenv("COMPLEO_SPEC_FILE", specFile)
+
 	var stdout bytes.Buffer
-	err := run([]string{"parse", "--", "greet", "--l"}, true, strings.NewReader("name: greet\nflags:\n  --loud: shout\n"), &stdout, modeComplete)
+	err := run([]string{"_carapace", "zsh", "greet", "--l"}, false, strings.NewReader(""), &stdout, "")
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "loud")
-	assert.Contains(t, stdout.String(), "exit 0")
 }
 
-// Regression test for the bug this fixes: the wrapped script's eval is unconditional, so
-// without EmitComplete's wrapping it would try to execute carapace's raw wire format as
-// zsh code instead of just reproducing it on stdout for the generated completion file to capture.
-func TestRunParseCompleteModeOutputEvalsCleanlyUnderRealZsh(t *testing.T) {
-	var stdout bytes.Buffer
-	require.NoError(t, run([]string{"parse", "--", "greet", "--l"}, true, strings.NewReader("name: greet\nflags:\n  --loud: shout\n"), &stdout, modeComplete))
+func TestRunCarapaceWithInvalidCompleoSpecFileFails(t *testing.T) {
+	specFile := filepath.Join(t.TempDir(), ".greet.spec.yaml")
+	require.NoError(t, os.WriteFile(specFile, []byte("not: [valid"), 0o644))
+	t.Setenv("COMPLEO_SPEC_FILE", specFile)
 
-	cmd := exec.Command("zsh", "-fc", `lines="$(eval "$SNIPPET")"; print -r -- "$lines"`)
-	cmd.Env = append(os.Environ(), "SNIPPET="+stdout.String())
-	out, err := cmd.Output()
-	require.NoError(t, err)
-	assert.Contains(t, string(out), "loud")
+	err := run([]string{"_carapace", "zsh", "greet", ""}, false, strings.NewReader(""), &bytes.Buffer{}, "")
+	assert.Error(t, err)
+}
+
+func TestRunCarapaceWithMissingCompleoSpecFileFails(t *testing.T) {
+	t.Setenv("COMPLEO_SPEC_FILE", filepath.Join(t.TempDir(), "does-not-exist.yaml"))
+
+	err := run([]string{"_carapace", "zsh", "greet", ""}, false, strings.NewReader(""), &bytes.Buffer{}, "")
+	assert.Error(t, err)
 }
 
 // "generate" is a convenience wrapper around running a wrapped script by hand with
@@ -443,9 +488,85 @@ func TestRunGenerateSetsCompleoModeEnvVarOnTheResolvedExecutable(t *testing.T) {
 	assert.Equal(t, "mode=generate\n", stdout.String())
 }
 
+// Regression test: exec.LookPath resolves a path directly, without consulting $PATH at all,
+// when name contains a "/" — but COMPLEO_GENERATE_NAME used to be set to that whole path
+// string, which then mismatched the script's own "${0:t}"-derived bare name and failed.
+func TestRunGenerateForPathArgumentUsesBasenameNotFullPath(t *testing.T) {
+	dir := t.TempDir()
+	scriptPath := filepath.Join(dir, "fake-wrapped")
+	require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/sh\n# calls compleo\necho \"name=$COMPLEO_GENERATE_NAME\"\n"), 0o755))
+	t.Setenv("PATH", "") // scriptPath is given as a path below; $PATH must not matter at all.
+
+	var stdout bytes.Buffer
+	err := run([]string{"generate", scriptPath}, false, strings.NewReader(""), &stdout, "")
+	require.NoError(t, err)
+	assert.Equal(t, "name=fake-wrapped\n", stdout.String())
+}
+
 func TestRunGenerateFailsForUnknownExecutable(t *testing.T) {
 	err := run([]string{"generate", "definitely-not-a-real-command-xyz"}, false, strings.NewReader(""), &bytes.Buffer{}, "")
 	assert.Error(t, err)
+}
+
+// A spec without a name: at all (legal now) gets one embedded into its companion file.
+func TestRunGenerateInsertsNameWhenSpecDoesNotDeclareOne(t *testing.T) {
+	completionDir := t.TempDir()
+	t.Setenv("COMPLEO_COMPLETION_DIR", completionDir)
+	t.Setenv("COMPLEO_GENERATE_NAME", "real-name")
+
+	rawSpec := "flags:\n  --loud: shout\n"
+	cmd, sp, err := spec.ParseYAML(strings.NewReader(rawSpec), "")
+	require.NoError(t, err)
+	require.Empty(t, sp.Name)
+
+	require.NoError(t, runGenerate(cmd, sp, rawSpec, &bytes.Buffer{}))
+
+	content, err := os.ReadFile(filepath.Join(completionDir, "_real-name"))
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "#compdef real-name")
+	assert.Contains(t, string(content), "function _real-name_completion")
+	assert.Contains(t, string(content), "local -x COMPLEO_SPEC_FILE="+zsh.Quote(filepath.Join(completionDir, ".real-name.spec.yaml")))
+
+	specContent, err := os.ReadFile(filepath.Join(completionDir, ".real-name.spec.yaml"))
+	require.NoError(t, err)
+	assert.Equal(t, "name: 'real-name'\n"+rawSpec, string(specContent))
+}
+
+// Regression test: examples/greet's own pattern (--name=${0:t}, no name: in the spec text)
+// used to leave the companion file without a name: at all — sp.Name was already non-empty
+// by the time runGenerate looked, from --name, even though rawSpec's own text had none.
+func TestRunGenerateInsertsNameSuppliedOnlyViaNameFlag(t *testing.T) {
+	completionDir := t.TempDir()
+	t.Setenv("COMPLEO_COMPLETION_DIR", completionDir)
+
+	rawSpec := "flags:\n  --loud: shout\n"
+	err := run([]string{"parse", "--name", "greet", "--", "--loud"}, true, strings.NewReader(rawSpec), &bytes.Buffer{}, modeGenerate)
+	require.NoError(t, err)
+
+	specContent, err := os.ReadFile(filepath.Join(completionDir, ".greet.spec.yaml"))
+	require.NoError(t, err)
+	assert.Equal(t, "name: 'greet'\n"+rawSpec, string(specContent))
+}
+
+// A declared name: that disagrees with the real, invokable name is an error, not overridden.
+func TestRunGenerateFailsWhenSpecNameDisagreesWithInvokedName(t *testing.T) {
+	completionDir := t.TempDir()
+	t.Setenv("COMPLEO_COMPLETION_DIR", completionDir)
+	t.Setenv("COMPLEO_GENERATE_NAME", "real-name")
+
+	rawSpec := "name: wrong-name\nflags:\n  --loud: shout\n"
+	cmd, sp, err := spec.ParseYAML(strings.NewReader(rawSpec), "")
+	require.NoError(t, err)
+
+	err = runGenerate(cmd, sp, rawSpec, &bytes.Buffer{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `spec declares name: "wrong-name"`)
+	assert.Contains(t, err.Error(), `"real-name" was invoked`)
+
+	_, statErr := os.Stat(filepath.Join(completionDir, "_wrong-name"))
+	assert.True(t, os.IsNotExist(statErr))
+	_, statErr = os.Stat(filepath.Join(completionDir, "_real-name"))
+	assert.True(t, os.IsNotExist(statErr))
 }
 
 // Regression test: "generate" used to run whatever exec.LookPath resolved with no check at

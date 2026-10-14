@@ -9,10 +9,10 @@ commands:
   - name: completion
     description: Print compleo's own zsh completion script and exit.
   - name: generate
-    description: Generate zsh completion for an executable on PATH that wraps compleo (equivalent to running it with COMPLEO_MODE=generate set).
+    description: Generate zsh completion for a script that wraps compleo (equivalent to running it with COMPLEO_MODE=generate set).
     positionals:
-      - name: name
-        description: Executable to generate completion for, resolved via $PATH.
+      - name: script
+        description: The script to generate completion for — a bare name resolved via $PATH, or a path.
         required: true
     completion:
       positional:
@@ -21,6 +21,7 @@ commands:
     description: Parse the wrapped script's command line against the spec piped on stdin.
     flags:
       --dump: Print the result to stderr too, before stdout (for debugging).
+      --name=: The script's own invoking name (e.g. "${0:t}"), for --help/error text and completion — lets a spec's heredoc skip name:, and stay quoted (no $/`-escaping needed).
     positionals:
       - name: args
         variadic: true

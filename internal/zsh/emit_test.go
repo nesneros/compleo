@@ -44,13 +44,6 @@ func emitGenerated(t *testing.T, name, path string) string {
 	return buf.String()
 }
 
-func emitComplete(t *testing.T, wireFormat string) string {
-	t.Helper()
-	var buf bytes.Buffer
-	require.NoError(t, EmitComplete(&buf, wireFormat))
-	return buf.String()
-}
-
 func emitActivate(t *testing.T, dir string) string {
 	t.Helper()
 	var buf bytes.Buffer
@@ -191,7 +184,7 @@ positionals:
     required: true
   - name: extra
     variadic: true
-`))
+`), "")
 	require.NoError(t, err)
 
 	result, err := parse.Parse(cmd, sp, []string{
@@ -297,9 +290,9 @@ func TestEmitGeneratedPrintsConfirmationToStderrAndExitsZero(t *testing.T) {
 // autoloaded, so real completion failed with "command not found". Uses real generated
 // content and actually calls the autoloaded name, not just checking what _comps[greet] holds.
 func TestEmitGeneratedActivationHintActuallyWorksFromColdStart(t *testing.T) {
-	cmd, _, err := spec.ParseYAML(strings.NewReader("name: greet\nflags:\n  --loud: shout\n"))
+	cmd, _, err := spec.ParseYAML(strings.NewReader("name: greet\nflags:\n  --loud: shout\n"), "")
 	require.NoError(t, err)
-	content, err := WrappedCompletion(cmd)
+	content, err := WrappedCompletion(cmd, "greet", "name: greet\nflags:\n  --loud: shout\n")
 	require.NoError(t, err)
 
 	fpathDir := t.TempDir()
@@ -321,25 +314,6 @@ print -r -- "${_comps[greet]}"
 	out, err := exec.Command("zsh", "-fc", script).Output()
 	require.NoError(t, err)
 	assert.Equal(t, "_greet_completion\n", string(out))
-}
-
-func TestEmitCompletePrintsWireFormatVerbatimAndExitsZero(t *testing.T) {
-	// Deliberately includes characters a naive eval could misinterpret as zsh syntax,
-	// the same failure this is meant to prevent (see CLAUDE.md).
-	snippet := emitComplete(t, "=(#b)(--loud)([ ]## -- *)=0==2")
-
-	cmd := exec.Command("zsh", "-fc", snippet)
-	out, err := cmd.Output()
-	require.NoError(t, err)
-	assert.Equal(t, "=(#b)(--loud)([ ]## -- *)=0==2\n", string(out))
-}
-
-// Proves the bug EmitComplete fixes: eval'ing carapace's raw wire format directly (as the
-// wrapped script's unconditional eval line would, without this wrapper) is a zsh parse error.
-func TestRawWireFormatIsNotValidZsh(t *testing.T) {
-	cmd := exec.Command("zsh", "-fc", "=(#b)(--loud)([ ]## -- *)=0==2")
-	_, err := cmd.Output()
-	assert.Error(t, err)
 }
 
 func TestEmitActivatePrintsFpathWiring(t *testing.T) {

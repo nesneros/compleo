@@ -154,7 +154,7 @@ flags:
   --times=: how many times
 flagtypes:
   times: int
-`))
+`), "")
 	require.NoError(t, err)
 
 	assert.Contains(t, cmd.UsageString(), "--times int")

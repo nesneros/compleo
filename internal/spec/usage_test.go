@@ -53,7 +53,7 @@ func TestSynopsisLineWithoutFlags(t *testing.T) {
 func buildCobra(t *testing.T, yaml, root string) *cobra.Command {
 	t.Helper()
 
-	cmd, _, err := ParseYAML(strings.NewReader(yaml))
+	cmd, _, err := ParseYAML(strings.NewReader(yaml), "")
 	require.NoError(t, err)
 
 	if root == "" {
@@ -123,6 +123,19 @@ commands:
 `, "banana")
 
 	assert.Equal(t, "banana <peel>", bananaCmd.Use)
+}
+
+// Without a name:, cmd.Use gets a <script> placeholder instead of "".
+func TestApplyUsesPlaceholderNameWhenSpecDoesNotDeclareOne(t *testing.T) {
+	cmd := buildCobra(t, `
+flags:
+  --loud: shout
+positionals:
+  - name: who
+    required: true
+`, "")
+
+	assert.Equal(t, "<script> [flags] <who>", cmd.Use)
 }
 
 // A child command with no positionals of its own must not inherit its parent's

@@ -9,6 +9,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	"github.com/nesneros/compleo/internal/parse"
 	"github.com/nesneros/compleo/internal/spec"
@@ -21,10 +23,11 @@ var specYAML []byte
 
 // COMPLEO_MODE values: what "compleo parse" does beyond parsing "$@" — same heredoc
 // re-delivers the spec either way, so no mode-aware logic is needed in the script itself.
-const (
-	modeGenerate = "generate"
-	modeComplete = "complete"
-)
+const modeGenerate = "generate"
+
+// declaredNamePattern matches a spec's own top-level name: key — anchored to column 0, so it
+// doesn't match an indented one (a subcommand's, or a --name flag's own description text).
+var declaredNamePattern = regexp.MustCompile(`(?m)^name:`)
 
 func main() {
 	if err := run(os.Args[1:], isPiped(os.Stdin), os.Stdin, os.Stdout, os.Getenv("COMPLEO_MODE")); err != nil {
@@ -39,10 +42,21 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, mode string) er
 		panic("run: args must not be nil (use an empty slice for 'no arguments')")
 	}
 
-	ownCmd, ownSpec, err := compleoCmd(out)
-	if err != nil {
-		return err
+	// A live Tab press for a wrapped script's own completion: its generated completion file
+	// sets COMPLEO_SPEC_FILE (see WrappedCompletion) before calling "_carapace zsh ...", since
+	// ownCmd's own _carapace subcommand below only knows how to complete compleo itself.
+	if len(args) > 0 && args[0] == "_carapace" {
+		if specFile := os.Getenv("COMPLEO_SPEC_FILE"); specFile != "" {
+			f, err := os.Open(specFile)
+			if err != nil {
+				return fmt.Errorf("opening embedded spec file %q: %w", specFile, err)
+			}
+			defer f.Close() //nolint:errcheck
+			return runCarapace(f, args, out)
+		}
 	}
+
+	ownCmd, ownSpec := compleoCmd(out)
 
 	result, err := parse.Parse(ownCmd, ownSpec, args)
 	if err != nil || result.HelpRequested {
@@ -75,19 +89,19 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, mode string) er
 		}
 		fmt.Fprint(out, snippet)
 	case "generate":
-		return runGenerateFor(result.Positionals["name"].Values[0], out)
+		return runGenerateFor(result.Positionals["script"].Values[0], out)
 	case "parse":
 		// A variadic positional with zero values binds to nil, not an empty slice; Parse panics on nil.
 		wrappedArgs := result.Positionals["args"].Values
 		if wrappedArgs == nil {
 			wrappedArgs = []string{}
 		}
-		return runParse(wrappedArgs, piped, in, out, result.Flags["dump"].Bool, mode)
+		return runParse(wrappedArgs, piped, in, out, result.Flags["dump"].Bool, result.Flags["name"].String, mode)
 	case "validate":
 		if !piped {
 			return errors.New("no spec piped on stdin (compleo expects a spec to validate on stdin)")
 		}
-		if _, _, err := spec.ParseYAML(in); err != nil {
+		if _, _, err := spec.ParseYAML(in, ""); err != nil {
 			return fmt.Errorf("invalid spec: %w", err)
 		}
 		fmt.Fprintln(out, "ok")
@@ -99,13 +113,19 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, mode string) er
 	return nil
 }
 
-// runParse parses args against the piped spec, or dispatches to a COMPLEO_MODE variant.
-// dump, if set, also writes the result to stderr before writing it to out.
-func runParse(args []string, piped bool, in io.Reader, out io.Writer, dump bool, mode string) error {
+// runParse parses args against the piped spec, or (COMPLEO_MODE=generate) writes its
+// completion file instead. dump also writes the result to stderr. name is --name's value,
+// passed straight to spec.ParseYAML. Reads all of in upfront so the raw bytes are available
+// to pass to runGenerate verbatim.
+func runParse(args []string, piped bool, in io.Reader, out io.Writer, dump bool, name string, mode string) error {
 	if !piped {
 		return errors.New("no spec piped on stdin (compleo expects its target script's spec on stdin)")
 	}
-	cmd, sp, err := spec.ParseYAML(in)
+	rawSpec, err := io.ReadAll(in)
+	if err != nil {
+		return fmt.Errorf("reading spec: %w", err)
+	}
+	cmd, sp, err := spec.ParseYAML(bytes.NewReader(rawSpec), name)
 	if err != nil {
 		return fmt.Errorf("invalid spec: %w", err)
 	}
@@ -113,29 +133,27 @@ func runParse(args []string, piped bool, in io.Reader, out io.Writer, dump bool,
 	cmd.SilenceErrors = true
 	cmd.SilenceUsage = true
 
-	switch mode {
-	case modeGenerate:
-		return runGenerate(cmd, sp, out)
-	case modeComplete:
-		return runComplete(cmd, args, out)
-	default:
-		return runEmit(cmd, sp, args, out, dump)
+	if mode == modeGenerate {
+		return runGenerate(cmd, sp, string(rawSpec), out)
 	}
+	return runEmit(cmd, sp, args, out, dump)
 }
 
-// runComplete serves one live Tab-press request via cmd's own hidden _carapace subcommand,
-// reporting the result the same eval'd-zsh way EmitError/EmitHelp do.
-func runComplete(cmd *cobra.Command, args []string, out io.Writer) error {
-	// args[0] is the typed command name, per carapace's own "_carapace zsh <name> <words>" convention.
-	var carapaceBuf bytes.Buffer
-	cmd.SetArgs(append([]string{"_carapace", "zsh"}, args...))
-	cmd.SetOut(&carapaceBuf)
-	if err := cmd.Execute(); err != nil {
-		return err
+// runCarapace serves one live Tab-press request for a wrapped script's own completion:
+// specYAML is the companion file its generated completion points at (see WrappedCompletion),
+// built into a fresh cobra tree and dispatched into directly, without re-invoking the wrapped
+// script at all. _carapace's own Run never returns a Go error (it reports failures to its
+// own stderr), so there's no error-wrapping needed the way runEmit's cases have.
+func runCarapace(specYAML io.Reader, args []string, out io.Writer) error {
+	cmd, _, err := spec.ParseYAML(specYAML, "")
+	if err != nil {
+		return fmt.Errorf("invalid embedded spec: %w", err)
 	}
-	// Wrapped like EmitHelp/EmitError: carapace's wire format isn't zsh, and the wrapped
-	// script's unconditional eval would otherwise try to execute it as code.
-	return zsh.EmitComplete(out, carapaceBuf.String())
+	cmd.SilenceErrors = true
+	cmd.SilenceUsage = true
+	cmd.SetArgs(args)
+	cmd.SetOut(out)
+	return cmd.Execute()
 }
 
 // runEmit parses args against sp and writes the resulting zsh to out — or, for --help or a
@@ -166,52 +184,87 @@ func runEmit(cmd *cobra.Command, sp spec.Command, args []string, out io.Writer, 
 
 // runGenerate writes sp's completion file (skip-if-unchanged, like activate's own _compleo)
 // and reports success the same eval'd-zsh way EmitHelp/EmitError do.
-func runGenerate(cmd *cobra.Command, sp spec.Command, out io.Writer) error {
+func runGenerate(cmd *cobra.Command, sp spec.Command, rawSpec string, out io.Writer) error {
 	dir, err := completionDir()
 	if err != nil {
 		return err
 	}
-	snippet, err := zsh.WrappedCompletion(cmd)
+
+	// name is what completion gets registered under. "compleo generate <name>" always
+	// knows the real, invokable name (resolved via $PATH) and passes it via
+	// COMPLEO_GENERATE_NAME: an undeclared name: is filled in from that, but a declared one
+	// that disagrees is an error — generating under the wrong name would silently break
+	// Tab-completion for what's actually typed.
+	name := sp.Name
+	if requested := os.Getenv("COMPLEO_GENERATE_NAME"); requested != "" {
+		if sp.Name != "" && sp.Name != requested {
+			return fmt.Errorf("generate: spec declares name: %q, but %q was invoked — these must match", sp.Name, requested)
+		}
+		name = requested
+	}
+
+	// A spec whose own text doesn't declare name: gets it prepended, so the companion file is
+	// a complete, standalone spec — sp.Name alone can't tell us this (it may already be set
+	// via --name with rawSpec's own text still lacking one).
+	specFileText := rawSpec
+	if !declaredNamePattern.MatchString(rawSpec) {
+		specFileText = "name: '" + strings.ReplaceAll(name, "'", "''") + "'\n" + rawSpec
+	}
+
+	// A leading dot keeps this out of EmitActivate's "autoload -Uz dir/*" glob (zsh glob
+	// doesn't match dotfiles by default) — it's data for compleo to read, not a completion
+	// function for zsh to autoload.
+	specFileName := "." + name + ".spec.yaml"
+	if err := writeCompletionFile(dir, specFileName, specFileText); err != nil {
+		return err
+	}
+
+	snippet, err := zsh.WrappedCompletion(cmd, name, filepath.Join(dir, specFileName))
 	if err != nil {
 		return err
 	}
-	name := "_" + sp.Name
-	if err := writeCompletionFile(dir, name, snippet); err != nil {
+	fileName := "_" + name
+	if err := writeCompletionFile(dir, fileName, snippet); err != nil {
 		return err
 	}
-	return zsh.EmitGenerated(out, sp.Name, filepath.Join(dir, name))
+	return zsh.EmitGenerated(out, name, filepath.Join(dir, fileName))
 }
 
-// runGenerateFor is the "generate" subcommand: a convenience wrapper that runs name
-// (resolved via $PATH) with COMPLEO_MODE=generate set, same as doing it by hand.
-func runGenerateFor(name string, out io.Writer) error {
-	path, err := exec.LookPath(name)
+// runGenerateFor is the "generate" subcommand: a convenience wrapper that runs script
+// (a bare name resolved via $PATH, or a path) with COMPLEO_MODE=generate set, same as doing
+// it by hand.
+func runGenerateFor(script string, out io.Writer) error {
+	path, err := exec.LookPath(script)
 	if err != nil {
 		return fmt.Errorf("generate: %w", err)
 	}
 	if !spec.IsCompleoScript(path) {
-		return fmt.Errorf("generate: %s does not look like a compleo-wrapped script", name)
+		return fmt.Errorf("generate: %s does not look like a compleo-wrapped script", script)
 	}
 
+	// filepath.Base(script), not script itself: script may be a path (exec.LookPath resolves
+	// one directly, without even consulting $PATH), but COMPLEO_GENERATE_NAME must be a bare
+	// name to match what the script's own "${0:t}" computes from its argv[0].
 	cmd := exec.Command(path)
-	cmd.Env = append(os.Environ(), "COMPLEO_MODE="+modeGenerate)
+	cmd.Env = append(os.Environ(), "COMPLEO_MODE="+modeGenerate, "COMPLEO_GENERATE_NAME="+filepath.Base(script))
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = out
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
 
-// compleoCmd builds compleo's own cobra command tree from its embedded spec.
-func compleoCmd(stdout io.Writer) (*cobra.Command, spec.Command, error) {
-	cmd, sp, err := spec.ParseYAML(bytes.NewReader(specYAML))
+// compleoCmd builds compleo's own cobra command tree from its embedded spec. Panics on a
+// parse failure — spec.yaml is built in via go:embed, so that'd be a bug, not a runtime error.
+func compleoCmd(stdout io.Writer) (*cobra.Command, spec.Command) {
+	cmd, sp, err := spec.ParseYAML(bytes.NewReader(specYAML), "")
 	if err != nil {
-		return nil, spec.Command{}, fmt.Errorf("invalid embedded spec: %w", err)
+		panic(fmt.Errorf("compleo's own embedded spec.yaml is invalid: %w", err))
 	}
 	cmd.SetOut(stdout)
 	// Silenced: main() already reports the error; avoid cobra printing its own.
 	cmd.SilenceErrors = true
 	cmd.SilenceUsage = true
-	return cmd, sp, nil
+	return cmd, sp
 }
 
 // completionDir is where "activate" wires fpath to, and where generated completions live.

@@ -16,8 +16,14 @@ func init() {
 }
 
 // ActionScripts implements $compleo.scripts: like $executables, but narrowed to executables
-// that look like they wrap compleo, for "compleo generate <TAB>" (any PATH binary is useless there).
+// that look like they wrap compleo, for "compleo generate <TAB>" (any PATH binary is useless
+// there). Merged with plain file completion, since "generate" also accepts a path (unfiltered
+// there — carapace's path completion has no hook to filter candidates by file content).
 func ActionScripts() carapace.Action {
+	return carapace.Batch(actionPathScripts(), carapace.ActionFiles()).ToA()
+}
+
+func actionPathScripts() carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
 		seen := make(map[string]bool)
 		var names []string

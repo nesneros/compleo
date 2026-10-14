@@ -1,7 +1,10 @@
 package zsh
 
 import (
+	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -16,7 +19,7 @@ func TestCompletionGeneratesZshSnippet(t *testing.T) {
 name: mytool
 flags:
   --count=: how many times
-`))
+`), "")
 	require.NoError(t, err)
 
 	snippet, err := Completion(cmd)
@@ -40,12 +43,12 @@ commands:
     flags:
       --tag=: a tag
 `
-	cmd1, _, err := spec.ParseYAML(strings.NewReader(yaml))
+	cmd1, _, err := spec.ParseYAML(strings.NewReader(yaml), "")
 	require.NoError(t, err)
 	snippet1, err := Completion(cmd1)
 	require.NoError(t, err)
 
-	cmd2, _, err := spec.ParseYAML(strings.NewReader(yaml))
+	cmd2, _, err := spec.ParseYAML(strings.NewReader(yaml), "")
 	require.NoError(t, err)
 	snippet2, err := Completion(cmd2)
 	require.NoError(t, err)
@@ -53,25 +56,78 @@ commands:
 	assert.Equal(t, snippet1, snippet2)
 }
 
-func TestWrappedCompletionReinvokesTheWrappedScriptItself(t *testing.T) {
-	cmd, _, err := spec.ParseYAML(strings.NewReader("name: greet\nflags:\n  --loud: shout\n"))
+func TestWrappedCompletionEmbedsSpecFilePathAndLeavesCarapacesInvocationUntouched(t *testing.T) {
+	cmd, _, err := spec.ParseYAML(strings.NewReader("name: greet\nflags:\n  --loud: shout\n"), "")
 	require.NoError(t, err)
 
-	snippet, err := WrappedCompletion(cmd)
+	snippet, err := WrappedCompletion(cmd, "greet", "/some/dir/.greet.spec.yaml")
 	require.NoError(t, err)
 
 	assert.Contains(t, snippet, "#compdef greet")
-	assert.Contains(t, snippet, "COMPLEO_MODE=complete xargs greet")
-	// The thing WrappedCompletion exists to avoid: compleo's own binary, not greet, being
-	// the one re-invoked on every Tab press (it would have no spec to serve on its own).
-	assert.NotContains(t, snippet, uid.Executable()+" _carapace zsh")
+	assert.Contains(t, snippet, "local -x COMPLEO_SPEC_FILE="+Quote("/some/dir/.greet.spec.yaml"))
+	// Unlike the old re-invoke-the-script design, a Tab press now dispatches straight to
+	// compleo itself — carapace's own default invocation is left exactly as generated.
+	assert.Contains(t, snippet, "xargs "+uid.Executable()+" _carapace zsh")
 }
 
 func TestWrappedCompletionIsSyntacticallyValidZsh(t *testing.T) {
-	cmd, _, err := spec.ParseYAML(strings.NewReader("name: greet\nflags:\n  --loud: shout\n"))
+	cmd, _, err := spec.ParseYAML(strings.NewReader("name: greet\nflags:\n  --loud: shout\n"), "")
 	require.NoError(t, err)
-	snippet, err := WrappedCompletion(cmd)
+	snippet, err := WrappedCompletion(cmd, "greet", "/some/dir/.greet.spec.yaml")
 	require.NoError(t, err)
 
 	require.NoError(t, exec.Command("zsh", "-n", "-c", snippet).Run())
+}
+
+// Regression test for the actual bug this mechanism fixes: a spec's declared name: can
+// drift from the script's real, invokable name (e.g. a spec file with a hardcoded name:
+// that no longer matches the script it's for) — #compdef registration has to use the real
+// name regardless of what the spec says, or Tab-completion silently never triggers at all.
+func TestWrappedCompletionUsesGivenNameNotCmdName(t *testing.T) {
+	cmd, _, err := spec.ParseYAML(strings.NewReader("name: carapace-bin-macros\nflags:\n  --loud: shout\n"), "")
+	require.NoError(t, err)
+	require.Equal(t, "carapace-bin-macros", cmd.Name())
+
+	snippet, err := WrappedCompletion(cmd, "carapace_bin_macros", "/some/dir/.carapace_bin_macros.spec.yaml")
+	require.NoError(t, err)
+
+	assert.Contains(t, snippet, "#compdef carapace_bin_macros")
+	assert.Contains(t, snippet, "function _carapace_bin_macros_completion")
+	assert.Contains(t, snippet, "compdef _carapace_bin_macros_completion carapace_bin_macros")
+}
+
+// The embedded path must survive being spliced into zsh source as a single-quoted string
+// and read back out exactly, including a path with spaces/quotes/$ in it — same rigor
+// Quote()'s own tests already require of it for ordinary values. COMPLEO_SPEC_FILE is
+// function-local (see WrappedCompletion), so it can't be read after the function returns —
+// a fake "xargs" (shadowing the real one) captures it to a file instead, from inside the one
+// real call site that would otherwise pass it to compleo.
+func TestWrappedCompletionSpecFilePathRoundTripsThroughRealZsh(t *testing.T) {
+	specPath := "/some dir/with '$pecial `chars/.greet.spec.yaml"
+	cmd, _, err := spec.ParseYAML(strings.NewReader("name: greet\nflags:\n  --loud: shout\n"), "")
+	require.NoError(t, err)
+
+	snippet, err := WrappedCompletion(cmd, "greet", specPath)
+	require.NoError(t, err)
+
+	captureFile := filepath.Join(t.TempDir(), "captured")
+	script := fmt.Sprintf(`
+_describe() { :; }
+_message() { :; }
+compstate=()
+zstyle() { :; }
+xargs() { print -rn -- "$COMPLEO_SPEC_FILE" > %s; }
+%s
+words=(greet "")
+CURRENT=2
+curcontext=":completion::complete:greet::"
+_greet_completion
+`, Quote(captureFile), snippet)
+
+	_, err = exec.Command("zsh", "-fc", script).Output()
+	require.NoError(t, err)
+
+	captured, err := os.ReadFile(captureFile)
+	require.NoError(t, err)
+	assert.Equal(t, specPath, string(captured))
 }

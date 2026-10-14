@@ -45,15 +45,6 @@ func EmitGenerated(w io.Writer, name, path string) error {
 	return err
 }
 
-// EmitComplete writes a COMPLEO_MODE=complete result (carapace's raw completion wire format,
-// not zsh) the same way EmitHelp wraps --help text: the wrapped script's own eval would
-// otherwise try to execute the wire format as code, instead of the generated completion
-// function's own "lines=$(...)" just capturing it as a string.
-func EmitComplete(w io.Writer, wireFormat string) error {
-	_, err := fmt.Fprintf(w, "print -r -- %s\nexit 0\n", Quote(strings.TrimRight(wireFormat, "\n")))
-	return err
-}
-
 // EmitActivate writes "activate"'s output: fpath+=(dir), plus a guarded autoload+compdef for
 // every file already in dir. The guard matters: compdef isn't even defined until compinit has
 // run once (confirmed empirically), and activate's documented use is to run *before*
