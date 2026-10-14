@@ -2,11 +2,13 @@ package generate
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/nesneros/compleo/internal/cmdutil"
 	"github.com/nesneros/compleo/internal/spec"
 	"github.com/nesneros/compleo/internal/zsh"
 	"github.com/stretchr/testify/assert"
@@ -16,8 +18,8 @@ import (
 // A spec without a name: at all (legal now) gets one embedded into its companion file.
 func TestGenerateInsertsNameWhenSpecDoesNotDeclareOne(t *testing.T) {
 	completionDir := t.TempDir()
-	t.Setenv("COMPLEO_COMPLETION_DIR", completionDir)
-	t.Setenv("COMPLEO_GENERATE_NAME", "real-name")
+	t.Setenv(cmdutil.EnvCompletionDir, completionDir)
+	t.Setenv(cmdutil.EnvGenerateName, "real-name")
 
 	rawSpec := "flags:\n  --loud: shout\n"
 	cmd, sp, err := spec.ParseYAML(strings.NewReader(rawSpec), "")
@@ -30,7 +32,7 @@ func TestGenerateInsertsNameWhenSpecDoesNotDeclareOne(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(content), "#compdef real-name")
 	assert.Contains(t, string(content), "function _real-name_completion")
-	assert.Contains(t, string(content), "local -x COMPLEO_SPEC_FILE="+zsh.Quote(filepath.Join(completionDir, ".real-name.spec.yaml")))
+	assert.Contains(t, string(content), "local -x "+cmdutil.EnvSpecFile+"="+zsh.Quote(filepath.Join(completionDir, ".real-name.spec.yaml")))
 
 	specContent, err := os.ReadFile(filepath.Join(completionDir, ".real-name.spec.yaml"))
 	require.NoError(t, err)
@@ -42,7 +44,7 @@ func TestGenerateInsertsNameWhenSpecDoesNotDeclareOne(t *testing.T) {
 // from --name, even though rawSpec's own text had none.
 func TestGenerateInsertsNameSuppliedOnlyViaNameFlag(t *testing.T) {
 	completionDir := t.TempDir()
-	t.Setenv("COMPLEO_COMPLETION_DIR", completionDir)
+	t.Setenv(cmdutil.EnvCompletionDir, completionDir)
 
 	rawSpec := "flags:\n  --loud: shout\n"
 	cmd, sp, err := spec.ParseYAML(strings.NewReader(rawSpec), "greet")
@@ -59,8 +61,8 @@ func TestGenerateInsertsNameSuppliedOnlyViaNameFlag(t *testing.T) {
 // A declared name: that disagrees with the real, invokable name is an error, not overridden.
 func TestGenerateFailsWhenSpecNameDisagreesWithInvokedName(t *testing.T) {
 	completionDir := t.TempDir()
-	t.Setenv("COMPLEO_COMPLETION_DIR", completionDir)
-	t.Setenv("COMPLEO_GENERATE_NAME", "real-name")
+	t.Setenv(cmdutil.EnvCompletionDir, completionDir)
+	t.Setenv(cmdutil.EnvGenerateName, "real-name")
 
 	rawSpec := "name: wrong-name\nflags:\n  --loud: shout\n"
 	cmd, sp, err := spec.ParseYAML(strings.NewReader(rawSpec), "")
@@ -82,7 +84,7 @@ func TestGenerateFailsWhenSpecNameDisagreesWithInvokedName(t *testing.T) {
 func TestGenerateForSetsCompleoModeEnvVarOnTheResolvedExecutable(t *testing.T) {
 	dir := t.TempDir()
 	scriptPath := filepath.Join(dir, "fake-wrapped")
-	require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/sh\n# calls compleo\necho \"mode=$COMPLEO_MODE\"\n"), 0o755))
+	require.NoError(t, os.WriteFile(scriptPath, fmt.Appendf(nil, "#!/bin/sh\n# calls compleo\necho \"mode=$%s\"\n", cmdutil.EnvMode), 0o755))
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	var stdout bytes.Buffer
@@ -92,12 +94,12 @@ func TestGenerateForSetsCompleoModeEnvVarOnTheResolvedExecutable(t *testing.T) {
 }
 
 // Regression test: exec.LookPath resolves a path directly, without consulting $PATH at all,
-// when name contains a "/" — but COMPLEO_GENERATE_NAME used to be set to that whole path
+// when name contains a "/" — but EnvGenerateName used to be set to that whole path
 // string, which then mismatched the script's own "${0:t}"-derived bare name and failed.
 func TestGenerateForPathArgumentUsesBasenameNotFullPath(t *testing.T) {
 	dir := t.TempDir()
 	scriptPath := filepath.Join(dir, "fake-wrapped")
-	require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/sh\n# calls compleo\necho \"name=$COMPLEO_GENERATE_NAME\"\n"), 0o755))
+	require.NoError(t, os.WriteFile(scriptPath, fmt.Appendf(nil, "#!/bin/sh\n# calls compleo\necho \"name=$%s\"\n", cmdutil.EnvGenerateName), 0o755))
 	t.Setenv("PATH", "") // scriptPath is given as a path below; $PATH must not matter at all.
 
 	var stdout bytes.Buffer

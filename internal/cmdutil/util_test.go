@@ -11,18 +11,18 @@ import (
 )
 
 func TestCompletionDirHonorsEnvOverride(t *testing.T) {
-	t.Setenv("COMPLEO_COMPLETION_DIR", "/some/custom/dir")
-	defer t.Setenv("COMPLEO_COMPLETION_DIR", "")
+	t.Setenv(EnvCompletionDir, "/some/custom/dir")
+	defer t.Setenv(EnvCompletionDir, "")
 
 	dir := CompletionDir()
 	assert.Equal(t, "/some/custom/dir", dir)
 }
 
 func TestCompletionDirHonorsXDGDataHome(t *testing.T) {
-	t.Setenv("COMPLEO_COMPLETION_DIR", "")
+	t.Setenv(EnvCompletionDir, "")
 	t.Setenv("XDG_DATA_HOME", "/xdg/data")
 	defer func() {
-		t.Setenv("COMPLEO_COMPLETION_DIR", "")
+		t.Setenv(EnvCompletionDir, "")
 		t.Setenv("XDG_DATA_HOME", "")
 	}()
 
@@ -31,10 +31,10 @@ func TestCompletionDirHonorsXDGDataHome(t *testing.T) {
 }
 
 func TestCompletionDirDefaultsUnderHome(t *testing.T) {
-	t.Setenv("COMPLEO_COMPLETION_DIR", "")
+	t.Setenv(EnvCompletionDir, "")
 	t.Setenv("XDG_DATA_HOME", "")
 	defer func() {
-		t.Setenv("COMPLEO_COMPLETION_DIR", "")
+		t.Setenv(EnvCompletionDir, "")
 		t.Setenv("XDG_DATA_HOME", "")
 	}()
 

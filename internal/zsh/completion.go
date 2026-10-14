@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/carapace-sh/carapace"
+	"github.com/nesneros/compleo/internal/cmdutil"
 	"github.com/spf13/cobra"
 )
 
@@ -25,7 +26,7 @@ func Completion(cmd *cobra.Command) (string, error) {
 // WrappedCompletion generates the completion function for a wrapped script's cmd, registered
 // under name — the real, invokable name, not necessarily cmd.Name() (the caller's call).
 // specFilePath is where the caller already wrote the spec on disk; only the path is embedded
-// (as COMPLEO_SPEC_FILE), to avoid an env var's size limits.
+// (as EnvSpecFile), to avoid an env var's size limits.
 func WrappedCompletion(cmd *cobra.Command, name string, specFilePath string) (string, error) {
 	renameCommand(cmd, name)
 	snippet, err := Completion(cmd)
@@ -36,7 +37,7 @@ func WrappedCompletion(cmd *cobra.Command, name string, specFilePath string) (st
 	if !strings.Contains(snippet, anchor) {
 		return "", fmt.Errorf("zsh: generated snippet did not contain expected function definition %q (carapace's zsh template may have changed)", anchor)
 	}
-	inject := anchor + "  local -x COMPLEO_SPEC_FILE=" + Quote(specFilePath) + "\n"
+	inject := anchor + "  local -x " + cmdutil.EnvSpecFile + "=" + Quote(specFilePath) + "\n"
 	return strings.Replace(snippet, anchor, inject, 1), nil
 }
 

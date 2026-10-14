@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/carapace-sh/carapace/pkg/uid"
+	"github.com/nesneros/compleo/internal/cmdutil"
 	"github.com/nesneros/compleo/internal/spec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -64,7 +65,7 @@ func TestWrappedCompletionEmbedsSpecFilePathAndLeavesCarapacesInvocationUntouche
 	require.NoError(t, err)
 
 	assert.Contains(t, snippet, "#compdef greet")
-	assert.Contains(t, snippet, "local -x COMPLEO_SPEC_FILE="+Quote("/some/dir/.greet.spec.yaml"))
+	assert.Contains(t, snippet, "local -x "+cmdutil.EnvSpecFile+"="+Quote("/some/dir/.greet.spec.yaml"))
 	// Unlike the old re-invoke-the-script design, a Tab press now dispatches straight to
 	// compleo itself — carapace's own default invocation is left exactly as generated.
 	assert.Contains(t, snippet, "xargs "+uid.Executable()+" _carapace zsh")
@@ -95,7 +96,7 @@ func TestWrappedCompletionUsesGivenNameNotCmdName(t *testing.T) {
 }
 
 // The embedded path must round-trip exactly (spaces/quotes/$ included) through being
-// spliced in as a single-quoted string. COMPLEO_SPEC_FILE is function-local, so a fake
+// spliced in as a single-quoted string. EnvSpecFile is function-local, so a fake
 // "xargs" captures it to a file instead of it being readable after the function returns.
 func TestWrappedCompletionSpecFilePathRoundTripsThroughRealZsh(t *testing.T) {
 	specPath := "/some dir/with '$pecial `chars/.greet.spec.yaml"
@@ -111,13 +112,13 @@ _describe() { :; }
 _message() { :; }
 compstate=()
 zstyle() { :; }
-xargs() { print -rn -- "$COMPLEO_SPEC_FILE" > %s; }
+xargs() { print -rn -- "$%s" > %s; }
 %s
 words=(greet "")
 CURRENT=2
 curcontext=":completion::complete:greet::"
 _greet_completion
-`, Quote(captureFile), snippet)
+`, cmdutil.EnvSpecFile, Quote(captureFile), snippet)
 
 	_, err = exec.Command("zsh", "-fc", script).Output()
 	require.NoError(t, err)

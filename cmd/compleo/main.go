@@ -24,7 +24,7 @@ var specYAML []byte
 const modeGenerate = "generate"
 
 func main() {
-	if err := run(os.Args[1:], cmdutil.IsPiped(os.Stdin), os.Stdin, os.Stdout, os.Getenv("COMPLEO_MODE")); err != nil {
+	if err := run(os.Args[1:], cmdutil.IsPiped(os.Stdin), os.Stdin, os.Stdout, os.Getenv(cmdutil.EnvMode)); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -37,10 +37,10 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, mode string) er
 	}
 
 	// A live Tab press for a wrapped script's own completion: its generated completion file
-	// sets COMPLEO_SPEC_FILE (see WrappedCompletion) before calling "_carapace zsh ...", since
+	// sets EnvSpecFile (see WrappedCompletion) before calling "_carapace zsh ...", since
 	// ownCmd's own _carapace subcommand below only knows how to complete compleo itself.
 	if len(args) > 0 && args[0] == "_carapace" {
-		if specFile := os.Getenv("COMPLEO_SPEC_FILE"); specFile != "" {
+		if specFile := os.Getenv(cmdutil.EnvSpecFile); specFile != "" {
 			f, err := os.Open(specFile)
 			if err != nil {
 				return fmt.Errorf("opening embedded spec file %q: %w", specFile, err)
@@ -69,7 +69,7 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, mode string) er
 		if err != nil {
 			return err
 		}
-		if err := cmdutil.WriteCompletionFile(dir, "_compleo", snippet); err != nil {
+		if err := cmdutil.WriteCompletionFile(dir, "_"+ownSpec.Name, snippet); err != nil {
 			return err
 		}
 		return zsh.EmitActivate(out, dir)

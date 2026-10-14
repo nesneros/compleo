@@ -303,7 +303,7 @@ func TestRunParseWithInvalidSpecFails(t *testing.T) {
 
 func TestRunWithActivatePrintsFpathWiring(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("COMPLEO_COMPLETION_DIR", dir)
+	t.Setenv(cmdutil.EnvCompletionDir, dir)
 
 	var stdout bytes.Buffer
 	err := run([]string{"activate"}, false, strings.NewReader(""), &stdout, "")
@@ -313,7 +313,7 @@ func TestRunWithActivatePrintsFpathWiring(t *testing.T) {
 
 func TestRunWithActivateWritesOwnCompletionFile(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("COMPLEO_COMPLETION_DIR", dir)
+	t.Setenv(cmdutil.EnvCompletionDir, dir)
 
 	err := run([]string{"activate"}, false, strings.NewReader(""), &bytes.Buffer{}, "")
 	require.NoError(t, err)
@@ -325,7 +325,7 @@ func TestRunWithActivateWritesOwnCompletionFile(t *testing.T) {
 
 func TestRunWithActivateTwiceDoesNotRewriteUnchangedFile(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("COMPLEO_COMPLETION_DIR", dir)
+	t.Setenv(cmdutil.EnvCompletionDir, dir)
 
 	require.NoError(t, run([]string{"activate"}, false, strings.NewReader(""), &bytes.Buffer{}, ""))
 	path := filepath.Join(dir, "_compleo")
@@ -360,7 +360,7 @@ func TestWriteCompletionFileSkipsRewriteWhenUnchanged(t *testing.T) {
 
 func TestRunParseGenerateModeWritesWrappedScriptsCompletionFile(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("COMPLEO_COMPLETION_DIR", dir)
+	t.Setenv(cmdutil.EnvCompletionDir, dir)
 
 	err := run([]string{"parse"}, true, strings.NewReader("name: greet\nflags:\n  --loud: shout\n"), &bytes.Buffer{}, modeGenerate)
 	require.NoError(t, err)
@@ -368,7 +368,7 @@ func TestRunParseGenerateModeWritesWrappedScriptsCompletionFile(t *testing.T) {
 	content, err := os.ReadFile(filepath.Join(dir, "_greet"))
 	require.NoError(t, err)
 	assert.Contains(t, string(content), "#compdef greet")
-	assert.Contains(t, string(content), "local -x COMPLEO_SPEC_FILE="+zsh.Quote(filepath.Join(dir, ".greet.spec.yaml")))
+	assert.Contains(t, string(content), "local -x "+cmdutil.EnvSpecFile+"="+zsh.Quote(filepath.Join(dir, ".greet.spec.yaml")))
 
 	specContent, err := os.ReadFile(filepath.Join(dir, ".greet.spec.yaml"))
 	require.NoError(t, err)
@@ -377,7 +377,7 @@ func TestRunParseGenerateModeWritesWrappedScriptsCompletionFile(t *testing.T) {
 
 func TestRunParseGenerateModeReportsSuccessAsSelfExitingZsh(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("COMPLEO_COMPLETION_DIR", dir)
+	t.Setenv(cmdutil.EnvCompletionDir, dir)
 
 	var stdout bytes.Buffer
 	err := run([]string{"parse"}, true, strings.NewReader("name: greet\n"), &stdout, modeGenerate)
@@ -388,7 +388,7 @@ func TestRunParseGenerateModeReportsSuccessAsSelfExitingZsh(t *testing.T) {
 
 func TestRunParseGenerateModeDoesNotRequireWrappedArgs(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("COMPLEO_COMPLETION_DIR", dir)
+	t.Setenv(cmdutil.EnvCompletionDir, dir)
 
 	// Unlike a normal parse, generate mode doesn't parse "$@" at all, so a script run as
 	// "COMPLEO_MODE=generate ./greet" (no args of its own) must not fail or need "--".
@@ -402,7 +402,7 @@ func TestRunParseGenerateModeDoesNotRequireWrappedArgs(t *testing.T) {
 func TestRunCarapaceWithCompleoSpecFileCompletesTheReferencedSpec(t *testing.T) {
 	specFile := filepath.Join(t.TempDir(), ".greet.spec.yaml")
 	require.NoError(t, os.WriteFile(specFile, []byte("name: greet\nflags:\n  --loud: shout\n"), 0o644))
-	t.Setenv("COMPLEO_SPEC_FILE", specFile)
+	t.Setenv(cmdutil.EnvSpecFile, specFile)
 
 	var stdout bytes.Buffer
 	err := run([]string{"_carapace", "zsh", "greet", "--l"}, false, strings.NewReader(""), &stdout, "")
@@ -413,14 +413,14 @@ func TestRunCarapaceWithCompleoSpecFileCompletesTheReferencedSpec(t *testing.T) 
 func TestRunCarapaceWithInvalidCompleoSpecFileFails(t *testing.T) {
 	specFile := filepath.Join(t.TempDir(), ".greet.spec.yaml")
 	require.NoError(t, os.WriteFile(specFile, []byte("not: [valid"), 0o644))
-	t.Setenv("COMPLEO_SPEC_FILE", specFile)
+	t.Setenv(cmdutil.EnvSpecFile, specFile)
 
 	err := run([]string{"_carapace", "zsh", "greet", ""}, false, strings.NewReader(""), &bytes.Buffer{}, "")
 	assert.Error(t, err)
 }
 
 func TestRunCarapaceWithMissingCompleoSpecFileFails(t *testing.T) {
-	t.Setenv("COMPLEO_SPEC_FILE", filepath.Join(t.TempDir(), "does-not-exist.yaml"))
+	t.Setenv(cmdutil.EnvSpecFile, filepath.Join(t.TempDir(), "does-not-exist.yaml"))
 
 	err := run([]string{"_carapace", "zsh", "greet", ""}, false, strings.NewReader(""), &bytes.Buffer{}, "")
 	assert.Error(t, err)

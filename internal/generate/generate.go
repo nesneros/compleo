@@ -25,10 +25,10 @@ var declaredNamePattern = regexp.MustCompile(`(?m)^name:`)
 func Generate(cmd *cobra.Command, sp spec.Command, rawSpec string, out io.Writer) error {
 	dir := cmdutil.CompletionDir()
 
-	// name is what completion gets registered under. COMPLEO_GENERATE_NAME (from "generate
+	// name is what completion gets registered under. EnvGenerateName (from "generate
 	// <script>") fills in an undeclared name:, but a declared one that disagrees is an error.
 	name := sp.Name
-	if requested := os.Getenv("COMPLEO_GENERATE_NAME"); requested != "" {
+	if requested := os.Getenv(cmdutil.EnvGenerateName); requested != "" {
 		if sp.Name != "" && sp.Name != requested {
 			return fmt.Errorf("generate: spec declares name: %q, but %q was invoked — these must match", sp.Name, requested)
 		}
@@ -63,7 +63,7 @@ func Generate(cmd *cobra.Command, sp spec.Command, rawSpec string, out io.Writer
 }
 
 // GenerateFor is the "generate" subcommand: a convenience wrapper that runs script
-// (a bare name resolved via $PATH, or a path) with COMPLEO_MODE=generate set, same as doing
+// (a bare name resolved via $PATH, or a path) with EnvMode=generate set, same as doing
 // it by hand.
 func GenerateFor(script string, out io.Writer) error {
 	path, err := exec.LookPath(script)
@@ -75,10 +75,12 @@ func GenerateFor(script string, out io.Writer) error {
 	}
 
 	// filepath.Base(script), not script itself: script may be a path (exec.LookPath resolves
-	// one directly, without even consulting $PATH), but COMPLEO_GENERATE_NAME must be a bare
+	// one directly, without even consulting $PATH), but EnvGenerateName must be a bare
 	// name to match what the script's own "${0:t}" computes from its argv[0].
 	cmd := exec.Command(path)
-	cmd.Env = append(os.Environ(), "COMPLEO_MODE=generate", "COMPLEO_GENERATE_NAME="+filepath.Base(script))
+	cmd.Env = append(os.Environ(),
+		cmdutil.EnvMode+"=generate",
+		cmdutil.EnvGenerateName+"="+filepath.Base(script))
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = out
 	cmd.Stderr = os.Stderr

@@ -8,10 +8,10 @@ import (
 )
 
 // CompletionDir is where "activate" wires fpath to, and where generated completions live.
-// Recomputed on each call so a changed COMPLEO_COMPLETION_DIR or XDG_DATA_HOME is honored.
+// Recomputed on each call so a changed EnvCompletionDir or XDG_DATA_HOME is honored.
 // Panics if determination fails.
 func CompletionDir() string {
-	if dir := os.Getenv("COMPLEO_COMPLETION_DIR"); dir != "" {
+	if dir := os.Getenv(EnvCompletionDir); dir != "" {
 		return dir
 	}
 
