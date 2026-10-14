@@ -1,0 +1,15 @@
+#!/usr/bin/env zsh
+# shellcheck disable=SC1071
+# Demo of carapace-bin macros with compleo.
+# Each flag below exists purely to show one macro's completion in action.
+#
+# Try it:
+#   PATH="$PWD/bin:$PATH" examples/carapace_bin_macros --help
+#   source <(PATH="$PWD/bin:$PATH" compleo completion) # then Tab-complete after any flag
+
+spec_file="${0:h}/carapace_bin_macros.yaml"
+eval "$(compleo parse -- "$@" < "$spec_file")"
+
+for key in "${(k)compleo[@]}"; do
+  [[ -n $compleo[$key] ]] && print -r -- "$key = $compleo[$key]"
+done
