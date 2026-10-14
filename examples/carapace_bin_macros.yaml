@@ -1,0 +1,235 @@
+name: carapace-bin-macros
+description: Demo of carapace-bin completion macros.
+
+flags:
+  --color-256Colors=: {description: "$color.256Colors"}
+  --color-AnsiBackgroundColors=: {description: "$color.AnsiBackgroundColors"}
+  --color-AnsiForegroundColors=: {description: "$color.AnsiForegroundColors"}
+  --color-HexColors=: {description: "$color.HexColors"}
+  --color-XtermColorNames=: {description: "$color.XtermColorNames"}
+  --env-Names=: {description: "$env.Names"}
+  --env-NameValues=: {description: "$env.NameValues"}
+  --env-Values=: {description: "$env.Values"}
+  --fs-ArFileContents=: {description: "$fs.ArFileContents"}
+  --fs-BlockDevices=: {description: "$fs.BlockDevices"}
+  --fs-FilenameExtensions=: {description: "$fs.FilenameExtensions"}
+  --fs-FilesystemTypes=: {description: "$fs.FilesystemTypes"}
+  --fs-FileModes=: {description: "$fs.FileModes"}
+  --fs-FileModesNumeric=: {description: "$fs.FileModesNumeric"}
+  --fs-FileModesSymbolic=: {description: "$fs.FileModesSymbolic"}
+  --fs-JarFileContents=: {description: "$fs.JarFileContents"}
+  --fs-Labels=: {description: "$fs.Labels"}
+  --fs-Mounts=: {description: "$fs.Mounts"}
+  --fs-PartitionLabels=: {description: "$fs.PartitionLabels"}
+  --fs-PartitionUuids=: {description: "$fs.PartitionUuids"}
+  --fs-SubDirectories=: {description: "$fs.SubDirectories"}
+  --fs-TarFileContents=: {description: "$fs.TarFileContents"}
+  --fs-Uuids=: {description: "$fs.Uuids"}
+  --fs-ZipFileContents=: {description: "$fs.ZipFileContents"}
+  --net-BaudRates=: {description: "$net.BaudRates"}
+  --net-Ipv4Addresses=: {description: "$net.Ipv4Addresses"}
+  --net-Ipv6Addresses=: {description: "$net.Ipv6Addresses"}
+  --net-Subnets=: {description: "$net.Subnets"}
+  --net-Bssids=: {description: "$net.Bssids"}
+  --net-Connections=: {description: "$net.Connections"}
+  --net-Devices=: {description: "$net.Devices"}
+  --net-Hosts=: {description: "$net.Hosts"}
+  --net-Ssids=: {description: "$net.Ssids"}
+  --net-KnownPorts=: {description: "$net.KnownPorts"}
+  --net-Ports=: {description: "$net.Ports"}
+  --net-UsedPorts=: {description: "$net.UsedPorts"}
+  --net-Protocols=: {description: "$net.Protocols"}
+  --net-ssh-Ciphers=: {description: "$net.ssh.Ciphers"}
+  --net-ssh-HostKeyAlgorithms=: {description: "$net.ssh.HostKeyAlgorithms"}
+  --net-ssh-Hosts=: {description: "$net.ssh.Hosts"}
+  --net-ssh-Options=: {description: "$net.ssh.Options"}
+  --net-ssh-PrivateKeys=: {description: "$net.ssh.PrivateKeys"}
+  --net-ssh-PublicKeys=: {description: "$net.ssh.PublicKeys"}
+  --net-ssh-SigningKeys=: {description: "$net.ssh.SigningKeys"}
+  --net-http-CacheControlRequestDirectives=: {description: "$net.http.CacheControlRequestDirectives"}
+  --net-http-Charsets=: {description: "$net.http.Charsets"}
+  --net-http-ConnectionOptions=: {description: "$net.http.ConnectionOptions"}
+  --net-http-ContentEncodingTokens=: {description: "$net.http.ContentEncodingTokens"}
+  --net-http-EmailDomains=: {description: "$net.http.EmailDomains"}
+  --net-http-ETags=: {description: "$net.http.ETags"}
+  --net-http-InstanceManipulations=: {description: "$net.http.InstanceManipulations"}
+  --net-http-MediaTypes=: {description: "$net.http.MediaTypes"}
+  --net-http-OpenApiPaths=: {description: "$net.http.OpenApiPaths"}
+  --net-http-PreferTokens=: {description: "$net.http.PreferTokens"}
+  --net-http-RangeUnits=: {description: "$net.http.RangeUnits"}
+  --net-http-RequestHeaderNames=: {description: "$net.http.RequestHeaderNames"}
+  --net-http-RequestHeaders=: {description: "$net.http.RequestHeaders"}
+  --net-http-RequestHeaderValues=: {description: "$net.http.RequestHeaderValues"}
+  --net-http-StatusCodes=: {description: "$net.http.StatusCodes"}
+  --net-http-TEValues=: {description: "$net.http.TEValues"}
+  --net-http-Tags=: {description: "$net.http.Tags"}
+  --net-http-TransferEncodingTokens=: {description: "$net.http.TransferEncodingTokens"}
+  --net-http-UpgradeTokens=: {description: "$net.http.UpgradeTokens"}
+  --net-http-UrlSchemes=: {description: "$net.http.UrlSchemes"}
+  --net-http-Urls=: {description: "$net.http.Urls"}
+  --net-http-UserAgents=: {description: "$net.http.UserAgents"}
+  --net-http-WarningCodes=: {description: "$net.http.WarningCodes"}
+  --os-Commands=: {description: "$os.Commands"}
+  --os-CurrentUserGroups=: {description: "$os.CurrentUserGroups"}
+  --os-CurrentUsername=: {description: "$os.CurrentUsername"}
+  --os-Displays=: {description: "$os.Displays"}
+  --os-EnvironmentVariables=: {description: "$os.EnvironmentVariables"}
+  --os-FontFamilies=: {description: "$os.FontFamilies"}
+  --os-GpgKeyIds=: {description: "$os.GpgKeyIds"}
+  --os-GroupMembers=: {description: "$os.GroupMembers"}
+  --os-Groups=: {description: "$os.Groups"}
+  --os-Hostname=: {description: "$os.Hostname"}
+  --os-KernelModules=: {description: "$os.KernelModules"}
+  --os-KernelModulesLoaded=: {description: "$os.KernelModulesLoaded"}
+  --os-KernelReleases=: {description: "$os.KernelReleases"}
+  --os-Languages=: {description: "$os.Languages"}
+  --os-Locales=: {description: "$os.Locales"}
+  --os-MouseButtons=: {description: "$os.MouseButtons"}
+  --os-SessionIds=: {description: "$os.SessionIds"}
+  --os-Shells=: {description: "$os.Shells"}
+  --os-Signals=: {description: "$os.Signals"}
+  --os-Screens=: {description: "$os.Screens"}
+  --os-SoundCards=: {description: "$os.SoundCards"}
+  --os-Terminals=: {description: "$os.Terminals"}
+  --os-Uids=: {description: "$os.Uids"}
+  --os-Users=: {description: "$os.Users"}
+  --os-usb-DeviceNumbers=: {description: "$os.usb.DeviceNumbers"}
+  --os-usb-ProductNumbers=: {description: "$os.usb.ProductNumbers"}
+  --ps-FormatSpecifiers=: {description: "$ps.FormatSpecifiers"}
+  --ps-KillSignals=: {description: "$ps.KillSignals"}
+  --ps-ProcessExecutables=: {description: "$ps.ProcessExecutables"}
+  --ps-ProcessIds=: {description: "$ps.ProcessIds"}
+  --ps-ProcessStates=: {description: "$ps.ProcessStates"}
+  --shell-Aliases=: {description: "$shell.Aliases"}
+  --shell-Builtins=: {description: "$shell.Builtins"}
+  --shell-Executables=: {description: "$shell.Executables"}
+  --shell-Functions=: {description: "$shell.Functions"}
+  --shell-JobSpecs=: {description: "$shell.JobSpecs"}
+  --text-Languages=: {description: "$text.Languages"}
+  --text-Locales=: {description: "$text.Locales"}
+  --text-Timezones=: {description: "$text.Timezones"}
+  --time-DateFormats=: {description: "$time.DateFormats"}
+  --time-Durations=: {description: "$time.Durations"}
+  --time-Months=: {description: "$time.Months"}
+  --time-Weekdays=: {description: "$time.Weekdays"}
+  --number-Bases=: {description: "$number.Bases"}
+  --number-Digits=: {description: "$number.Digits"}
+  --number-Range=: {description: "$number.Range"}
+  --number-SemanticVersions=: {description: "$number.SemanticVersions"}
+
+completion:
+  flag:
+    color-256Colors: ["$color.256Colors"]
+    color-AnsiBackgroundColors: ["$color.AnsiBackgroundColors"]
+    color-AnsiForegroundColors: ["$color.AnsiForegroundColors"]
+    color-HexColors: ["$color.HexColors"]
+    color-XtermColorNames: ["$color.XtermColorNames"]
+    env-Names: ["$env.Names"]
+    env-NameValues: ["$env.NameValues"]
+    env-Values: ["$env.Values"]
+    fs-ArFileContents: ["$fs.ArFileContents"]
+    fs-BlockDevices: ["$fs.BlockDevices"]
+    fs-FilenameExtensions: ["$fs.FilenameExtensions"]
+    fs-FilesystemTypes: ["$fs.FilesystemTypes"]
+    fs-FileModes: ["$fs.FileModes"]
+    fs-FileModesNumeric: ["$fs.FileModesNumeric"]
+    fs-FileModesSymbolic: ["$fs.FileModesSymbolic"]
+    fs-JarFileContents: ["$fs.JarFileContents"]
+    fs-Labels: ["$fs.Labels"]
+    fs-Mounts: ["$fs.Mounts"]
+    fs-PartitionLabels: ["$fs.PartitionLabels"]
+    fs-PartitionUuids: ["$fs.PartitionUuids"]
+    fs-SubDirectories: ["$fs.SubDirectories"]
+    fs-TarFileContents: ["$fs.TarFileContents"]
+    fs-Uuids: ["$fs.Uuids"]
+    fs-ZipFileContents: ["$fs.ZipFileContents"]
+    net-BaudRates: ["$net.BaudRates"]
+    net-Ipv4Addresses: ["$net.Ipv4Addresses"]
+    net-Ipv6Addresses: ["$net.Ipv6Addresses"]
+    net-Subnets: ["$net.Subnets"]
+    net-Bssids: ["$net.Bssids"]
+    net-Connections: ["$net.Connections"]
+    net-Devices: ["$net.Devices"]
+    net-Hosts: ["$net.Hosts"]
+    net-Ssids: ["$net.Ssids"]
+    net-KnownPorts: ["$net.KnownPorts"]
+    net-Ports: ["$net.Ports"]
+    net-UsedPorts: ["$net.UsedPorts"]
+    net-Protocols: ["$net.Protocols"]
+    net-ssh-Ciphers: ["$net.ssh.Ciphers"]
+    net-ssh-HostKeyAlgorithms: ["$net.ssh.HostKeyAlgorithms"]
+    net-ssh-Hosts: ["$net.ssh.Hosts"]
+    net-ssh-Options: ["$net.ssh.Options"]
+    net-ssh-PrivateKeys: ["$net.ssh.PrivateKeys"]
+    net-ssh-PublicKeys: ["$net.ssh.PublicKeys"]
+    net-ssh-SigningKeys: ["$net.ssh.SigningKeys"]
+    net-http-CacheControlRequestDirectives: ["$net.http.CacheControlRequestDirectives"]
+    net-http-Charsets: ["$net.http.Charsets"]
+    net-http-ConnectionOptions: ["$net.http.ConnectionOptions"]
+    net-http-ContentEncodingTokens: ["$net.http.ContentEncodingTokens"]
+    net-http-EmailDomains: ["$net.http.EmailDomains"]
+    net-http-ETags: ["$net.http.ETags"]
+    net-http-InstanceManipulations: ["$net.http.InstanceManipulations"]
+    net-http-MediaTypes: ["$net.http.MediaTypes"]
+    net-http-OpenApiPaths: ["$net.http.OpenApiPaths"]
+    net-http-PreferTokens: ["$net.http.PreferTokens"]
+    net-http-RangeUnits: ["$net.http.RangeUnits"]
+    net-http-RequestHeaderNames: ["$net.http.RequestHeaderNames"]
+    net-http-RequestHeaders: ["$net.http.RequestHeaders"]
+    net-http-RequestHeaderValues: ["$net.http.RequestHeaderValues"]
+    net-http-StatusCodes: ["$net.http.StatusCodes"]
+    net-http-TEValues: ["$net.http.TEValues"]
+    net-http-Tags: ["$net.http.Tags"]
+    net-http-TransferEncodingTokens: ["$net.http.TransferEncodingTokens"]
+    net-http-UpgradeTokens: ["$net.http.UpgradeTokens"]
+    net-http-UrlSchemes: ["$net.http.UrlSchemes"]
+    net-http-Urls: ["$net.http.Urls"]
+    net-http-UserAgents: ["$net.http.UserAgents"]
+    net-http-WarningCodes: ["$net.http.WarningCodes"]
+    os-Commands: ["$os.Commands"]
+    os-CurrentUserGroups: ["$os.CurrentUserGroups"]
+    os-CurrentUsername: ["$os.CurrentUsername"]
+    os-Displays: ["$os.Displays"]
+    os-EnvironmentVariables: ["$os.EnvironmentVariables"]
+    os-FontFamilies: ["$os.FontFamilies"]
+    os-GpgKeyIds: ["$os.GpgKeyIds"]
+    os-GroupMembers: ["$os.GroupMembers"]
+    os-Groups: ["$os.Groups"]
+    os-Hostname: ["$os.Hostname"]
+    os-KernelModules: ["$os.KernelModules"]
+    os-KernelModulesLoaded: ["$os.KernelModulesLoaded"]
+    os-KernelReleases: ["$os.KernelReleases"]
+    os-Languages: ["$os.Languages"]
+    os-Locales: ["$os.Locales"]
+    os-MouseButtons: ["$os.MouseButtons"]
+    os-SessionIds: ["$os.SessionIds"]
+    os-Shells: ["$os.Shells"]
+    os-Signals: ["$os.Signals"]
+    os-Screens: ["$os.Screens"]
+    os-SoundCards: ["$os.SoundCards"]
+    os-Terminals: ["$os.Terminals"]
+    os-Uids: ["$os.Uids"]
+    os-Users: ["$os.Users"]
+    os-usb-DeviceNumbers: ["$os.usb.DeviceNumbers"]
+    os-usb-ProductNumbers: ["$os.usb.ProductNumbers"]
+    ps-FormatSpecifiers: ["$ps.FormatSpecifiers"]
+    ps-KillSignals: ["$ps.KillSignals"]
+    ps-ProcessExecutables: ["$ps.ProcessExecutables"]
+    ps-ProcessIds: ["$ps.ProcessIds"]
+    ps-ProcessStates: ["$ps.ProcessStates"]
+    shell-Aliases: ["$shell.Aliases"]
+    shell-Builtins: ["$shell.Builtins"]
+    shell-Executables: ["$shell.Executables"]
+    shell-Functions: ["$shell.Functions"]
+    shell-JobSpecs: ["$shell.JobSpecs"]
+    text-Languages: ["$text.Languages"]
+    text-Locales: ["$text.Locales"]
+    text-Timezones: ["$text.Timezones"]
+    time-DateFormats: ["$time.DateFormats"]
+    time-Durations: ["$time.Durations"]
+    time-Months: ["$time.Months"]
+    time-Weekdays: ["$time.Weekdays"]
+    number-Bases: ["$number.Bases"]
+    number-Digits: ["$number.Digits"]
+    number-Range: ["$number.Range"]
+    number-SemanticVersions: ["$number.SemanticVersions"]
