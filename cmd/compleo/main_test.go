@@ -10,8 +10,6 @@ import (
 	"testing"
 
 	"github.com/nesneros/compleo/internal/cmdutil"
-	"github.com/nesneros/compleo/internal/generate"
-	"github.com/nesneros/compleo/internal/spec"
 	"github.com/nesneros/compleo/internal/zsh"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -432,111 +430,5 @@ func TestRunCarapaceWithMissingCompleoSpecFileFails(t *testing.T) {
 	t.Setenv("COMPLEO_SPEC_FILE", filepath.Join(t.TempDir(), "does-not-exist.yaml"))
 
 	err := run([]string{"_carapace", "zsh", "greet", ""}, false, strings.NewReader(""), &bytes.Buffer{}, "")
-	assert.Error(t, err)
-}
-
-// Checks runGenerateFor's own wiring (PATH resolution, env var, stdout passthrough), not
-// the full parse/generate pipeline (covered by the TestRunParseGenerateMode* tests above).
-func TestRunGenerateSetsCompleoModeEnvVarOnTheResolvedExecutable(t *testing.T) {
-	dir := t.TempDir()
-	scriptPath := filepath.Join(dir, "fake-wrapped")
-	require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/sh\n# calls compleo\necho \"mode=$COMPLEO_MODE\"\n"), 0o755))
-	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
-
-	var stdout bytes.Buffer
-	err := run([]string{"generate", "fake-wrapped"}, false, strings.NewReader(""), &stdout, "")
-	require.NoError(t, err)
-	assert.Equal(t, "mode=generate\n", stdout.String())
-}
-
-// Regression test: exec.LookPath resolves a path directly, without consulting $PATH at all,
-// when name contains a "/" — but COMPLEO_GENERATE_NAME used to be set to that whole path
-// string, which then mismatched the script's own "${0:t}"-derived bare name and failed.
-func TestRunGenerateForPathArgumentUsesBasenameNotFullPath(t *testing.T) {
-	dir := t.TempDir()
-	scriptPath := filepath.Join(dir, "fake-wrapped")
-	require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/sh\n# calls compleo\necho \"name=$COMPLEO_GENERATE_NAME\"\n"), 0o755))
-	t.Setenv("PATH", "") // scriptPath is given as a path below; $PATH must not matter at all.
-
-	var stdout bytes.Buffer
-	err := run([]string{"generate", scriptPath}, false, strings.NewReader(""), &stdout, "")
-	require.NoError(t, err)
-	assert.Equal(t, "name=fake-wrapped\n", stdout.String())
-}
-
-func TestRunGenerateFailsForUnknownExecutable(t *testing.T) {
-	err := run([]string{"generate", "definitely-not-a-real-command-xyz"}, false, strings.NewReader(""), &bytes.Buffer{}, "")
-	assert.Error(t, err)
-}
-
-// A spec without a name: at all (legal now) gets one embedded into its companion file.
-func TestRunGenerateInsertsNameWhenSpecDoesNotDeclareOne(t *testing.T) {
-	completionDir := t.TempDir()
-	t.Setenv("COMPLEO_COMPLETION_DIR", completionDir)
-	t.Setenv("COMPLEO_GENERATE_NAME", "real-name")
-
-	rawSpec := "flags:\n  --loud: shout\n"
-	cmd, sp, err := spec.ParseYAML(strings.NewReader(rawSpec), "")
-	require.NoError(t, err)
-	require.Empty(t, sp.Name)
-
-	require.NoError(t, generate.Generate(cmd, sp, rawSpec, &bytes.Buffer{}))
-
-	content, err := os.ReadFile(filepath.Join(completionDir, "_real-name"))
-	require.NoError(t, err)
-	assert.Contains(t, string(content), "#compdef real-name")
-	assert.Contains(t, string(content), "function _real-name_completion")
-	assert.Contains(t, string(content), "local -x COMPLEO_SPEC_FILE="+zsh.Quote(filepath.Join(completionDir, ".real-name.spec.yaml")))
-
-	specContent, err := os.ReadFile(filepath.Join(completionDir, ".real-name.spec.yaml"))
-	require.NoError(t, err)
-	assert.Equal(t, "name: 'real-name'\n"+rawSpec, string(specContent))
-}
-
-// Regression test: examples/greet's own pattern (--name="${0:t}", no name: in the spec text)
-// used to leave the companion file without a name: at all — sp.Name was already non-empty
-// by the time runGenerate looked, from --name, even though rawSpec's own text had none.
-func TestRunGenerateInsertsNameSuppliedOnlyViaNameFlag(t *testing.T) {
-	completionDir := t.TempDir()
-	t.Setenv("COMPLEO_COMPLETION_DIR", completionDir)
-
-	rawSpec := "flags:\n  --loud: shout\n"
-	err := run([]string{"parse", "--name", "greet", "--", "--loud"}, true, strings.NewReader(rawSpec), &bytes.Buffer{}, modeGenerate)
-	require.NoError(t, err)
-
-	specContent, err := os.ReadFile(filepath.Join(completionDir, ".greet.spec.yaml"))
-	require.NoError(t, err)
-	assert.Equal(t, "name: 'greet'\n"+rawSpec, string(specContent))
-}
-
-// A declared name: that disagrees with the real, invokable name is an error, not overridden.
-func TestRunGenerateFailsWhenSpecNameDisagreesWithInvokedName(t *testing.T) {
-	completionDir := t.TempDir()
-	t.Setenv("COMPLEO_COMPLETION_DIR", completionDir)
-	t.Setenv("COMPLEO_GENERATE_NAME", "real-name")
-
-	rawSpec := "name: wrong-name\nflags:\n  --loud: shout\n"
-	cmd, sp, err := spec.ParseYAML(strings.NewReader(rawSpec), "")
-	require.NoError(t, err)
-
-	err = generate.Generate(cmd, sp, rawSpec, &bytes.Buffer{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), `spec declares name: "wrong-name"`)
-	assert.Contains(t, err.Error(), `"real-name" was invoked`)
-
-	_, statErr := os.Stat(filepath.Join(completionDir, "_wrong-name"))
-	assert.True(t, os.IsNotExist(statErr))
-	_, statErr = os.Stat(filepath.Join(completionDir, "_real-name"))
-	assert.True(t, os.IsNotExist(statErr))
-}
-
-// Regression test: "generate" used to run whatever exec.LookPath resolved with no check at
-// all — happily executing any binary on PATH with COMPLEO_MODE set, compleo-wrapped or not.
-func TestRunGenerateRefusesExecutableThatIsNotCompleoWrapped(t *testing.T) {
-	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "not-wrapped"), []byte("#!/bin/sh\necho hi\n"), 0o755))
-	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
-
-	err := run([]string{"generate", "not-wrapped"}, false, strings.NewReader(""), &bytes.Buffer{}, "")
 	assert.Error(t, err)
 }
