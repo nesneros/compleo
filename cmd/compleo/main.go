@@ -24,10 +24,19 @@ var specYAML []byte
 const modeGenerate = "generate"
 
 func main() {
-	if err := run(os.Args[1:], cmdutil.IsPiped(os.Stdin), os.Stdin, os.Stdout, os.Getenv(cmdutil.EnvMode)); err != nil {
+	if err := run(os.Args[1:], isPiped(os.Stdin), os.Stdin, os.Stdout, os.Getenv(cmdutil.EnvMode)); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+// isPiped reports whether f has data piped in, vs. an interactive terminal.
+func isPiped(f *os.File) bool {
+	info, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return info.Mode()&os.ModeCharDevice == 0
 }
 
 // run routes on an explicit "parse" token, since --help/--version could otherwise be compleo's or the wrapped script's.

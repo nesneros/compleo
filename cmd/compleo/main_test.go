@@ -425,3 +425,20 @@ func TestRunCarapaceWithMissingCompleoSpecFileFails(t *testing.T) {
 	err := run([]string{"_carapace", "zsh", "greet", ""}, false, strings.NewReader(""), &bytes.Buffer{}, "")
 	assert.Error(t, err)
 }
+
+func TestIsPiped(t *testing.T) {
+	// Create a temporary file (not a terminal)
+	f, err := os.CreateTemp("", "test")
+	assert.NoError(t, err)
+	defer os.Remove(f.Name()) //nolint:errcheck
+	defer f.Close()           //nolint:errcheck
+
+	assert.True(t, isPiped(f))
+}
+
+func TestIsPipedTerminal(t *testing.T) {
+	// stdin is a terminal (when running tests)
+	// This test may behave differently in CI vs local
+	// We just verify it doesn't panic
+	_ = isPiped(os.Stdin)
+}

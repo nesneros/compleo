@@ -39,12 +39,3 @@ func WriteCompletionFile(dir, name, content string) error {
 	}
 	return os.WriteFile(path, []byte(content), 0o644)
 }
-
-// IsPiped reports whether f has data piped in, vs. an interactive terminal.
-func IsPiped(f *os.File) bool {
-	info, err := f.Stat()
-	if err != nil {
-		return false
-	}
-	return info.Mode()&os.ModeCharDevice == 0
-}

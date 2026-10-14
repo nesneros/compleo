@@ -75,20 +75,3 @@ func TestWriteCompletionFileCreatesDirectory(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "content", string(content))
 }
-
-func TestIsPiped(t *testing.T) {
-	// Create a temporary file (not a terminal)
-	f, err := os.CreateTemp("", "test")
-	assert.NoError(t, err)
-	defer os.Remove(f.Name()) //nolint:errcheck
-	defer f.Close()           //nolint:errcheck
-
-	assert.True(t, IsPiped(f))
-}
-
-func TestIsPipedTerminal(t *testing.T) {
-	// stdin is a terminal (when running tests)
-	// This test may behave differently in CI vs local
-	// We just verify it doesn't panic
-	_ = IsPiped(os.Stdin)
-}
