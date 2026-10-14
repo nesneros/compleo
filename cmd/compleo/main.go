@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/nesneros/compleo/internal/cmdutil"
 	"github.com/nesneros/compleo/internal/parse"
 	"github.com/nesneros/compleo/internal/spec"
 	"github.com/nesneros/compleo/internal/zsh"
@@ -30,7 +31,7 @@ const modeGenerate = "generate"
 var declaredNamePattern = regexp.MustCompile(`(?m)^name:`)
 
 func main() {
-	if err := run(os.Args[1:], isPiped(os.Stdin), os.Stdin, os.Stdout, os.Getenv("COMPLEO_MODE")); err != nil {
+	if err := run(os.Args[1:], cmdutil.IsPiped(os.Stdin), os.Stdin, os.Stdout, os.Getenv("COMPLEO_MODE")); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -70,7 +71,7 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, mode string) er
 
 	switch result.Path[len(result.Path)-1] {
 	case "activate":
-		dir, err := completionDir()
+		dir, err := cmdutil.CompletionDir()
 		if err != nil {
 			return err
 		}
@@ -78,7 +79,7 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, mode string) er
 		if err != nil {
 			return err
 		}
-		if err := writeCompletionFile(dir, "_compleo", snippet); err != nil {
+		if err := cmdutil.WriteCompletionFile(dir, "_compleo", snippet); err != nil {
 			return err
 		}
 		return zsh.EmitActivate(out, dir)
@@ -193,7 +194,7 @@ func runEmit(cmd *cobra.Command, sp spec.Command, args []string, out io.Writer) 
 // runGenerate writes sp's completion file (skip-if-unchanged, like activate's own _compleo)
 // and reports success the same eval'd-zsh way EmitHelp/EmitError do.
 func runGenerate(cmd *cobra.Command, sp spec.Command, rawSpec string, out io.Writer) error {
-	dir, err := completionDir()
+	dir, err := cmdutil.CompletionDir()
 	if err != nil {
 		return err
 	}
@@ -220,7 +221,7 @@ func runGenerate(cmd *cobra.Command, sp spec.Command, rawSpec string, out io.Wri
 	// doesn't match dotfiles by default) — it's data for compleo to read, not a completion
 	// function for zsh to autoload.
 	specFileName := "." + name + ".spec.yaml"
-	if err := writeCompletionFile(dir, specFileName, specFileText); err != nil {
+	if err := cmdutil.WriteCompletionFile(dir, specFileName, specFileText); err != nil {
 		return err
 	}
 
@@ -229,7 +230,7 @@ func runGenerate(cmd *cobra.Command, sp spec.Command, rawSpec string, out io.Wri
 		return err
 	}
 	fileName := "_" + name
-	if err := writeCompletionFile(dir, fileName, snippet); err != nil {
+	if err := cmdutil.WriteCompletionFile(dir, fileName, snippet); err != nil {
 		return err
 	}
 	return zsh.EmitGenerated(out, name)
@@ -272,42 +273,6 @@ func compleoCmd(stdout io.Writer) (*cobra.Command, spec.Command) {
 	return cmd, sp
 }
 
-// completionDir is where "activate" wires fpath to, and where generated completions live.
-func completionDir() (string, error) {
-	if dir := os.Getenv("COMPLEO_COMPLETION_DIR"); dir != "" {
-		return dir, nil
-	}
 
-	dataHome := os.Getenv("XDG_DATA_HOME")
-	if dataHome == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", fmt.Errorf("determining completion directory: %w", err)
-		}
-		dataHome = filepath.Join(home, ".local", "share")
-	}
-	return filepath.Join(dataHome, "compleo", "completions"), nil
-}
 
-// writeCompletionFile skips the write when content is unchanged, so activate (which may run
-// on every shell startup) doesn't bump the dir's mtime and force a full compinit rescan.
-func writeCompletionFile(dir, name, content string) error {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("creating completion directory: %w", err)
-	}
 
-	path := filepath.Join(dir, name)
-	if existing, err := os.ReadFile(path); err == nil && string(existing) == content {
-		return nil
-	}
-	return os.WriteFile(path, []byte(content), 0o644)
-}
-
-// isPiped reports whether f has data piped in, vs. an interactive terminal.
-func isPiped(f *os.File) bool {
-	info, err := f.Stat()
-	if err != nil {
-		return false
-	}
-	return info.Mode()&os.ModeCharDevice == 0
-}
