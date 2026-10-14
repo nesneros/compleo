@@ -14,8 +14,7 @@ func TestCompletionDirHonorsEnvOverride(t *testing.T) {
 	t.Setenv("COMPLEO_COMPLETION_DIR", "/some/custom/dir")
 	defer t.Setenv("COMPLEO_COMPLETION_DIR", "")
 
-	dir, err := CompletionDir()
-	require.NoError(t, err)
+	dir := CompletionDir()
 	assert.Equal(t, "/some/custom/dir", dir)
 }
 
@@ -27,8 +26,7 @@ func TestCompletionDirHonorsXDGDataHome(t *testing.T) {
 		t.Setenv("XDG_DATA_HOME", "")
 	}()
 
-	dir, err := CompletionDir()
-	require.NoError(t, err)
+	dir := CompletionDir()
 	assert.Equal(t, "/xdg/data/compleo/completions", dir)
 }
 
@@ -43,8 +41,7 @@ func TestCompletionDirDefaultsUnderHome(t *testing.T) {
 	home, err := os.UserHomeDir()
 	require.NoError(t, err)
 
-	dir, err := CompletionDir()
-	require.NoError(t, err)
+	dir := CompletionDir()
 	assert.Equal(t, filepath.Join(home, ".local", "share", "compleo", "completions"), dir)
 }
 
@@ -83,8 +80,8 @@ func TestIsPiped(t *testing.T) {
 	// Create a temporary file (not a terminal)
 	f, err := os.CreateTemp("", "test")
 	assert.NoError(t, err)
-	defer os.Remove(f.Name())
-	defer f.Close()
+	defer os.Remove(f.Name()) //nolint:errcheck
+	defer f.Close()           //nolint:errcheck
 
 	assert.True(t, IsPiped(f))
 }

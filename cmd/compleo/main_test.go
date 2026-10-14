@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/nesneros/compleo/internal/cmdutil"
+	"github.com/nesneros/compleo/internal/generate"
 	"github.com/nesneros/compleo/internal/spec"
 	"github.com/nesneros/compleo/internal/zsh"
 	"github.com/stretchr/testify/assert"
@@ -366,32 +367,6 @@ func TestWriteCompletionFileSkipsRewriteWhenUnchanged(t *testing.T) {
 	assert.Equal(t, "content-b", string(content))
 }
 
-func TestCompletionDirHonorsEnvOverride(t *testing.T) {
-	t.Setenv("COMPLEO_COMPLETION_DIR", "/some/custom/dir")
-
-	dir, err := cmdutil.CompletionDir()
-	require.NoError(t, err)
-	assert.Equal(t, "/some/custom/dir", dir)
-}
-
-func TestCompletionDirHonorsXDGDataHome(t *testing.T) {
-	t.Setenv("COMPLEO_COMPLETION_DIR", "")
-	t.Setenv("XDG_DATA_HOME", "/xdg/data")
-
-	dir, err := cmdutil.CompletionDir()
-	require.NoError(t, err)
-	assert.Equal(t, "/xdg/data/compleo/completions", dir)
-}
-
-func TestCompletionDirDefaultsUnderHome(t *testing.T) {
-	t.Setenv("COMPLEO_COMPLETION_DIR", "")
-	t.Setenv("XDG_DATA_HOME", "")
-
-	dir, err := cmdutil.CompletionDir()
-	require.NoError(t, err)
-	assert.Contains(t, dir, filepath.Join(".local", "share", "compleo", "completions"))
-}
-
 func TestRunParseGenerateModeWritesWrappedScriptsCompletionFile(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("COMPLEO_COMPLETION_DIR", dir)
@@ -505,7 +480,7 @@ func TestRunGenerateInsertsNameWhenSpecDoesNotDeclareOne(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, sp.Name)
 
-	require.NoError(t, runGenerate(cmd, sp, rawSpec, &bytes.Buffer{}))
+	require.NoError(t, generate.Generate(cmd, sp, rawSpec, &bytes.Buffer{}))
 
 	content, err := os.ReadFile(filepath.Join(completionDir, "_real-name"))
 	require.NoError(t, err)
@@ -544,7 +519,7 @@ func TestRunGenerateFailsWhenSpecNameDisagreesWithInvokedName(t *testing.T) {
 	cmd, sp, err := spec.ParseYAML(strings.NewReader(rawSpec), "")
 	require.NoError(t, err)
 
-	err = runGenerate(cmd, sp, rawSpec, &bytes.Buffer{})
+	err = generate.Generate(cmd, sp, rawSpec, &bytes.Buffer{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `spec declares name: "wrong-name"`)
 	assert.Contains(t, err.Error(), `"real-name" was invoked`)
