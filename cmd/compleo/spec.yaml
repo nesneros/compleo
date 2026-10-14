@@ -6,8 +6,6 @@ description: >-
 commands:
   - name: activate
     description: Enable Tab-completion for compleo-wrapped scripts in this shell. Add to .zshrc before compinit runs, e.g. eval "$(compleo activate)".
-  - name: completion
-    description: Print compleo's own zsh completion script. Most users want "activate" instead; this is for embedding compleo's completion into a custom setup.
   - name: generate
     description: Generate Tab-completion for a compleo-wrapped script. Run once after writing or editing the script; a new shell (or "compleo activate" in the current one) picks it up.
     positionals:

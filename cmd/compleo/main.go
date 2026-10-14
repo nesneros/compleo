@@ -73,12 +73,6 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, mode string) er
 			return err
 		}
 		return zsh.EmitActivate(out, dir)
-	case "completion":
-		snippet, err := zsh.Completion(ownCmd)
-		if err != nil {
-			return err
-		}
-		fmt.Fprint(out, snippet)
 	case "generate":
 		return generate.GenerateFor(result.Positionals["script"].Values[0], out)
 	case "parse":
@@ -181,8 +175,6 @@ func runEmit(cmd *cobra.Command, sp spec.Command, args []string, out io.Writer) 
 	}
 }
 
-
-
 // compleoCmd builds compleo's own cobra command tree from its embedded spec. Panics on a
 // parse failure — spec.yaml is built in via go:embed, so that'd be a bug, not a runtime error.
 func compleoCmd(stdout io.Writer) (*cobra.Command, spec.Command) {
@@ -196,7 +188,3 @@ func compleoCmd(stdout io.Writer) (*cobra.Command, spec.Command) {
 	cmd.SilenceUsage = true
 	return cmd, sp
 }
-
-
-
-

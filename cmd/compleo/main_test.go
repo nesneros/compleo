@@ -80,13 +80,6 @@ func TestRunWithValidateHelpSucceedsEvenWhenNotPiped(t *testing.T) {
 	assert.Contains(t, stdout.String(), "Usage:")
 }
 
-func TestRunWithCompletionPrintsZshSnippetEvenWhenNotPiped(t *testing.T) {
-	var stdout bytes.Buffer
-	err := run([]string{"completion"}, false, strings.NewReader(""), &stdout, "")
-	require.NoError(t, err)
-	assert.Contains(t, stdout.String(), "#compdef compleo")
-}
-
 // compleo's own --version must never shadow the wrapped script's own --version flag.
 func TestRunParseVersionFlagIsWrappedScriptsOwn(t *testing.T) {
 	specReader := strings.NewReader(`
