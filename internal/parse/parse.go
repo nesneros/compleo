@@ -127,15 +127,15 @@ func wire(cmd *cobra.Command, sp spec.Command, result *Result) error {
 // validatePositionals: at most one variadic, and it must be last; no required
 // positional may follow an optional one.
 func validatePositionals(positionals []spec.Positional) error {
-	seenOptional := false
+	optional := ""
 	for i, p := range positionals {
 		if p.Variadic && i != len(positionals)-1 {
 			return fmt.Errorf("variadic positional %q must be the last positional", p.Name)
 		}
 		if !p.Required {
-			seenOptional = true
-		} else if seenOptional {
-			return fmt.Errorf("required positional %q follows an optional one", p.Name)
+			optional = p.Name
+		} else if optional != "" {
+			return fmt.Errorf("required positional %q follows optional %q", p.Name, optional)
 		}
 	}
 	return nil
