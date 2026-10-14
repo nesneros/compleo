@@ -10,7 +10,8 @@ For completion *actions* specifically (`$files`, `$directories`, and the rest of
 `$macro(...)` syntax used under `completion:`), see carapace-spec's own
 [core macros documentation](https://carapace-sh.github.io/carapace-spec/carapace-spec/macros.html) —
 these all work out of the box, just by compleo importing carapace-spec (see `examples/macros`
-for a runnable demo of every one). carapace-bin additionally ships a much larger set of
+for a runnable demo of every one except `$spec`, which needs its own separate spec file to
+delegate to — see `examples/other_spec`). carapace-bin additionally ships a much larger set of
 tool-specific macros (`$carapace.tools.git.branches`, and ~130 more); compleo doesn't link
 those in directly, but they still work transparently at Tab-press time by shelling out to a
 separately-installed `carapace` binary — see
@@ -108,5 +109,6 @@ positionals:
     required: true
 ```
 
-See `examples/greet` (parsing/positionals/flagtypes) and `examples/macros` (every core
-carapace-spec completion macro) for complete, runnable scripts.
+See `examples/greet` (parsing/positionals/flagtypes), `examples/macros` (every core
+carapace-spec completion macro except `$spec`), and `examples/other_spec` (`$spec`, which
+needs a dynamic path a quoted heredoc can't supply on its own) for complete, runnable scripts.

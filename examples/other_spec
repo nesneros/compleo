@@ -1,0 +1,24 @@
+#!/usr/bin/env zsh
+# shellcheck disable=SC1071 # intentionally zsh; ShellCheck does not support it
+#
+# Demo of the $spec(...) macro: delegates completion for one flag to a whole separate
+# spec file's own command tree (examples/other_spec.subspec.yaml). $spec needs an
+# absolute path, which only the running script can expand - so unlike examples/macros,
+# this heredoc is left unquoted (${0:A:h} needs to expand), escaping the few literal
+# $spec mentions instead.
+#
+# Try it:
+#   mise run build && PATH="$PWD/bin:$PATH" examples/other_spec --help
+#   source <(PATH="$PWD/bin:$PATH" compleo completion) # then Tab-complete after --other-spec
+
+eval "$(compleo use <<SPEC
+description: Demo of the \$spec(...) macro - delegates completion to a separate spec file.
+flags:
+  --other-spec=: {description: "\$spec - delegates completion to a whole separate spec file"}
+completion:
+  flag:
+    other-spec: ["\$spec(${0:A:h}/other_spec.subspec.yaml)"]
+SPEC
+)"
+
+print -r -- "other-spec = $compleo[other-spec]"

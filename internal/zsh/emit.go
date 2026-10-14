@@ -28,20 +28,30 @@ func EmitError(w io.Writer, name string, parseErr error) error {
 	return err
 }
 
-// EmitGenerated writes a COMPLEO_MODE=generate confirmation as zsh, same convention as
-// EmitHelp/EmitError. Includes an activation hint for the current shell, since an
-// already-running shell won't notice the new file without a compinit rerun (rescans all of
-// $fpath) or this cheaper per-file equivalent: compleo can't run it directly, since compleo
-// only ever runs as a subprocess, which can't modify its parent shell's completion state.
-// Must autoload "_<name>" (the file's own name), not "_<name>_completion" (the function
-// WrappedCompletion defines inside it) — autoload resolves by filename, and only "_<name>"
-// matches a real file; calling it is what actually defines and rebinds the inner function.
-func EmitGenerated(w io.Writer, name, path string) error {
+// EmitGenerated writes an activation hint for the current shell as zsh, same convention as
+// EmitHelp/EmitError. An already-running shell won't notice the new completion file without
+// a compinit rerun (rescans all of $fpath) or this cheaper per-file equivalent: compleo can't
+// run it directly, since compleo only ever runs as a subprocess, which can't modify its
+// parent shell's completion state. Must autoload "_<name>" (the file's own name), not
+// "_<name>_completion" (the function WrappedCompletion defines inside it) — autoload resolves
+// by filename, and only "_<name>" matches a real file; calling it is what actually defines
+// and rebinds the inner function.
+func EmitGenerated(w io.Writer, name string) error {
 	msg := Quote(fmt.Sprintf(
-		"%s: generated completion at %s (new shells pick it up automatically; to use it in this one now: autoload -Uz _%s && compdef _%s %s)",
-		name, path, name, name, name,
+		"To activate completion for %s in this shell, run: autoload -Uz _%s && compdef _%s %s",
+		name, name, name, name,
 	))
 	_, err := fmt.Fprintf(w, "print -u2 -- %s\nexit 0\n", msg)
+	return err
+}
+
+// EmitUse writes zsh that re-invokes "compleo parse" with --name and -- "$@" filled in,
+// embedding rawSpec as a quoted here-string — so a script's own eval line doesn't need to
+// specify any of that itself. Not mode-aware on purpose: the generated command just inherits
+// whatever COMPLEO_MODE the real invocation already runs under (confirmed empirically), so
+// this works unchanged for COMPLEO_MODE=generate too.
+func EmitUse(w io.Writer, rawSpec string) error {
+	_, err := fmt.Fprintf(w, `eval "$(compleo parse --name="${0:t}" -- "$@" <<<%s)"`+"\n", Quote(rawSpec))
 	return err
 }
 

@@ -18,13 +18,14 @@ commands:
       positional:
         - ["$compleo.scripts"]
   - name: parse
-    description: Parse the wrapped script's command line against the spec piped on stdin.
+    description: Parse the wrapped script's command line against the spec piped on stdin. You will typically want to use "use" instead.
     flags:
-      --dump: Print the result to stderr too, before stdout (for debugging).
       --name=: The script's own invoking name (e.g. "${0:t}"), for --help/error text and completion — lets a spec's heredoc skip name:, and stay quoted (no $/`-escaping needed).
     positionals:
       - name: args
         variadic: true
+  - name: use
+    description: Print zsh that re-invokes "compleo parse" with --name and -- "$@" filled in from the spec piped on stdin. Simplest way to wire compleo into a script, e.g. eval "$(compleo use <<SPEC ... SPEC)"; use "parse" directly for finer control.
   - name: validate
     description: Validate the spec piped on stdin and exit.
   - name: version

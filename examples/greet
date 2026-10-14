@@ -4,7 +4,7 @@
 # Minimal example of a zsh script using compleo for its own CLI parsing.
 #   mise run build && PATH="$PWD/bin:$PATH" examples/greet world --times 2 --loud
 
-eval "$(compleo parse --name=${0:t} -- "$@" <<'SPEC'
+eval "$(compleo use <<'SPEC'
 description: Print a greeting.
 flags:
   --loud: {description: shout the greeting}

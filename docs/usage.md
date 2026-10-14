@@ -9,8 +9,7 @@ For what you can put in the spec (flags, positionals, types, completion), see
 Near the top of the script, before anything that uses its arguments:
 
 ```zsh
-eval "$(compleo parse -- "$@" <<SPEC
-name: ${0:t}
+eval "$(compleo use <<'SPEC'
 description: Print a greeting.
 flags:
   --loud: {description: shout the greeting}
@@ -22,47 +21,22 @@ SPEC
 )"
 ```
 
-That's it — compleo parses `"$@"` against the embedded spec and prints zsh that the `eval`
-runs, setting the parsed values (see step 2). `--help`, bad arguments, and errors are all
-handled automatically from this one line; nothing else is needed for those (see "What the
-`eval` can do on its own," below).
+That's it — `compleo use` reads the spec, fills in the script's own name and `"$@"`, and
+prints zsh that the outer `eval` runs, setting the parsed values (see step 2). `--help`, bad
+arguments, and errors are all handled automatically from this one line; nothing else is
+needed for those (see "What the `eval` can do on its own," below).
 
-One thing about the heredoc specifically: **it's unquoted** (`<<SPEC`, not `<<'SPEC'`) on
-purpose, so `${0:t}` expands — `${0:t}` is zsh for "basename of `$0`," i.e. whatever the
-script was actually invoked as (`greet`, not `./bin/greet` or a symlink's target), used as the
-spec's own `name:`. The cost of leaving it unquoted: *any* literal `$` or `` ` `` in the spec —
-including in plain description text, not just macros — needs escaping (`\$`, `` \` ``), or it
-silently expands to nothing. See `examples/macros` for a spec with many escaped
-`\$macro(...)` calls.
-
-The alternative is to quote the delimiter (`<<'SPEC'`): nothing in the spec needs escaping
-then, but `${0:t}` (or any other `$`-expansion) no longer expands either — `name:` needs a
-hardcoded string instead of `${0:t}` (or can be left out: `compleo generate <script>` fills it
-in, though `--help`/error text won't know the script's name until it's there).
-
-Best of both: drop `name:` from the spec and pass `--name` on the command line instead, where
-`${0:t}` still expands normally (it's not inside the heredoc):
-
-```zsh
-eval "$(compleo parse --name "${0:t}" -- "$@" <<'SPEC'
-description: Print a greeting.
-flags:
-  --loud: {description: shout the greeting}
-positionals:
-  - name: name
-    description: who to greet
-    required: true
-SPEC
-)"
-```
+The heredoc is quoted (`<<'SPEC'`), so nothing in it needs escaping, not even `$` or `` ` ``
+in description text. `use` is the convenient form — for finer control over the invocation
+itself, use `compleo parse --name="${0:t}" -- "$@"` directly instead.
 
 ### Or: an external spec file
 
 compleo just reads the spec from its stdin — a heredoc is only one way to supply it. A file
-works too:
+works too, and still doesn't need its own `name:` (`use` fills that in):
 
 ```zsh
-eval "$(compleo parse -- "$@" < "${0:A:h}/greet.spec.yaml")"
+eval "$(compleo use < "${0:A:h}/greet.spec.yaml")"
 ```
 
 ## 2. Read the parsed values
@@ -94,8 +68,9 @@ Everything below happens from that one `eval` line — no extra code needed in t
   exit 1 for *its* invocation failures — a script checking `$?` can tell the two apart). No
   `|| exit $?` needed after the `eval` — exiting is already part of what gets `eval`'d.
 - The one gap this doesn't cover: if the `compleo` binary itself can't even run (missing, not
-  executable, ...), there's nothing to `eval` at all. That's the one case where an explicit
-  exit-code check on the `eval` itself is the only way to catch a failure.
+  executable, ...), there's nothing to `eval` at all — an explicit exit-code check on the
+  `eval` is the only way to catch it. `use` re-invokes `compleo parse` internally, so in
+  principle this gap applies twice; in practice, if the first call ran, the second will too.
 
 ## 3. Enable completion
 
@@ -123,13 +98,12 @@ compleo generate greet
 ```
 
 This writes `greet`'s completion file next to compleo's own, plus a hidden companion file
-holding its spec (which the completion file points at). The command prints a one-line
-confirmation plus a hint for activating it in your *current* shell immediately (a brand new
-shell picks it up for free, since `compinit` scans `$fpath` at startup):
+holding its spec (which the completion file points at). A brand new shell picks it up for
+free (`compinit` scans `$fpath` at startup); to activate it in your *current* shell too,
+the command tells you exactly how:
 
 ```
-greet: generated completion at ~/.local/share/compleo/completions/_greet (new shells pick it
-up automatically; to use it in this one now: autoload -Uz _greet && compdef _greet greet)
+To activate completion for greet in this shell, run: autoload -Uz _greet && compdef _greet greet
 ```
 
 If Tab-completion for a wrapped script never seems to do anything (no error, no candidates),
@@ -146,8 +120,7 @@ than with a message.
 ```zsh
 #!/usr/bin/env zsh
 
-eval "$(compleo parse -- "$@" <<SPEC
-name: ${0:t}
+eval "$(compleo use <<'SPEC'
 description: Print a greeting.
 flags:
   --loud: {description: shout the greeting}
@@ -176,4 +149,6 @@ HELLO, WORLD!
 ```
 
 See `examples/macros` for a second full script demonstrating every core carapace-spec
-completion macro, and [docs/spec.md](./spec.md) for everything that can go inside the spec.
+completion macro (except `$spec`, split out into `examples/other_spec` since it needs a
+dynamic path a quoted heredoc can't supply), and [docs/spec.md](./spec.md) for everything
+that can go inside the spec.

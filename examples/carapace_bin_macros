@@ -8,7 +8,7 @@
 #   source <(PATH="$PWD/bin:$PATH" compleo completion) # then Tab-complete after any flag
 
 spec_file="${0:h}/carapace_bin_macros.yaml"
-eval "$(compleo parse -- "$@" < "$spec_file")"
+eval "$(compleo use < "$spec_file")"
 
 for key in "${(k)compleo[@]}"; do
   [[ -n $compleo[$key] ]] && print -r -- "$key = $compleo[$key]"

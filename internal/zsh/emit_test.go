@@ -37,10 +37,10 @@ func emitError(t *testing.T, name string, err error) string {
 	return buf.String()
 }
 
-func emitGenerated(t *testing.T, name, path string) string {
+func emitGenerated(t *testing.T, name string) string {
 	t.Helper()
 	var buf bytes.Buffer
-	require.NoError(t, EmitGenerated(&buf, name, path))
+	require.NoError(t, EmitGenerated(&buf, name))
 	return buf.String()
 }
 
@@ -273,7 +273,7 @@ print -r -- "outer after main"
 }
 
 func TestEmitGeneratedPrintsConfirmationToStderrAndExitsZero(t *testing.T) {
-	snippet := emitGenerated(t, "greet", "/some/dir/_greet")
+	snippet := emitGenerated(t, "greet")
 
 	cmd := exec.Command("zsh", "-fc", snippet)
 	var stderr bytes.Buffer
@@ -281,7 +281,7 @@ func TestEmitGeneratedPrintsConfirmationToStderrAndExitsZero(t *testing.T) {
 	out, err := cmd.Output()
 	require.NoError(t, err)
 	assert.Empty(t, out)
-	assert.Contains(t, stderr.String(), "greet: generated completion at /some/dir/_greet")
+	assert.Contains(t, stderr.String(), "To activate completion for greet in this shell, run:")
 	assert.Contains(t, stderr.String(), "autoload -Uz _greet && compdef _greet greet")
 }
 
@@ -299,7 +299,7 @@ func TestEmitGeneratedActivationHintActuallyWorksFromColdStart(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(fpathDir, "_greet"), []byte(content), 0o644))
 
 	activate := "autoload -Uz _greet && compdef _greet greet"
-	require.Contains(t, emitGenerated(t, "greet", "/some/path"), activate,
+	require.Contains(t, emitGenerated(t, "greet"), activate,
 		"test exercises the exact instruction EmitGenerated prints, not a hand-derived one")
 
 	script := fmt.Sprintf(`
@@ -314,6 +314,53 @@ print -r -- "${_comps[greet]}"
 	out, err := exec.Command("zsh", "-fc", script).Output()
 	require.NoError(t, err)
 	assert.Equal(t, "_greet_completion\n", string(out))
+}
+
+func TestEmitUseGeneratesReinvocationWithNameAndArgsFilledIn(t *testing.T) {
+	var buf bytes.Buffer
+	require.NoError(t, EmitUse(&buf, "flags:\n  --loud: shout\n"))
+
+	snippet := buf.String()
+	assert.Contains(t, snippet, `compleo parse --name="${0:t}" -- "$@"`)
+	assert.Contains(t, snippet, "<<<")
+}
+
+func TestEmitUseIsSyntacticallyValidZsh(t *testing.T) {
+	var buf bytes.Buffer
+	require.NoError(t, EmitUse(&buf, "flags:\n  --loud: shout\n"))
+
+	require.NoError(t, exec.Command("zsh", "-n", "-c", buf.String()).Run())
+}
+
+// EmitUse's generated code re-invokes "compleo parse" as a real subprocess — stub it with a
+// fake shell function to capture exactly what it receives, same technique
+// TestWrappedCompletionEmbeddedSpecRoundTripsThroughRealZsh uses for xargs. Confirms the
+// script's own name/args reach the inner call, and the spec round-trips byte for byte
+// (including a quote, $, and backtick) despite going through the <<< here-string.
+func TestEmitUseGeneratedCodeInvokesParseWithNameArgsAndSpec(t *testing.T) {
+	original := "description: it's $dangerous `here`\nflags:\n  --loud: shout\n"
+	var buf bytes.Buffer
+	require.NoError(t, EmitUse(&buf, original))
+
+	captureFile := filepath.Join(t.TempDir(), "captured")
+	script := fmt.Sprintf(`
+compleo() {
+  { print -r -- "ARGS:$*"; print -r -- "SPEC-START"; cat; print -rn -- "SPEC-END"; } > %s
+  print -r -- "typeset -A compleo=()"
+}
+%s
+`, Quote(captureFile), buf.String())
+
+	_, err := exec.Command("zsh", "-fc", script, "scriptname", "world", "--loud").Output()
+	require.NoError(t, err)
+
+	captured, err := os.ReadFile(captureFile)
+	require.NoError(t, err)
+	got := string(captured)
+	assert.Contains(t, got, `ARGS:parse --name=scriptname -- world --loud`)
+	// <<< always appends its own trailing newline, on top of original's own — harmless to
+	// YAML (confirmed: a real compleo parses this fine), but means one extra "\n" here.
+	assert.Contains(t, got, "SPEC-START\n"+original+"\nSPEC-END")
 }
 
 func TestEmitActivatePrintsFpathWiring(t *testing.T) {

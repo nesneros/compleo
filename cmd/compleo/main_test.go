@@ -177,30 +177,7 @@ func captureRealStderr(t *testing.T, fn func()) string {
 	return string(captured)
 }
 
-func TestRunDumpWritesSuccessOutputToStderrTooBeforeStdout(t *testing.T) {
-	specReader := strings.NewReader("name: mytool\nflags:\n  --count=: how many\n")
-	var stdout bytes.Buffer
-
-	stderr := captureRealStderr(t, func() {
-		require.NoError(t, run([]string{"parse", "--dump", "--", "--count", "3"}, true, specReader, &stdout, ""))
-	})
-
-	assert.Equal(t, stdout.String(), stderr)
-}
-
-func TestRunDumpWritesErrorOutputToStderrTooBeforeStdout(t *testing.T) {
-	specReader := strings.NewReader("name: mytool\nflags:\n  --times=: how many\nflagtypes:\n  times: int\n")
-	var stdout bytes.Buffer
-
-	stderr := captureRealStderr(t, func() {
-		require.NoError(t, run([]string{"parse", "--dump", "--", "--times", "x"}, true, specReader, &stdout, ""))
-	})
-
-	assert.Equal(t, stdout.String(), stderr)
-	assert.Contains(t, stdout.String(), "exit 2")
-}
-
-func TestRunWithoutDumpWritesNothingToRealStderrOnSuccess(t *testing.T) {
+func TestRunWritesNothingToRealStderrOnSuccess(t *testing.T) {
 	specReader := strings.NewReader("name: mytool\nflags:\n  --count=: how many\n")
 	var stdout bytes.Buffer
 
@@ -213,7 +190,7 @@ func TestRunWithoutDumpWritesNothingToRealStderrOnSuccess(t *testing.T) {
 }
 
 // "--" is not actually required: it's only needed to disambiguate a wrapped script's own
-// flag from one of compleo's own "parse" flags (--dump). With no collision, it's optional.
+// flag from one of compleo's own "parse" flags (--name). With no collision, it's optional.
 func TestRunParseWithoutDashWorksWhenNoCollision(t *testing.T) {
 	var stdout bytes.Buffer
 	err := run([]string{"parse", "world"}, true, strings.NewReader("name: mytool\npositionals:\n  - name: who\n"), &stdout, "")
@@ -237,6 +214,18 @@ func TestRunParseWithNoWrappedArgsDoesNotPanic(t *testing.T) {
 func TestRunParseRequiresPipedStdin(t *testing.T) {
 	err := run([]string{"parse", "--", "--count", "3"}, false, strings.NewReader(""), &bytes.Buffer{}, "")
 	assert.Error(t, err)
+}
+
+func TestRunUseRequiresPipedStdin(t *testing.T) {
+	err := run([]string{"use"}, false, strings.NewReader(""), &bytes.Buffer{}, "")
+	assert.Error(t, err)
+}
+
+func TestRunUseEmitsReinvocationSnippet(t *testing.T) {
+	var stdout bytes.Buffer
+	err := run([]string{"use"}, true, strings.NewReader("flags:\n  --loud: shout\n"), &stdout, "")
+	require.NoError(t, err)
+	assert.Contains(t, stdout.String(), `compleo parse --name="${0:t}" -- "$@"`)
 }
 
 func TestRunParseEmitsZshScript(t *testing.T) {
@@ -427,7 +416,7 @@ func TestRunParseGenerateModeReportsSuccessAsSelfExitingZsh(t *testing.T) {
 	err := run([]string{"parse"}, true, strings.NewReader("name: greet\n"), &stdout, modeGenerate)
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "exit 0")
-	assert.Contains(t, stdout.String(), "generated completion")
+	assert.Contains(t, stdout.String(), "To activate completion for greet in this shell, run:")
 }
 
 func TestRunParseGenerateModeDoesNotRequireWrappedArgs(t *testing.T) {
@@ -532,7 +521,7 @@ func TestRunGenerateInsertsNameWhenSpecDoesNotDeclareOne(t *testing.T) {
 	assert.Equal(t, "name: 'real-name'\n"+rawSpec, string(specContent))
 }
 
-// Regression test: examples/greet's own pattern (--name=${0:t}, no name: in the spec text)
+// Regression test: examples/greet's own pattern (--name="${0:t}", no name: in the spec text)
 // used to leave the companion file without a name: at all — sp.Name was already non-empty
 // by the time runGenerate looked, from --name, even though rawSpec's own text had none.
 func TestRunGenerateInsertsNameSuppliedOnlyViaNameFlag(t *testing.T) {

@@ -96,7 +96,9 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, mode string) er
 		if wrappedArgs == nil {
 			wrappedArgs = []string{}
 		}
-		return runParse(wrappedArgs, piped, in, out, result.Flags["dump"].Bool, result.Flags["name"].String, mode)
+		return runParse(wrappedArgs, piped, in, out, result.Flags["name"].String, mode)
+	case "use":
+		return runUse(piped, in, out)
 	case "validate":
 		if !piped {
 			return errors.New("no spec piped on stdin (compleo expects a spec to validate on stdin)")
@@ -114,10 +116,9 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, mode string) er
 }
 
 // runParse parses args against the piped spec, or (COMPLEO_MODE=generate) writes its
-// completion file instead. dump also writes the result to stderr. name is --name's value,
-// passed straight to spec.ParseYAML. Reads all of in upfront so the raw bytes are available
-// to pass to runGenerate verbatim.
-func runParse(args []string, piped bool, in io.Reader, out io.Writer, dump bool, name string, mode string) error {
+// completion file instead. name is --name's value, passed straight to spec.ParseYAML. Reads
+// all of in upfront so the raw bytes are available to pass to runGenerate verbatim.
+func runParse(args []string, piped bool, in io.Reader, out io.Writer, name string, mode string) error {
 	if !piped {
 		return errors.New("no spec piped on stdin (compleo expects its target script's spec on stdin)")
 	}
@@ -136,7 +137,21 @@ func runParse(args []string, piped bool, in io.Reader, out io.Writer, dump bool,
 	if mode == modeGenerate {
 		return runGenerate(cmd, sp, string(rawSpec), out)
 	}
-	return runEmit(cmd, sp, args, out, dump)
+	return runEmit(cmd, sp, args, out)
+}
+
+// runUse reads the piped spec and writes zsh that re-invokes "compleo parse" with it
+// embedded (see zsh.EmitUse) — doesn't validate the spec itself, that happens naturally
+// once the generated command actually runs.
+func runUse(piped bool, in io.Reader, out io.Writer) error {
+	if !piped {
+		return errors.New("no spec piped on stdin (compleo expects its target script's spec on stdin)")
+	}
+	rawSpec, err := io.ReadAll(in)
+	if err != nil {
+		return fmt.Errorf("reading spec: %w", err)
+	}
+	return zsh.EmitUse(out, string(rawSpec))
 }
 
 // runCarapace serves one live Tab-press request for a wrapped script's own completion:
@@ -157,28 +172,23 @@ func runCarapace(specYAML io.Reader, args []string, out io.Writer) error {
 }
 
 // runEmit parses args against sp and writes the resulting zsh to out — or, for --help or a
-// bad arg, the equivalently-wrapped help/error text instead. dump also writes it to stderr.
-func runEmit(cmd *cobra.Command, sp spec.Command, args []string, out io.Writer, dump bool) error {
+// bad arg, the equivalently-wrapped help/error text instead.
+func runEmit(cmd *cobra.Command, sp spec.Command, args []string, out io.Writer) error {
 	// cobra's help writes straight to stdout; buffer it so it can be re-wrapped instead of
 	// corrupting Emit's own output on the same stream.
 	var helpBuf bytes.Buffer
 	cmd.SetOut(&helpBuf)
-
-	w := out
-	if dump {
-		w = io.MultiWriter(out, os.Stderr)
-	}
 
 	parseResult, err := parse.Parse(cmd, sp, args)
 	switch {
 	// Encoded into the output, not a Go error: eval alone should stop the script on a bad
 	// arg, no caller-side exit-code check needed.
 	case err != nil:
-		return zsh.EmitError(w, sp.Name, err)
+		return zsh.EmitError(out, sp.Name, err)
 	case parseResult.HelpRequested:
-		return zsh.EmitHelp(w, helpBuf.String())
+		return zsh.EmitHelp(out, helpBuf.String())
 	default:
-		return zsh.Emit(w, parseResult)
+		return zsh.Emit(out, parseResult)
 	}
 }
 
@@ -227,7 +237,7 @@ func runGenerate(cmd *cobra.Command, sp spec.Command, rawSpec string, out io.Wri
 	if err := writeCompletionFile(dir, fileName, snippet); err != nil {
 		return err
 	}
-	return zsh.EmitGenerated(out, name, filepath.Join(dir, fileName))
+	return zsh.EmitGenerated(out, name)
 }
 
 // runGenerateFor is the "generate" subcommand: a convenience wrapper that runs script

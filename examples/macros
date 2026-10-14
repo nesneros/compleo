@@ -13,64 +13,62 @@
 # extension filter - to show a macro being reused differently per flag. Named so they
 # sort next to each other in --help, since pflag always lists flags alphabetically.
 
-eval "$(compleo parse -- "$@" <<SPEC # unquoted: $-expansion is on, so any literal $/` below needs escaping
-name: ${0:t}
+spec=$(<<'SPEC'
 description: Demo of every core carapace-spec macro.
 flags:
-  --file=: {description: "\$files, unfiltered"}
-  --file-ext=: {description: "\$files, same macro filtered to .go files"}
-  --dir=: {description: "\$directories"}
-  --exe=: {description: "\$executables"}
-  --note=: {description: "\$message - a static hint instead of real completions"}
-  --other-spec=: {description: "\$spec - delegates completion to a whole separate spec file"}
-  --shell-out=: {description: "\$zsh - completion values come from running a real shell command"}
-  --chdir=: {description: "\$chdir - complete as if run from another directory"}
-  --filter=: {description: "\$filter - drop specific values from a list"}
-  --filterargs=: {description: "\$filterargs - drop values already used elsewhere on the line"}
-  --list=: {description: "\$list - split one candidate into several on a separator"}
-  --multiparts=: {description: "\$multiparts - complete one path segment at a time"}
-  --nospace=: {description: "\$nospace - no trailing space after matching values"}
-  --noprefix=: {description: "\$noprefix - hide a literal prefix from what gets inserted"}
-  --prefix=: {description: "\$prefix - add a literal prefix to every candidate"}
-  --retain=: {description: "\$retain - keep only specific values from a list"}
-  --shift=: {description: "\$shift - look further back at already-typed args"}
-  --split=: {description: "\$split - treat the typed word as comma-separated args"}
-  --splitp=: {description: "\$splitp - like \$split but only the last part"}
-  --style=: {description: "\$style - force a display color/style"}
-  --suffix=: {description: "\$suffix - add a literal suffix to every candidate"}
-  --suppress=: {description: "\$suppress - hide an error message matching a pattern"}
-  --tag=: {description: "\$tag - label a group of candidates"}
-  --uniquelist=: {description: "\$uniquelist - like \$list but excludes already-used parts"}
-  --usage=: {description: "\$usage - override the usage/placeholder message"}
+  --file=: {description: "$files, unfiltered"}
+  --file-ext=: {description: "$files, same macro filtered to .go files"}
+  --dir=: {description: "$directories"}
+  --exe=: {description: "$executables"}
+  --note=: {description: "$message - a static hint instead of real completions"}
+  --shell-out=: {description: "$zsh - completion values come from running a real shell command"}
+  --chdir=: {description: "$chdir - complete as if run from another directory"}
+  --filter=: {description: "$filter - drop specific values from a list"}
+  --filterargs=: {description: "$filterargs - drop values already used elsewhere on the line"}
+  --list=: {description: "$list - split one candidate into several on a separator"}
+  --multiparts=: {description: "$multiparts - complete one path segment at a time"}
+  --nospace=: {description: "$nospace - no trailing space after matching values"}
+  --noprefix=: {description: "$noprefix - hide a literal prefix from what gets inserted"}
+  --prefix=: {description: "$prefix - add a literal prefix to every candidate"}
+  --retain=: {description: "$retain - keep only specific values from a list"}
+  --shift=: {description: "$shift - look further back at already-typed args"}
+  --split=: {description: "$split - treat the typed word as comma-separated args"}
+  --splitp=: {description: "$splitp - like $split but only the last part"}
+  --style=: {description: "$style - force a display color/style"}
+  --suffix=: {description: "$suffix - add a literal suffix to every candidate"}
+  --suppress=: {description: "$suppress - hide an error message matching a pattern"}
+  --tag=: {description: "$tag - label a group of candidates"}
+  --uniquelist=: {description: "$uniquelist - like $list but excludes already-used parts"}
+  --usage=: {description: "$usage - override the usage/placeholder message"}
 completion:
   flag:
-    file: ["\$files"]
-    file-ext: ["\$files([.go])"]
-    dir: ["\$directories"]
-    exe: ["\$executables"]
-    note: ["\$message(this flag only shows a hint - type anything)"]
-    other-spec: ["\$spec(${0:A:h}/macros.subspec.yaml)"]
-    shell-out: ["\$zsh(echo -e 'one\\\\ntwo\\\\nthree')"]
-    chdir: ["\$files", "\$chdir(/tmp)"]
-    filter: ["one", "two", "three", "\$filter([two])"]
-    filterargs: ["\$files", "\$filterargs"]
-    list: ["one", "two", "three", "\$list(,)"]
-    multiparts: ["one/two/three", "\$multiparts([/])"]
-    nospace: ["one", "two/", "three,", "\$nospace(/,)"]
-    noprefix: ["--", "---", "one--", "one---", "\$noprefix(-)"]
-    prefix: ["\$files", "\$prefix(file://)"]
-    retain: ["one", "two", "three", "\$retain([two])"]
-    shift: ["one", "two", "three", "\$filterargs", "\$shift(1)"]
-    split: ["one", "two", "three", "\$filterargs", "\$split"]
-    splitp: ["one", "two", "three", "\$filterargs", "\$splitp"]
-    style: ["one", "two", "three", "\$style(underlined)"]
-    suffix: ["apple", "melon", "orange", "\$suffix(juice)"]
-    suppress: ["\$message(fail)", "\$suppress(fail)"]
-    tag: ["one", "two", "three", "\$tag(numbers)"]
-    uniquelist: ["one", "two", "three", "\$uniquelist(,)"]
-    usage: ["\$usage(custom)"]
+    file: ["$files"]
+    file-ext: ["$files([.go])"]
+    dir: ["$directories"]
+    exe: ["$executables"]
+    note: ["$message(this flag only shows a hint - type anything)"]
+    shell-out: ["$zsh(echo -e 'one\\ntwo\\nthree')"]
+    chdir: ["$files", "$chdir(/tmp)"]
+    filter: ["one", "two", "three", "$filter([two])"]
+    filterargs: ["$files", "$filterargs"]
+    list: ["one", "two", "three", "$list(,)"]
+    multiparts: ["one/two/three", "$multiparts([/])"]
+    nospace: ["one", "two/", "three,", "$nospace(/,)"]
+    noprefix: ["--", "---", "one--", "one---", "$noprefix(-)"]
+    prefix: ["$files", "$prefix(file://)"]
+    retain: ["one", "two", "three", "$retain([two])"]
+    shift: ["one", "two", "three", "$filterargs", "$shift(1)"]
+    split: ["one", "two", "three", "$filterargs", "$split"]
+    splitp: ["one", "two", "three", "$filterargs", "$splitp"]
+    style: ["one", "two", "three", "$style(underlined)"]
+    suffix: ["apple", "melon", "orange", "$suffix(juice)"]
+    suppress: ["$message(fail)", "$suppress(fail)"]
+    tag: ["one", "two", "three", "$tag(numbers)"]
+    uniquelist: ["one", "two", "three", "$uniquelist(,)"]
+    usage: ["$usage(custom)"]
 SPEC
-)"
+)
+eval "$(compleo use <<<"$spec")"
 
 for key in "${(k)compleo[@]}"; do
   [[ -n $compleo[$key] ]] && print -r -- "$key = $compleo[$key]"
