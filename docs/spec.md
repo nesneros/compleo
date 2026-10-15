@@ -12,7 +12,7 @@ For completion *actions* specifically (`$files`, `$directories`, and the rest of
 these all work out of the box, just by compleo importing carapace-spec (see `examples/macros`
 for a runnable demo of every one except `$spec`, which needs its own separate spec file to
 delegate to — see `examples/other_spec`). carapace-bin additionally ships a much larger set of
-tool-specific macros (`$carapace.tools.git.branches`, and ~130 more); compleo doesn't link
+tool-specific macros (`$carapace.tools.git.LocalBranches`, and ~130 more); compleo doesn't link
 those in directly, but they still work transparently at Tab-press time by shelling out to a
 separately-installed `carapace` binary — see
 [carapace-bin's macro documentation](https://carapace-sh.github.io/carapace-bin/spec/macros.html)

@@ -2,6 +2,8 @@
 # shellcheck disable=SC1071
 # Demo of carapace-bin macros with compleo.
 # Each flag below exists purely to show one macro's completion in action.
+# Needs a separately-installed "carapace" binary (from carapace-bin) on $PATH at Tab-press
+# time — unlike examples/macros, these aren't built into compleo itself.
 #
 # Try it:
 #   PATH="$PWD/bin:$PATH" examples/carapace_bin_macros --help

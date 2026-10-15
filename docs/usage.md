@@ -111,7 +111,15 @@ the most likely causes are: `compleo generate <script>` was never run (or run be
 recent edit — re-run it, and remember the spec it captured is frozen until you do), or
 `$fpath`/`compinit` isn't wired up (see "Once per machine" above). Live completion itself
 (like carapace's own completion snippets) suppresses errors, so these fail silently rather
-than with a message.
+than with a message. To actually see what went wrong, set `COMPLEO_DEBUG_LOG` to a real file
+path (not `/dev/stderr` — it won't survive the suppression) before pressing Tab again, then
+check that file:
+
+```zsh
+COMPLEO_DEBUG_LOG=/tmp/compleo-debug.log
+# press Tab, then:
+cat /tmp/compleo-debug.log
+```
 
 ## Full example
 
