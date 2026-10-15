@@ -144,6 +144,12 @@ func (c Command) toCarapace() carapacespec.Command {
 	if out.Completion.PositionalAny == nil {
 		out.Completion.PositionalAny = variadicFallback
 	}
+	// Otherwise left unset, carapace falls through to a cobra-compat bridge path whose
+	// completion is effectively undefined for a position the spec never declared — offer
+	// nothing explicitly rather than risk a surprise (e.g. file candidates).
+	if out.Completion.PositionalAny == nil {
+		out.Completion.PositionalAny = noPositionalCompletion
+	}
 	out.Completion.Dash = c.Completion.Dash
 	out.Completion.DashAny = c.Completion.DashAny
 	out.Documentation.Command = c.Documentation.Command
@@ -154,6 +160,10 @@ func (c Command) toCarapace() carapacespec.Command {
 	out.Documentation.DashAny = c.Documentation.DashAny
 	return carapacespec.Command(out)
 }
+
+// noPositionalCompletion is the action expression used to explicitly offer nothing for a
+// position no completion was declared for (see $compleo.none, internal/spec/macros.go).
+var noPositionalCompletion = []string{"$compleo.none"}
 
 // flagCompletions gathers each flag's own Completion across flagSets into carapace's
 // name-keyed completion map. An enum flag with no Completion of its own falls back to its

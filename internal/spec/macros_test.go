@@ -67,6 +67,31 @@ positionals:
 	assert.NotContains(t, buf.String(), "my-compleo-mention-binary")
 }
 
+// A command with no positionals must not offer the cwd's files via whatever carapace's own
+// cobra-compat fallback does for an undeclared position — it should complete to nothing.
+func TestNoPositionalsCompletesToNothingNotCwdFiles(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "suspicious-file"), []byte("x"), 0o644))
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(dir))
+	defer func() { _ = os.Chdir(cwd) }()
+
+	cmd, _, err := ParseYAML(`
+name: mytool
+flags:
+  --loud: shout
+`, "")
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	cmd.SetArgs([]string{"_carapace", "zsh", "mytool", ""})
+	cmd.SetOut(&buf)
+	require.NoError(t, cmd.Execute())
+
+	assert.NotContains(t, buf.String(), "suspicious-file")
+}
+
 // Confirms the merge with carapace's own file completion actually works: $compleo.scripts
 // must also offer path candidates, since "compleo generate" now accepts a path too.
 func TestCompleoScriptsMacroAlsoCompletesFilePaths(t *testing.T) {

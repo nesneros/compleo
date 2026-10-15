@@ -380,6 +380,37 @@ completion:
 	assert.Equal(t, []string{"$directories"}, converted.Completion.PositionalAny)
 }
 
+// A command with no positionals at all must not be left to whatever carapace's own
+// cobra-compat fallback does for an undeclared position (observed to offer default file
+// completion) — it should explicitly complete to nothing.
+func TestToCarapaceDefaultsPositionalAnyToNoneWhenNoPositionalsDeclared(t *testing.T) {
+	cmd, err := decodeYAML(`
+name: mytool
+flags:
+  --loud: shout
+`)
+	require.NoError(t, err)
+
+	converted := cmd.toCarapace()
+
+	assert.Equal(t, []string{"$compleo.none"}, converted.Completion.PositionalAny)
+}
+
+// Same default applies when positionals: is declared but none of them have a completion.
+func TestToCarapaceDefaultsPositionalAnyToNoneWhenNoPositionalHasCompletion(t *testing.T) {
+	cmd, err := decodeYAML(`
+name: mytool
+positionals:
+  - name: src
+  - name: dst
+`)
+	require.NoError(t, err)
+
+	converted := cmd.toCarapace()
+
+	assert.Equal(t, []string{"$compleo.none"}, converted.Completion.PositionalAny)
+}
+
 func TestToCarapaceLeavesUntypedFlagDescriptionAlone(t *testing.T) {
 	cmd, err := decodeYAML(`
 name: mytool

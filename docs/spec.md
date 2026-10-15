@@ -102,6 +102,11 @@ index-keyed, not name-keyed:
   also used as the command's `completion.positionalany` fallback when nothing else declares one
   explicitly (an explicit `positionalany:` on the command always wins).
 
+If nothing above applies — no positionals declared at all, or none of them have a `completion:`,
+and the command doesn't declare its own `positionalany:` either — Tab-completion for that
+position explicitly completes to nothing, rather than being left to whatever carapace's own
+fallback does for a position nobody declared.
+
 For an `enum` *flag or positional* (`type: {kind: enum, values: [...]}`, see Types below), a
 `completion:` also gets auto-filled from the same `values:` if you don't declare one yourself
 — see the Types section for the full rationale.

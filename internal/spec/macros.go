@@ -13,6 +13,8 @@ import (
 func init() {
 	carapacespec.AddMacro("scripts", carapacespec.MacroN(func() carapace.Action { return actionScripts() }),
 		`Executables on $PATH that look like they wrap compleo (have a shebang and mention "compleo")`)
+	carapacespec.AddMacro("none", carapacespec.MacroN(func() carapace.Action { return carapace.ActionValues() }),
+		"No completion candidates")
 }
 
 // actionScripts implements $compleo.scripts: like $executables, narrowed to compleo-wrapped
