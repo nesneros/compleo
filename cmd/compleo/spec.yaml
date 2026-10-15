@@ -11,9 +11,7 @@ commands:
       - name: script
         description: The script to generate completion for — a bare name resolved via $PATH, or a full path to the script.
         required: true
-    completion:
-      positional:
-        - ["$compleo.scripts"]
+        completion: ["$compleo.scripts"]
   - name: parse
     description: Parse the wrapped script's command line against the spec piped on stdin, printing zsh for the script to eval. Most scripts should use "up" instead; reach for this directly when you need control over the name or arguments passed.
     flags:

@@ -53,9 +53,7 @@ func TestCompleoScriptsMacroCompletesOnlyWrappedExecutablesOnPath(t *testing.T) 
 name: mytool
 positionals:
   - name: target
-completion:
-  positional:
-    - ["$_.scripts"]
+    completion: ["$_.scripts"]
 `, "")
 	require.NoError(t, err)
 
@@ -80,9 +78,7 @@ func TestCompleoScriptsMacroAlsoCompletesFilePaths(t *testing.T) {
 name: mytool
 positionals:
   - name: target
-completion:
-  positional:
-    - ["$_.scripts"]
+    completion: ["$_.scripts"]
 `, "")
 	require.NoError(t, err)
 

@@ -253,16 +253,131 @@ func TestToCarapaceLeavesExplicitCompletionForEnumFlagAlone(t *testing.T) {
 	cmd, err := decodeYAML(`
 name: mytool
 flags:
-  --color=: {type: {kind: enum, values: [red, green, blue]}}
-completion:
-  flag:
-    color: ["red\tlike a tomato"]
+  --color=: {type: {kind: enum, values: [red, green, blue]}, completion: ["red\tlike a tomato"]}
 `)
 	require.NoError(t, err)
 
 	converted := cmd.toCarapace()
 
 	assert.Equal(t, []string{"red\tlike a tomato"}, converted.Completion.Flag["color"])
+}
+
+// A flag's own completion: is folded into carapace's name-keyed Completion.Flag map.
+func TestToCarapaceUsesFlagsOwnCompletion(t *testing.T) {
+	cmd, err := decodeYAML(`
+name: mytool
+flags:
+  --file=: {description: a file, completion: ["$files"]}
+`)
+	require.NoError(t, err)
+
+	converted := cmd.toCarapace()
+
+	assert.Equal(t, []string{"$files"}, converted.Completion.Flag["file"])
+}
+
+// A positional's own completion: is folded into carapace's index-keyed Completion.Positional
+// list, in declaration order. A trailing positional with no completion of its own is trimmed
+// off rather than padded with a shadowing empty entry (see positionalCompletions).
+func TestToCarapacePositionalCompletionIsIndexedByDeclarationOrder(t *testing.T) {
+	cmd, err := decodeYAML(`
+name: mytool
+positionals:
+  - name: src
+    completion: ["$files"]
+  - name: dst
+`)
+	require.NoError(t, err)
+
+	converted := cmd.toCarapace()
+
+	assert.Equal(t, [][]string{{"$files"}}, converted.Completion.Positional)
+}
+
+// A gap before a later declared completion still has to be padded (carapace indexes by
+// position, not name) — only a *trailing* run of undeclared positionals is trimmed.
+func TestToCarapacePositionalCompletionPadsAGapBeforeALaterOne(t *testing.T) {
+	cmd, err := decodeYAML(`
+name: mytool
+positionals:
+  - name: first
+  - name: second
+    completion: ["$files"]
+`)
+	require.NoError(t, err)
+
+	converted := cmd.toCarapace()
+
+	assert.Equal(t, [][]string{nil, {"$files"}}, converted.Completion.Positional)
+}
+
+// No positional declaring a completion must leave Completion.Positional nil outright — a
+// present-but-empty entry would otherwise shadow completion.positionalany/the default for
+// every index, just because positionals: exists at all.
+func TestToCarapaceLeavesPositionalCompletionNilWhenNoneDeclared(t *testing.T) {
+	cmd, err := decodeYAML(`
+name: mytool
+positionals:
+  - name: src
+  - name: dst
+`)
+	require.NoError(t, err)
+
+	converted := cmd.toCarapace()
+
+	assert.Nil(t, converted.Completion.Positional)
+}
+
+// Mirrors enum flag derivation: an enum positional with no completion of its own falls back to
+// its own Values.
+func TestToCarapaceDerivesPositionalCompletionFromEnumValues(t *testing.T) {
+	cmd, err := decodeYAML(`
+name: mytool
+positionals:
+  - name: color
+    type: {kind: enum, values: [red, green, blue]}
+`)
+	require.NoError(t, err)
+
+	converted := cmd.toCarapace()
+
+	assert.Equal(t, [][]string{{"red", "green", "blue"}}, converted.Completion.Positional)
+}
+
+// A trailing variadic positional's own completion only ever applies to its first word in
+// carapace's index-keyed completion.positional (no index for "and every word after"), so it's
+// also used as completion.positionalany when the command doesn't declare one explicitly.
+func TestToCarapaceVariadicPositionalCompletionAlsoFallsBackToPositionalAny(t *testing.T) {
+	cmd, err := decodeYAML(`
+name: mytool
+positionals:
+  - name: files
+    variadic: true
+    completion: ["$files"]
+`)
+	require.NoError(t, err)
+
+	converted := cmd.toCarapace()
+
+	assert.Equal(t, []string{"$files"}, converted.Completion.PositionalAny)
+}
+
+// An explicitly declared completion.positionalany always wins over the variadic fallback.
+func TestToCarapaceExplicitPositionalAnyWinsOverVariadicFallback(t *testing.T) {
+	cmd, err := decodeYAML(`
+name: mytool
+positionals:
+  - name: files
+    variadic: true
+    completion: ["$files"]
+completion:
+  positionalany: ["$directories"]
+`)
+	require.NoError(t, err)
+
+	converted := cmd.toCarapace()
+
+	assert.Equal(t, []string{"$directories"}, converted.Completion.PositionalAny)
 }
 
 func TestToCarapaceLeavesUntypedFlagDescriptionAlone(t *testing.T) {

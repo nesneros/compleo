@@ -16,56 +16,30 @@
 spec=$(<<'SPEC'
 description: Demo of every core carapace-spec macro.
 flags:
-  --file=: {description: "$files, unfiltered"}
-  --file-ext=: {description: "$files, same macro filtered to .go files"}
-  --dir=: {description: "$directories"}
-  --exe=: {description: "$executables"}
-  --note=: {description: "$message - a static hint instead of real completions"}
-  --shell-out=: {description: "$zsh - completion values come from running a real shell command"}
-  --chdir=: {description: "$chdir - complete as if run from another directory"}
-  --filter=: {description: "$filter - drop specific values from a list"}
-  --filterargs=: {description: "$filterargs - drop values already used elsewhere on the line"}
-  --list=: {description: "$list - split one candidate into several on a separator"}
-  --multiparts=: {description: "$multiparts - complete one path segment at a time"}
-  --nospace=: {description: "$nospace - no trailing space after matching values"}
-  --noprefix=: {description: "$noprefix - hide a literal prefix from what gets inserted"}
-  --prefix=: {description: "$prefix - add a literal prefix to every candidate"}
-  --retain=: {description: "$retain - keep only specific values from a list"}
-  --shift=: {description: "$shift - look further back at already-typed args"}
-  --split=: {description: "$split - treat the typed word as comma-separated args"}
-  --splitp=: {description: "$splitp - like $split but only the last part"}
-  --style=: {description: "$style - force a display color/style"}
-  --suffix=: {description: "$suffix - add a literal suffix to every candidate"}
-  --suppress=: {description: "$suppress - hide an error message matching a pattern"}
-  --tag=: {description: "$tag - label a group of candidates"}
-  --uniquelist=: {description: "$uniquelist - like $list but excludes already-used parts"}
-  --usage=: {description: "$usage - override the usage/placeholder message"}
-completion:
-  flag:
-    file: ["$files"]
-    file-ext: ["$files([.go])"]
-    dir: ["$directories"]
-    exe: ["$executables"]
-    note: ["$message(this flag only shows a hint - type anything)"]
-    shell-out: ["$zsh(echo -e 'one\\ntwo\\nthree')"]
-    chdir: ["$files", "$chdir(/tmp)"]
-    filter: ["one", "two", "three", "$filter([two])"]
-    filterargs: ["$files", "$filterargs"]
-    list: ["one", "two", "three", "$list(,)"]
-    multiparts: ["one/two/three", "$multiparts([/])"]
-    nospace: ["one", "two/", "three,", "$nospace(/,)"]
-    noprefix: ["--", "---", "one--", "one---", "$noprefix(-)"]
-    prefix: ["$files", "$prefix(file://)"]
-    retain: ["one", "two", "three", "$retain([two])"]
-    shift: ["one", "two", "three", "$filterargs", "$shift(1)"]
-    split: ["one", "two", "three", "$filterargs", "$split"]
-    splitp: ["one", "two", "three", "$filterargs", "$splitp"]
-    style: ["one", "two", "three", "$style(underlined)"]
-    suffix: ["apple", "melon", "orange", "$suffix(juice)"]
-    suppress: ["$message(fail)", "$suppress(fail)"]
-    tag: ["one", "two", "three", "$tag(numbers)"]
-    uniquelist: ["one", "two", "three", "$uniquelist(,)"]
-    usage: ["$usage(custom)"]
+  --file=: {description: "$files, unfiltered", completion: ["$files"]}
+  --file-ext=: {description: "$files, same macro filtered to .go files", completion: ["$files([.go])"]}
+  --dir=: {description: "$directories", completion: ["$directories"]}
+  --exe=: {description: "$executables", completion: ["$executables"]}
+  --note=: {description: "$message - a static hint instead of real completions", completion: ["$message(this flag only shows a hint - type anything)"]}
+  --shell-out=: {description: "$zsh - completion values come from running a real shell command", completion: ["$zsh(echo -e 'one\\ntwo\\nthree')"]}
+  --chdir=: {description: "$chdir - complete as if run from another directory", completion: ["$files", "$chdir(/tmp)"]}
+  --filter=: {description: "$filter - drop specific values from a list", completion: ["one", "two", "three", "$filter([two])"]}
+  --filterargs=: {description: "$filterargs - drop values already used elsewhere on the line", completion: ["$files", "$filterargs"]}
+  --list=: {description: "$list - split one candidate into several on a separator", completion: ["one", "two", "three", "$list(,)"]}
+  --multiparts=: {description: "$multiparts - complete one path segment at a time", completion: ["one/two/three", "$multiparts([/])"]}
+  --nospace=: {description: "$nospace - no trailing space after matching values", completion: ["one", "two/", "three,", "$nospace(/,)"]}
+  --noprefix=: {description: "$noprefix - hide a literal prefix from what gets inserted", completion: ["--", "---", "one--", "one---", "$noprefix(-)"]}
+  --prefix=: {description: "$prefix - add a literal prefix to every candidate", completion: ["$files", "$prefix(file://)"]}
+  --retain=: {description: "$retain - keep only specific values from a list", completion: ["one", "two", "three", "$retain([two])"]}
+  --shift=: {description: "$shift - look further back at already-typed args", completion: ["one", "two", "three", "$filterargs", "$shift(1)"]}
+  --split=: {description: "$split - treat the typed word as comma-separated args", completion: ["one", "two", "three", "$filterargs", "$split"]}
+  --splitp=: {description: "$splitp - like $split but only the last part", completion: ["one", "two", "three", "$filterargs", "$splitp"]}
+  --style=: {description: "$style - force a display color/style", completion: ["one", "two", "three", "$style(underlined)"]}
+  --suffix=: {description: "$suffix - add a literal suffix to every candidate", completion: ["apple", "melon", "orange", "$suffix(juice)"]}
+  --suppress=: {description: "$suppress - hide an error message matching a pattern", completion: ["$message(fail)", "$suppress(fail)"]}
+  --tag=: {description: "$tag - label a group of candidates", completion: ["one", "two", "three", "$tag(numbers)"]}
+  --uniquelist=: {description: "$uniquelist - like $list but excludes already-used parts", completion: ["one", "two", "three", "$uniquelist(,)"]}
+  --usage=: {description: "$usage - override the usage/placeholder message", completion: ["$usage(custom)"]}
 SPEC
 )
 eval "$(compleo up <<<"$spec")"

@@ -1,13 +1,18 @@
 # Spec file format
 
 A compleo spec is a [carapace-spec](https://carapace-sh.github.io/carapace-spec/) YAML
-document — the same format carapace-bin's completers use — with two additions: `positionals:`
-and a `type:` key on a flag's (or positional's) own definition. Everything else (`name`,
-`description`, `flags`, `persistentflags`, `commands`, `completion`, `aliases`, `group`,
-`hidden`, ...) is plain carapace-spec; see its docs for the full field reference.
+document — the same format carapace-bin's completers use — with three additions:
+`positionals:`, a `type:` key, and a `completion:` key co-located on a flag's (or positional's)
+own definition, instead of plain carapace-spec's separate, name/index-keyed top-level
+`completion:` section. Everything else (`name`, `description`, `flags`, `persistentflags`,
+`commands`, `aliases`, `group`, `hidden`, ...) is plain carapace-spec; see its docs for the full
+field reference. A command's top-level `completion:` still exists, but only for
+`positionalany`/`dash`/`dashany` — the handful of completion slots with no single flag or
+positional to live on.
 
 For completion *actions* specifically (`$files`, `$directories`, and the rest of the
-`$macro(...)` syntax used under `completion:`), see carapace-spec's own
+`$macro(...)` syntax used in a flag's or positional's own `completion:`), see carapace-spec's
+own
 [core macros documentation](https://carapace-sh.github.io/carapace-spec/carapace-spec/macros.html) —
 these all work out of the box, just by compleo importing carapace-spec (see `examples/macros`
 for a runnable demo of every one except `$spec`, which needs its own separate spec file to
@@ -33,8 +38,10 @@ currently-running binary's own name, namespacing its own macros, same as `$carap
   more specific.
 - `commands` — subcommands, each a full `Command` in its own right (so `positionals:` and a
   flag's `type:` both nest into subcommands too).
-- `completion:` — `flag`/`positional`/`positionalany`/`dash`/`dashany` completion actions,
-  keyed by flag/position, using carapace-bin's macros.
+- `completion:` — completion actions, using carapace-bin's macros. Plain carapace-spec keys
+  these by flag name/position under a separate top-level `flag`/`positional` map; compleo
+  changes where `flag`/`positional` entries live (see below) but keeps `positionalany`/`dash`/
+  `dashany` as plain carapace-spec has them.
 - `run:` — carapace-spec's own field for making a spec directly runnable. compleo **ignores
   it**: compleo parses a command line and emits zsh, it never executes the spec itself.
 
@@ -52,15 +59,63 @@ positionals:
     required: true   # missing => a parse error (see below)
     variadic: false  # true => a real zsh array ($compleo_name), not a scalar; must be last
     type: string      # see Types below; defaults to string if omitted
+    completion: ["$files"]  # optional: this positional's own completion action, see below
 ```
 
 Rules compleo enforces (in `internal/parse`, not carapace-spec): at most one `variadic:
 true` positional, and it must be last; a `required: true` positional may not follow an
 optional one.
 
-This is separate from, and not automatically linked to, carapace-spec's own
-`completion.positional`/`completion.positionalany` (which complete by *index*, not name) —
-you declare both independently if you want a positional both parsed *and* completed.
+A positional's own `completion:` works the same way a flag's does — see the next section.
+
+### `completion:` on a flag or positional
+
+carapace-spec normally keys a flag's or positional's completion by name/index in a separate,
+command-level `completion:` section, disconnected from the flag's own `flags:`/`positionals:`
+entry — see "Why carapace separates them" below for why that's carapace's own natural shape.
+compleo instead lets a `completion:` key live directly on the flag or positional it completes:
+
+```yaml
+flags:
+  --file=: {description: input file, completion: ["$files"]}
+positionals:
+  - name: target
+    completion: ["$compleo.scripts"]
+```
+
+This is purely where the same action expression is written — the value (a list of literal
+candidates, or a `["$macro(...)"]` call, exactly as plain carapace-spec's `completion:` section
+accepts) is unchanged, and `toCarapace()` gathers these back into carapace-spec's own
+name-keyed/index-keyed shape before handing off to `ToCobraE()`. Nothing about how an action
+expression is written or resolved is compleo-specific; only where you declare it is.
+
+Two behaviors are specific to positionals, since carapace-spec's own positional completion is
+index-keyed, not name-keyed:
+
+- A positional with no `completion:` of its own contributes nothing to the index-keyed list —
+  it isn't padded with an empty placeholder — *unless* a later positional does declare one, in
+  which case the gap has to be kept to preserve the later one's index (same limitation plain
+  carapace-spec's own `completion.positional` always had; compleo just works out the indices
+  for you instead of you counting them by hand).
+- A trailing **variadic** positional's own `completion:` only ever covers its first word —
+  carapace's index-keyed list has no way to say "and every word after this one too" — so it's
+  also used as the command's `completion.positionalany` fallback when nothing else declares one
+  explicitly (an explicit `positionalany:` on the command always wins).
+
+For an `enum` *flag or positional* (`type: {kind: enum, values: [...]}`, see Types below), a
+`completion:` also gets auto-filled from the same `values:` if you don't declare one yourself
+— see the Types section for the full rationale.
+
+#### Why carapace separates them
+
+carapace's primary job is retrofitting completion onto a command *that already exists* — a CLI
+built with its own `pflag.FlagSet`, which has no completion field at all (pflag predates
+carapace). Completion can only be bolted on afterward as a separate, name-keyed registration,
+mirroring how cobra itself does shell completion (`RegisterFlagCompletionFunc`, also a side map
+keyed by name, not a method on the flag). carapace-spec's YAML `completion:` section is a
+fairly direct serialization of that same Go API shape. compleo doesn't have that constraint —
+it builds the cobra tree itself from its own `Flag`/`Positional` structs rather than retrofitting
+someone else's — so co-locating is a real option for compleo in a way it never was for carapace.
 
 ### `type:` on a flag
 
@@ -80,7 +135,9 @@ so `--times int` reads correctly even though pflag's underlying registered type 
 Plain carapace-spec/carapace-bin tolerates this fine if the same file is ever consumed
 directly by them: their `FlagSet` decoder already accepts the object form and simply ignores
 any key besides `description`/`nargs`/`default` — compleo's own decoder is the one that
-additionally reads (and, on an unrecognized key, rejects a typo in) `type:`.
+additionally reads (and, on an unrecognized key, rejects a typo in) `type:` and `completion:`.
+A plain carapace-spec/carapace-bin consumer of the same file would still see the flag's
+description and parsing behavior correctly, but silently get no completion for it at all.
 
 ### Types
 
@@ -109,15 +166,14 @@ flags:
 `--port`'s declared above renders as `--port int 1-65535` (only one of `min`/`max` shows as
 `>=1` or `<=65535` instead).
 
-For an `enum` *flag* (not a positional), this also auto-fills `completion.flag` for that same
-flag with the same values, unless one is already explicitly declared there — so the list only
-needs writing once to get both validation and Tab-completion. A positional's `values:` only
-validates; carapace-spec's positional completion is matched by index, not name, so there's no
-single slot to derive it into automatically. `int`/`float`'s `min`/`max` have no such
-completion-derivation — there's no core carapace-spec macro for a bounded range that doesn't
-need the separately-installed `carapace` binary (see `examples/carapace_bin_macros`), so unlike
-`enum`'s free literal-values completion, deriving one here would trade a dependency-free
-feature for one with a hidden runtime dependency; declare `completion:` yourself if you want it.
+For an `enum` flag *or positional*, this also auto-fills its own `completion:` with the same
+values, unless one is already explicitly declared there (see the `completion:` section above)
+— so the list only needs writing once to get both validation and Tab-completion. `int`/`float`'s
+`min`/`max` have no such completion-derivation — there's no core carapace-spec macro for a
+bounded range that doesn't need the separately-installed `carapace` binary (see
+`examples/carapace_bin_macros`), so unlike `enum`'s free literal-values completion, deriving one
+here would trade a dependency-free feature for one with a hidden runtime dependency; declare
+`completion:` yourself if you want it.
 
 ## Full example
 

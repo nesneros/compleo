@@ -32,6 +32,11 @@ type Flag struct {
 	// Type validates the flag's value and describes it beyond pflag's own
 	// string/[]string/bool/count.
 	Type Type
+
+	// Completion is this flag's own completion action expression (e.g. ["$files"], or a
+	// plain list of literal values), folded into carapace's name-keyed completion map by
+	// Command.toCarapace. An EnumType flag with no Completion falls back to its own Values.
+	Completion []string
 }
 
 // Validate reports whether s is a valid value for f. A nil Type means no validation,
@@ -131,7 +136,7 @@ func parseFlagKey(s string) (Flag, error) {
 }
 
 // validFlagObjectKeys are the only keys recognized in a flag's object-form value.
-var validFlagObjectKeys = map[string]bool{"description": true, "nargs": true, "default": true, "type": true}
+var validFlagObjectKeys = map[string]bool{"description": true, "nargs": true, "default": true, "type": true, "completion": true}
 
 // UnmarshalYAML decodes a flags: entry. A bare string is the description; an object form
 // additionally accepts nargs, default, and type.
@@ -172,6 +177,13 @@ func (fs *FlagSet) UnmarshalYAML(value *yaml.Node) error {
 				return fmt.Errorf("flag %q: %w", k, err)
 			}
 			f.Type = t
+			if c, ok := v["completion"]; ok {
+				completion, err := decodeStringList(c)
+				if err != nil {
+					return fmt.Errorf("flag %q: completion: %w", k, err)
+				}
+				f.Completion = completion
+			}
 		default:
 			return fmt.Errorf("flag %q: invalid value", k)
 		}

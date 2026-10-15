@@ -81,13 +81,9 @@ func TestRunWithValidateHelpSucceedsEvenWhenNotPiped(t *testing.T) {
 	assert.Contains(t, stdout.String(), "Usage:")
 }
 
-// Unlike parse/up, validate has no isPiped check: it just reads whatever in is, regardless of
-// whether stdin was detected as piped.
-func TestRunWithValidateSucceedsEvenWhenStdinIsNotDetectedAsPiped(t *testing.T) {
-	var stdout bytes.Buffer
-	err := run([]string{"validate"}, false, strings.NewReader("name: mytool\n"), &stdout, "")
-	require.NoError(t, err)
-	assert.Equal(t, "ok\n", stdout.String())
+func TestRunWithValidateRequiresPipedStdin(t *testing.T) {
+	err := run([]string{"validate"}, false, strings.NewReader("name: mytool\n"), &bytes.Buffer{}, "")
+	assert.Error(t, err)
 }
 
 // compleo's own --version must never shadow the wrapped script's own --version flag.

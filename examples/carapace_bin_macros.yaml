@@ -1,210 +1,105 @@
 description: Demo of carapace-bin completion macros.
 
 flags:
-  --color-256Colors=: {description: "$carapace.color.256Colors"}
-  --color-AnsiBackgroundColors=: {description: "$carapace.color.AnsiBackgroundColors"}
-  --color-AnsiForegroundColors=: {description: "$carapace.color.AnsiForegroundColors"}
-  --color-HexColors=: {description: "$carapace.color.HexColors"}
-  --color-XtermColorNames=: {description: "$carapace.color.XtermColorNames"}
-  --env-Names=: {description: "$carapace.env.Names"}
-  --env-NameValues=: {description: "$carapace.env.NameValues"}
-  --env-Values=: {description: "$carapace.env.Values"}
-  --fs-ArFileContents=: {description: "$carapace.fs.ArFileContents"}
-  --fs-BlockDevices=: {description: "$carapace.fs.BlockDevices"}
-  --fs-FilenameExtensions=: {description: "$carapace.fs.FilenameExtensions"}
-  --fs-FilesystemTypes=: {description: "$carapace.fs.FilesystemTypes"}
-  --fs-FileModes=: {description: "$carapace.fs.FileModes"}
-  --fs-FileModesNumeric=: {description: "$carapace.fs.FileModesNumeric"}
-  --fs-FileModesSymbolic=: {description: "$carapace.fs.FileModesSymbolic"}
-  --fs-JarFileClasses=: {description: "$carapace.fs.JarFileClasses"}
-  --fs-Labels=: {description: "$carapace.fs.Labels"}
-  --fs-Mounts=: {description: "$carapace.fs.Mounts"}
-  --fs-PartitionLabels=: {description: "$carapace.fs.PartitionLabels"}
-  --fs-PartitionUuids=: {description: "$carapace.fs.PartitionUuids"}
-  --fs-SubDirectories=: {description: "$carapace.fs.SubDirectories"}
-  --fs-TarFileContents=: {description: "$carapace.fs.TarFileContents"}
-  --fs-Uuids=: {description: "$carapace.fs.Uuids"}
-  --fs-ZipFileContents=: {description: "$carapace.fs.ZipFileContents"}
-  --net-BaudRates=: {description: "$carapace.net.BaudRates"}
-  --net-Ipv4Addresses=: {description: "$carapace.net.Ipv4Addresses"}
-  --net-Subnets=: {description: "$carapace.net.Subnets"}
-  --net-Bssids=: {description: "$carapace.net.Bssids"}
-  --net-Connections=: {description: "$carapace.net.Connections"}
-  --net-Devices=: {description: "$carapace.net.Devices"}
-  --net-Hosts=: {description: "$carapace.net.Hosts"}
-  --net-Ssids=: {description: "$carapace.net.Ssids"}
-  --net-KnownPorts=: {description: "$carapace.net.KnownPorts"}
-  --net-Ports=: {description: "$carapace.net.Ports"}
-  --net-UsedPorts=: {description: "$carapace.net.UsedPorts"}
-  --net-Protocols=: {description: "$carapace.net.Protocols"}
-  --net-ssh-Ciphers=: {description: "$carapace.net.ssh.Ciphers"}
-  --net-ssh-HostKeyAlgorithms=: {description: "$carapace.net.ssh.HostKeyAlgorithms"}
-  --net-ssh-Hosts=: {description: "$carapace.net.ssh.Hosts"}
-  --net-ssh-Options=: {description: "$carapace.net.ssh.Options"}
-  --net-ssh-PrivateKeys=: {description: "$carapace.net.ssh.PrivateKeys"}
-  --net-ssh-PublicKeys=: {description: "$carapace.net.ssh.PublicKeys"}
-  --net-ssh-SigningKeys=: {description: "$carapace.net.ssh.SigningKeys"}
-  --net-http-CacheControlRequestDirectives=: {description: "$carapace.net.http.CacheControlRequestDirectives"}
-  --net-http-Charsets=: {description: "$carapace.net.http.Charsets"}
-  --net-http-ConnectionOptions=: {description: "$carapace.net.http.ConnectionOptions"}
-  --net-http-ContentEncodingTokens=: {description: "$carapace.net.http.ContentEncodingTokens"}
-  --net-http-EmailDomains=: {description: "$carapace.net.http.EmailDomains"}
-  --net-http-ETags=: {description: "$carapace.net.http.ETags"}
-  --net-http-InstanceManipulations=: {description: "$carapace.net.http.InstanceManipulations"}
-  --net-http-MediaTypes=: {description: "$carapace.net.http.MediaTypes"}
-  --net-http-OpenApiPaths=: {description: "$carapace.net.http.OpenApiPaths"}
-  --net-http-PreferTokens=: {description: "$carapace.net.http.PreferTokens"}
-  --net-http-RangeUnits=: {description: "$carapace.net.http.RangeUnits"}
-  --net-http-RequestHeaderNames=: {description: "$carapace.net.http.RequestHeaderNames"}
-  --net-http-RequestHeaders=: {description: "$carapace.net.http.RequestHeaders"}
-  --net-http-RequestHeaderValues=: {description: "$carapace.net.http.RequestHeaderValues"}
-  --net-http-StatusCodes=: {description: "$carapace.net.http.StatusCodes"}
-  --net-http-TEValues=: {description: "$carapace.net.http.TEValues"}
-  --net-http-Tags=: {description: "$carapace.net.http.Tags"}
-  --net-http-TransferEncodingTokens=: {description: "$carapace.net.http.TransferEncodingTokens"}
-  --net-http-UpgradeTokens=: {description: "$carapace.net.http.UpgradeTokens"}
-  --net-http-Urls=: {description: "$carapace.net.http.Urls"}
-  --net-http-UserAgents=: {description: "$carapace.net.http.UserAgents"}
-  --net-http-WarningCodes=: {description: "$carapace.net.http.WarningCodes"}
-  --os-Displays=: {description: "$carapace.os.Displays"}
-  --os-EnvironmentVariables=: {description: "$carapace.os.EnvironmentVariables"}
-  --os-FontFamilies=: {description: "$carapace.os.FontFamilies"}
-  --os-GpgKeyIds=: {description: "$carapace.os.GpgKeyIds"}
-  --os-GroupMembers=: {description: "$carapace.os.GroupMembers"}
-  --os-Groups=: {description: "$carapace.os.Groups"}
-  --os-KernelModules=: {description: "$carapace.os.KernelModules"}
-  --os-KernelModulesLoaded=: {description: "$carapace.os.KernelModulesLoaded"}
-  --os-KernelReleases=: {description: "$carapace.os.KernelReleases"}
-  --os-Languages=: {description: "$carapace.os.Languages"}
-  --os-Locales=: {description: "$carapace.os.Locales"}
-  --os-MouseButtons=: {description: "$carapace.os.MouseButtons"}
-  --os-SessionIds=: {description: "$carapace.os.SessionIds"}
-  --os-Shells=: {description: "$carapace.os.Shells"}
-  --os-Screens=: {description: "$carapace.os.Screens"}
-  --os-SoundCards=: {description: "$carapace.os.SoundCards"}
-  --os-Terminals=: {description: "$carapace.os.Terminals"}
-  --os-Users=: {description: "$carapace.os.Users"}
-  --os-usb-DeviceNumbers=: {description: "$carapace.os.usb.DeviceNumbers"}
-  --os-usb-ProductNumbers=: {description: "$carapace.os.usb.ProductNumbers"}
-  --ps-FormatSpecifiers=: {description: "$carapace.ps.FormatSpecifiers"}
-  --ps-KillSignals=: {description: "$carapace.ps.KillSignals"}
-  --ps-ProcessExecutables=: {description: "$carapace.ps.ProcessExecutables"}
-  --ps-ProcessIds=: {description: "$carapace.ps.ProcessIds"}
-  --ps-ProcessStates=: {description: "$carapace.ps.ProcessStates"}
-  --shell-Aliases=: {description: "$carapace.shell.Aliases"}
-  --shell-Builtins=: {description: "$carapace.shell.Builtins"}
-  --shell-Executables=: {description: "$carapace.shell.Executables"}
-  --shell-Functions=: {description: "$carapace.shell.Functions"}
-  --shell-JobSpecs=: {description: "$carapace.shell.JobSpecs"}
-  --text-Encodings=: {description: "$carapace.text.Encodings"}
-  --time-Date=: {description: "$carapace.time.Date"}
-  --time-Time=: {description: "$carapace.time.Time"}
-  --time-Months=: {description: "$carapace.time.Months"}
-  --time-Days=: {description: "$carapace.time.Days"}
-  --number-Range=: {description: "$carapace.number.Range"}
-  --number-SemanticVersions=: {description: "$carapace.number.SemanticVersions"}
-
-completion:
-  flag:
-    color-256Colors: ["$carapace.color.256Colors"]
-    color-AnsiBackgroundColors: ["$carapace.color.AnsiBackgroundColors"]
-    color-AnsiForegroundColors: ["$carapace.color.AnsiForegroundColors"]
-    color-HexColors: ["$carapace.color.HexColors"]
-    color-XtermColorNames: ["$carapace.color.XtermColorNames"]
-    env-Names: ["$carapace.env.Names"]
-    env-NameValues: ["$carapace.env.NameValues"]
-    env-Values: ["$carapace.env.Values"]
-    fs-ArFileContents: ["$carapace.fs.ArFileContents"]
-    fs-BlockDevices: ["$carapace.fs.BlockDevices"]
-    fs-FilenameExtensions: ["$carapace.fs.FilenameExtensions"]
-    fs-FilesystemTypes: ["$carapace.fs.FilesystemTypes"]
-    fs-FileModes: ["$carapace.fs.FileModes"]
-    fs-FileModesNumeric: ["$carapace.fs.FileModesNumeric"]
-    fs-FileModesSymbolic: ["$carapace.fs.FileModesSymbolic"]
-    fs-JarFileClasses: ["$carapace.fs.JarFileClasses"]
-    fs-Labels: ["$carapace.fs.Labels"]
-    fs-Mounts: ["$carapace.fs.Mounts"]
-    fs-PartitionLabels: ["$carapace.fs.PartitionLabels"]
-    fs-PartitionUuids: ["$carapace.fs.PartitionUuids"]
-    fs-SubDirectories: ["$carapace.fs.SubDirectories"]
-    fs-TarFileContents: ["$carapace.fs.TarFileContents"]
-    fs-Uuids: ["$carapace.fs.Uuids"]
-    fs-ZipFileContents: ["$carapace.fs.ZipFileContents"]
-    net-BaudRates: ["$carapace.net.BaudRates"]
-    net-Ipv4Addresses: ["$carapace.net.Ipv4Addresses"]
-    net-Subnets: ["$carapace.net.Subnets"]
-    net-Bssids: ["$carapace.net.Bssids"]
-    net-Connections: ["$carapace.net.Connections"]
-    net-Devices: ["$carapace.net.Devices"]
-    net-Hosts: ["$carapace.net.Hosts"]
-    net-Ssids: ["$carapace.net.Ssids"]
-    net-KnownPorts: ["$carapace.net.KnownPorts"]
-    net-Ports: ["$carapace.net.Ports"]
-    net-UsedPorts: ["$carapace.net.UsedPorts"]
-    net-Protocols: ["$carapace.net.Protocols"]
-    net-ssh-Ciphers: ["$carapace.net.ssh.Ciphers"]
-    net-ssh-HostKeyAlgorithms: ["$carapace.net.ssh.HostKeyAlgorithms"]
-    net-ssh-Hosts: ["$carapace.net.ssh.Hosts"]
-    net-ssh-Options: ["$carapace.net.ssh.Options"]
-    net-ssh-PrivateKeys: ["$carapace.net.ssh.PrivateKeys"]
-    net-ssh-PublicKeys: ["$carapace.net.ssh.PublicKeys"]
-    net-ssh-SigningKeys: ["$carapace.net.ssh.SigningKeys"]
-    net-http-CacheControlRequestDirectives: ["$carapace.net.http.CacheControlRequestDirectives"]
-    net-http-Charsets: ["$carapace.net.http.Charsets"]
-    net-http-ConnectionOptions: ["$carapace.net.http.ConnectionOptions"]
-    net-http-ContentEncodingTokens: ["$carapace.net.http.ContentEncodingTokens"]
-    net-http-EmailDomains: ["$carapace.net.http.EmailDomains"]
-    net-http-ETags: ["$carapace.net.http.ETags"]
-    net-http-InstanceManipulations: ["$carapace.net.http.InstanceManipulations"]
-    net-http-MediaTypes: ["$carapace.net.http.MediaTypes"]
-    net-http-OpenApiPaths: ["$carapace.net.http.OpenApiPaths"]
-    net-http-PreferTokens: ["$carapace.net.http.PreferTokens"]
-    net-http-RangeUnits: ["$carapace.net.http.RangeUnits"]
-    net-http-RequestHeaderNames: ["$carapace.net.http.RequestHeaderNames"]
-    net-http-RequestHeaders: ["$carapace.net.http.RequestHeaders"]
-    net-http-RequestHeaderValues: ["$carapace.net.http.RequestHeaderValues"]
-    net-http-StatusCodes: ["$carapace.net.http.StatusCodes"]
-    net-http-TEValues: ["$carapace.net.http.TEValues"]
-    net-http-Tags: ["$carapace.net.http.Tags"]
-    net-http-TransferEncodingTokens: ["$carapace.net.http.TransferEncodingTokens"]
-    net-http-UpgradeTokens: ["$carapace.net.http.UpgradeTokens"]
-    net-http-Urls: ["$carapace.net.http.Urls"]
-    net-http-UserAgents: ["$carapace.net.http.UserAgents"]
-    net-http-WarningCodes: ["$carapace.net.http.WarningCodes"]
-    os-Displays: ["$carapace.os.Displays"]
-    os-EnvironmentVariables: ["$carapace.os.EnvironmentVariables"]
-    os-FontFamilies: ["$carapace.os.FontFamilies"]
-    os-GpgKeyIds: ["$carapace.os.GpgKeyIds"]
-    os-GroupMembers: ["$carapace.os.GroupMembers"]
-    os-Groups: ["$carapace.os.Groups"]
-    os-KernelModules: ["$carapace.os.KernelModules"]
-    os-KernelModulesLoaded: ["$carapace.os.KernelModulesLoaded"]
-    os-KernelReleases: ["$carapace.os.KernelReleases"]
-    os-Languages: ["$carapace.os.Languages"]
-    os-Locales: ["$carapace.os.Locales"]
-    os-MouseButtons: ["$carapace.os.MouseButtons"]
-    os-SessionIds: ["$carapace.os.SessionIds"]
-    os-Shells: ["$carapace.os.Shells"]
-    os-Screens: ["$carapace.os.Screens"]
-    os-SoundCards: ["$carapace.os.SoundCards"]
-    os-Terminals: ["$carapace.os.Terminals"]
-    os-Users: ["$carapace.os.Users"]
-    os-usb-DeviceNumbers: ["$carapace.os.usb.DeviceNumbers"]
-    os-usb-ProductNumbers: ["$carapace.os.usb.ProductNumbers"]
-    ps-FormatSpecifiers: ["$carapace.ps.FormatSpecifiers"]
-    ps-KillSignals: ["$carapace.ps.KillSignals"]
-    ps-ProcessExecutables: ["$carapace.ps.ProcessExecutables"]
-    ps-ProcessIds: ["$carapace.ps.ProcessIds"]
-    ps-ProcessStates: ["$carapace.ps.ProcessStates"]
-    shell-Aliases: ["$carapace.shell.Aliases"]
-    shell-Builtins: ["$carapace.shell.Builtins"]
-    shell-Executables: ["$carapace.shell.Executables"]
-    shell-Functions: ["$carapace.shell.Functions"]
-    shell-JobSpecs: ["$carapace.shell.JobSpecs"]
-    text-Encodings: ["$carapace.text.Encodings"]
-    time-Date: ["$carapace.time.Date"]
-    time-Time: ["$carapace.time.Time"]
-    time-Months: ["$carapace.time.Months"]
-    time-Days: ["$carapace.time.Days"]
-    number-Range: ["$carapace.number.Range"]
-    number-SemanticVersions: ["$carapace.number.SemanticVersions"]
+  --color-256Colors=: {description: "$carapace.color.256Colors", completion: ["$carapace.color.256Colors"]}
+  --color-AnsiBackgroundColors=: {description: "$carapace.color.AnsiBackgroundColors", completion: ["$carapace.color.AnsiBackgroundColors"]}
+  --color-AnsiForegroundColors=: {description: "$carapace.color.AnsiForegroundColors", completion: ["$carapace.color.AnsiForegroundColors"]}
+  --color-HexColors=: {description: "$carapace.color.HexColors", completion: ["$carapace.color.HexColors"]}
+  --color-XtermColorNames=: {description: "$carapace.color.XtermColorNames", completion: ["$carapace.color.XtermColorNames"]}
+  --env-Names=: {description: "$carapace.env.Names", completion: ["$carapace.env.Names"]}
+  --env-NameValues=: {description: "$carapace.env.NameValues", completion: ["$carapace.env.NameValues"]}
+  --env-Values=: {description: "$carapace.env.Values", completion: ["$carapace.env.Values"]}
+  --fs-ArFileContents=: {description: "$carapace.fs.ArFileContents", completion: ["$carapace.fs.ArFileContents"]}
+  --fs-BlockDevices=: {description: "$carapace.fs.BlockDevices", completion: ["$carapace.fs.BlockDevices"]}
+  --fs-FilenameExtensions=: {description: "$carapace.fs.FilenameExtensions", completion: ["$carapace.fs.FilenameExtensions"]}
+  --fs-FilesystemTypes=: {description: "$carapace.fs.FilesystemTypes", completion: ["$carapace.fs.FilesystemTypes"]}
+  --fs-FileModes=: {description: "$carapace.fs.FileModes", completion: ["$carapace.fs.FileModes"]}
+  --fs-FileModesNumeric=: {description: "$carapace.fs.FileModesNumeric", completion: ["$carapace.fs.FileModesNumeric"]}
+  --fs-FileModesSymbolic=: {description: "$carapace.fs.FileModesSymbolic", completion: ["$carapace.fs.FileModesSymbolic"]}
+  --fs-JarFileClasses=: {description: "$carapace.fs.JarFileClasses", completion: ["$carapace.fs.JarFileClasses"]}
+  --fs-Labels=: {description: "$carapace.fs.Labels", completion: ["$carapace.fs.Labels"]}
+  --fs-Mounts=: {description: "$carapace.fs.Mounts", completion: ["$carapace.fs.Mounts"]}
+  --fs-PartitionLabels=: {description: "$carapace.fs.PartitionLabels", completion: ["$carapace.fs.PartitionLabels"]}
+  --fs-PartitionUuids=: {description: "$carapace.fs.PartitionUuids", completion: ["$carapace.fs.PartitionUuids"]}
+  --fs-SubDirectories=: {description: "$carapace.fs.SubDirectories", completion: ["$carapace.fs.SubDirectories"]}
+  --fs-TarFileContents=: {description: "$carapace.fs.TarFileContents", completion: ["$carapace.fs.TarFileContents"]}
+  --fs-Uuids=: {description: "$carapace.fs.Uuids", completion: ["$carapace.fs.Uuids"]}
+  --fs-ZipFileContents=: {description: "$carapace.fs.ZipFileContents", completion: ["$carapace.fs.ZipFileContents"]}
+  --net-BaudRates=: {description: "$carapace.net.BaudRates", completion: ["$carapace.net.BaudRates"]}
+  --net-Ipv4Addresses=: {description: "$carapace.net.Ipv4Addresses", completion: ["$carapace.net.Ipv4Addresses"]}
+  --net-Subnets=: {description: "$carapace.net.Subnets", completion: ["$carapace.net.Subnets"]}
+  --net-Bssids=: {description: "$carapace.net.Bssids", completion: ["$carapace.net.Bssids"]}
+  --net-Connections=: {description: "$carapace.net.Connections", completion: ["$carapace.net.Connections"]}
+  --net-Devices=: {description: "$carapace.net.Devices", completion: ["$carapace.net.Devices"]}
+  --net-Hosts=: {description: "$carapace.net.Hosts", completion: ["$carapace.net.Hosts"]}
+  --net-Ssids=: {description: "$carapace.net.Ssids", completion: ["$carapace.net.Ssids"]}
+  --net-KnownPorts=: {description: "$carapace.net.KnownPorts", completion: ["$carapace.net.KnownPorts"]}
+  --net-Ports=: {description: "$carapace.net.Ports", completion: ["$carapace.net.Ports"]}
+  --net-UsedPorts=: {description: "$carapace.net.UsedPorts", completion: ["$carapace.net.UsedPorts"]}
+  --net-Protocols=: {description: "$carapace.net.Protocols", completion: ["$carapace.net.Protocols"]}
+  --net-ssh-Ciphers=: {description: "$carapace.net.ssh.Ciphers", completion: ["$carapace.net.ssh.Ciphers"]}
+  --net-ssh-HostKeyAlgorithms=: {description: "$carapace.net.ssh.HostKeyAlgorithms", completion: ["$carapace.net.ssh.HostKeyAlgorithms"]}
+  --net-ssh-Hosts=: {description: "$carapace.net.ssh.Hosts", completion: ["$carapace.net.ssh.Hosts"]}
+  --net-ssh-Options=: {description: "$carapace.net.ssh.Options", completion: ["$carapace.net.ssh.Options"]}
+  --net-ssh-PrivateKeys=: {description: "$carapace.net.ssh.PrivateKeys", completion: ["$carapace.net.ssh.PrivateKeys"]}
+  --net-ssh-PublicKeys=: {description: "$carapace.net.ssh.PublicKeys", completion: ["$carapace.net.ssh.PublicKeys"]}
+  --net-ssh-SigningKeys=: {description: "$carapace.net.ssh.SigningKeys", completion: ["$carapace.net.ssh.SigningKeys"]}
+  --net-http-CacheControlRequestDirectives=: {description: "$carapace.net.http.CacheControlRequestDirectives", completion: ["$carapace.net.http.CacheControlRequestDirectives"]}
+  --net-http-Charsets=: {description: "$carapace.net.http.Charsets", completion: ["$carapace.net.http.Charsets"]}
+  --net-http-ConnectionOptions=: {description: "$carapace.net.http.ConnectionOptions", completion: ["$carapace.net.http.ConnectionOptions"]}
+  --net-http-ContentEncodingTokens=: {description: "$carapace.net.http.ContentEncodingTokens", completion: ["$carapace.net.http.ContentEncodingTokens"]}
+  --net-http-EmailDomains=: {description: "$carapace.net.http.EmailDomains", completion: ["$carapace.net.http.EmailDomains"]}
+  --net-http-ETags=: {description: "$carapace.net.http.ETags", completion: ["$carapace.net.http.ETags"]}
+  --net-http-InstanceManipulations=: {description: "$carapace.net.http.InstanceManipulations", completion: ["$carapace.net.http.InstanceManipulations"]}
+  --net-http-MediaTypes=: {description: "$carapace.net.http.MediaTypes", completion: ["$carapace.net.http.MediaTypes"]}
+  --net-http-OpenApiPaths=: {description: "$carapace.net.http.OpenApiPaths", completion: ["$carapace.net.http.OpenApiPaths"]}
+  --net-http-PreferTokens=: {description: "$carapace.net.http.PreferTokens", completion: ["$carapace.net.http.PreferTokens"]}
+  --net-http-RangeUnits=: {description: "$carapace.net.http.RangeUnits", completion: ["$carapace.net.http.RangeUnits"]}
+  --net-http-RequestHeaderNames=: {description: "$carapace.net.http.RequestHeaderNames", completion: ["$carapace.net.http.RequestHeaderNames"]}
+  --net-http-RequestHeaders=: {description: "$carapace.net.http.RequestHeaders", completion: ["$carapace.net.http.RequestHeaders"]}
+  --net-http-RequestHeaderValues=: {description: "$carapace.net.http.RequestHeaderValues", completion: ["$carapace.net.http.RequestHeaderValues"]}
+  --net-http-StatusCodes=: {description: "$carapace.net.http.StatusCodes", completion: ["$carapace.net.http.StatusCodes"]}
+  --net-http-TEValues=: {description: "$carapace.net.http.TEValues", completion: ["$carapace.net.http.TEValues"]}
+  --net-http-Tags=: {description: "$carapace.net.http.Tags", completion: ["$carapace.net.http.Tags"]}
+  --net-http-TransferEncodingTokens=: {description: "$carapace.net.http.TransferEncodingTokens", completion: ["$carapace.net.http.TransferEncodingTokens"]}
+  --net-http-UpgradeTokens=: {description: "$carapace.net.http.UpgradeTokens", completion: ["$carapace.net.http.UpgradeTokens"]}
+  --net-http-Urls=: {description: "$carapace.net.http.Urls", completion: ["$carapace.net.http.Urls"]}
+  --net-http-UserAgents=: {description: "$carapace.net.http.UserAgents", completion: ["$carapace.net.http.UserAgents"]}
+  --net-http-WarningCodes=: {description: "$carapace.net.http.WarningCodes", completion: ["$carapace.net.http.WarningCodes"]}
+  --os-Displays=: {description: "$carapace.os.Displays", completion: ["$carapace.os.Displays"]}
+  --os-EnvironmentVariables=: {description: "$carapace.os.EnvironmentVariables", completion: ["$carapace.os.EnvironmentVariables"]}
+  --os-FontFamilies=: {description: "$carapace.os.FontFamilies", completion: ["$carapace.os.FontFamilies"]}
+  --os-GpgKeyIds=: {description: "$carapace.os.GpgKeyIds", completion: ["$carapace.os.GpgKeyIds"]}
+  --os-GroupMembers=: {description: "$carapace.os.GroupMembers", completion: ["$carapace.os.GroupMembers"]}
+  --os-Groups=: {description: "$carapace.os.Groups", completion: ["$carapace.os.Groups"]}
+  --os-KernelModules=: {description: "$carapace.os.KernelModules", completion: ["$carapace.os.KernelModules"]}
+  --os-KernelModulesLoaded=: {description: "$carapace.os.KernelModulesLoaded", completion: ["$carapace.os.KernelModulesLoaded"]}
+  --os-KernelReleases=: {description: "$carapace.os.KernelReleases", completion: ["$carapace.os.KernelReleases"]}
+  --os-Languages=: {description: "$carapace.os.Languages", completion: ["$carapace.os.Languages"]}
+  --os-Locales=: {description: "$carapace.os.Locales", completion: ["$carapace.os.Locales"]}
+  --os-MouseButtons=: {description: "$carapace.os.MouseButtons", completion: ["$carapace.os.MouseButtons"]}
+  --os-SessionIds=: {description: "$carapace.os.SessionIds", completion: ["$carapace.os.SessionIds"]}
+  --os-Shells=: {description: "$carapace.os.Shells", completion: ["$carapace.os.Shells"]}
+  --os-Screens=: {description: "$carapace.os.Screens", completion: ["$carapace.os.Screens"]}
+  --os-SoundCards=: {description: "$carapace.os.SoundCards", completion: ["$carapace.os.SoundCards"]}
+  --os-Terminals=: {description: "$carapace.os.Terminals", completion: ["$carapace.os.Terminals"]}
+  --os-Users=: {description: "$carapace.os.Users", completion: ["$carapace.os.Users"]}
+  --os-usb-DeviceNumbers=: {description: "$carapace.os.usb.DeviceNumbers", completion: ["$carapace.os.usb.DeviceNumbers"]}
+  --os-usb-ProductNumbers=: {description: "$carapace.os.usb.ProductNumbers", completion: ["$carapace.os.usb.ProductNumbers"]}
+  --ps-FormatSpecifiers=: {description: "$carapace.ps.FormatSpecifiers", completion: ["$carapace.ps.FormatSpecifiers"]}
+  --ps-KillSignals=: {description: "$carapace.ps.KillSignals", completion: ["$carapace.ps.KillSignals"]}
+  --ps-ProcessExecutables=: {description: "$carapace.ps.ProcessExecutables", completion: ["$carapace.ps.ProcessExecutables"]}
+  --ps-ProcessIds=: {description: "$carapace.ps.ProcessIds", completion: ["$carapace.ps.ProcessIds"]}
+  --ps-ProcessStates=: {description: "$carapace.ps.ProcessStates", completion: ["$carapace.ps.ProcessStates"]}
+  --shell-Aliases=: {description: "$carapace.shell.Aliases", completion: ["$carapace.shell.Aliases"]}
+  --shell-Builtins=: {description: "$carapace.shell.Builtins", completion: ["$carapace.shell.Builtins"]}
+  --shell-Executables=: {description: "$carapace.shell.Executables", completion: ["$carapace.shell.Executables"]}
+  --shell-Functions=: {description: "$carapace.shell.Functions", completion: ["$carapace.shell.Functions"]}
+  --shell-JobSpecs=: {description: "$carapace.shell.JobSpecs", completion: ["$carapace.shell.JobSpecs"]}
+  --text-Encodings=: {description: "$carapace.text.Encodings", completion: ["$carapace.text.Encodings"]}
+  --time-Date=: {description: "$carapace.time.Date", completion: ["$carapace.time.Date"]}
+  --time-Time=: {description: "$carapace.time.Time", completion: ["$carapace.time.Time"]}
+  --time-Months=: {description: "$carapace.time.Months", completion: ["$carapace.time.Months"]}
+  --time-Days=: {description: "$carapace.time.Days", completion: ["$carapace.time.Days"]}
+  --number-Range=: {description: "$carapace.number.Range", completion: ["$carapace.number.Range"]}
+  --number-SemanticVersions=: {description: "$carapace.number.SemanticVersions", completion: ["$carapace.number.SemanticVersions"]}

@@ -2,7 +2,6 @@ package spec
 
 import (
 	"fmt"
-	"maps"
 
 	carapacespec "github.com/carapace-sh/carapace-spec"
 	"github.com/carapace-sh/carapace/pkg/command"
@@ -34,15 +33,14 @@ type Command struct {
 	Positionals []Positional `yaml:"positionals,omitempty"`
 }
 
-// Completion holds a command's completion actions, keyed by flag name or positional index.
+// Completion holds a command's completion actions that have no single flag/positional to live
+// on — a flag's own completion is Flag.Completion, a positional's is Positional.Completion.
 //
 // https://github.com/carapace-sh/carapace/blob/v1.16.3/pkg/command/command.go
 type Completion struct {
-	Flag          map[string][]string `yaml:"flag,omitempty"`
-	Positional    [][]string          `yaml:"positional,omitempty"`
-	PositionalAny []string            `yaml:"positionalany,omitempty"`
-	Dash          [][]string          `yaml:"dash,omitempty"`
-	DashAny       []string            `yaml:"dashany,omitempty"`
+	PositionalAny []string   `yaml:"positionalany,omitempty"`
+	Dash          [][]string `yaml:"dash,omitempty"`
+	DashAny       []string   `yaml:"dashany,omitempty"`
 }
 
 // Documentation holds extra help text for a command, keyed by flag name or positional index.
@@ -64,6 +62,10 @@ type Positional struct {
 	Required    bool
 	Variadic    bool
 	Type        Type
+
+	// Completion is this positional's own completion action expression (e.g. ["$files"]),
+	// folded into carapace's index-keyed completion list by Command.toCarapace.
+	Completion []string
 }
 
 // Validate reports whether s is a valid value for p. A nil Type means no validation,
@@ -77,7 +79,7 @@ func (p Positional) Validate(s string) error {
 
 // validPositionalKeys are the only keys recognized on a positionals: entry.
 var validPositionalKeys = map[string]bool{
-	"name": true, "description": true, "required": true, "variadic": true, "type": true,
+	"name": true, "description": true, "required": true, "variadic": true, "type": true, "completion": true,
 }
 
 // UnmarshalYAML decodes a positionals: entry, rejecting any key not in validPositionalKeys.
@@ -102,6 +104,14 @@ func (p *Positional) UnmarshalYAML(value *yaml.Node) error {
 		return fmt.Errorf("positional %q: %w", p.Name, err)
 	}
 	p.Type = t
+
+	if c, ok := m["completion"]; ok {
+		completion, err := decodeStringList(c)
+		if err != nil {
+			return fmt.Errorf("positional %q: completion: %w", p.Name, err)
+		}
+		p.Completion = completion
+	}
 	return nil
 }
 
@@ -127,9 +137,13 @@ func (c Command) toCarapace() carapacespec.Command {
 		Commands:        sub,
 		Examples:        c.Examples,
 	}
-	out.Completion.Flag = withEnumCompletions(c.Completion.Flag, c.Flags, c.PersistentFlags)
-	out.Completion.Positional = c.Completion.Positional
+	out.Completion.Flag = flagCompletions(c.Flags, c.PersistentFlags)
+	positionalCompletion, variadicFallback := positionalCompletions(c.Positionals)
+	out.Completion.Positional = positionalCompletion
 	out.Completion.PositionalAny = c.Completion.PositionalAny
+	if out.Completion.PositionalAny == nil {
+		out.Completion.PositionalAny = variadicFallback
+	}
 	out.Completion.Dash = c.Completion.Dash
 	out.Completion.DashAny = c.Completion.DashAny
 	out.Documentation.Command = c.Documentation.Command
@@ -141,29 +155,73 @@ func (c Command) toCarapace() carapacespec.Command {
 	return carapacespec.Command(out)
 }
 
-// withEnumCompletions copies completion (may be nil) and adds an entry, from Values, for
-// every enum flag across flagSets that doesn't already have one explicitly declared — an
-// explicit completion (e.g. styled or described values) always wins over a derived one.
-func withEnumCompletions(completion map[string][]string, flagSets ...FlagSet) map[string][]string {
+// flagCompletions gathers each flag's own Completion across flagSets into carapace's
+// name-keyed completion map. An enum flag with no Completion of its own falls back to its
+// own Values — so declaring the list once gets both validation and Tab-completion.
+func flagCompletions(flagSets ...FlagSet) map[string][]string {
 	var out map[string][]string
 	for _, fs := range flagSets {
 		for name, f := range fs {
-			et, ok := f.Type.(EnumType)
-			if !ok || len(et.Values) == 0 {
-				continue
+			completion := f.Completion
+			if completion == nil {
+				if et, ok := f.Type.(EnumType); ok && len(et.Values) > 0 {
+					completion = et.Values
+				}
 			}
-			if _, declared := completion[name]; declared {
+			if completion == nil {
 				continue
 			}
 			if out == nil {
-				out = make(map[string][]string, len(completion))
-				maps.Copy(out, completion)
+				out = make(map[string][]string, len(fs))
 			}
-			out[name] = et.Values
+			out[name] = completion
 		}
 	}
-	if out != nil {
-		return out
+	return out
+}
+
+// positionalCompletions builds carapace's index-keyed completion list from each positional's
+// own Completion (falling back to an enum positional's own Values, same as a flag), and
+// separately reports the trailing variadic positional's own completion, if any, as a
+// candidate completion.positionalany fallback.
+//
+// The returned list is trimmed of trailing entries with no completion (nil, not just empty),
+// returning nil outright if none exist: carapace's own getPositional treats any list entry at
+// all — even one with zero actions — as an actual completion for that index, shadowing
+// completion.positionalany/the command's default for it; a command with positionals declared
+// but none completed must not silently shadow positionalany/the default for every index just
+// because positionals: exists. A gap *before* a later declared completion still can't be
+// avoided (same as plain carapace-spec's own completion.positional has always required) — only
+// a trailing run of undeclared positionals is trimmed.
+func positionalCompletions(positionals []Positional) (indexed [][]string, variadicFallback []string) {
+	if len(positionals) == 0 {
+		return nil, nil
 	}
-	return completion
+
+	completions := make([][]string, len(positionals))
+	lastDeclared := -1
+	for i, p := range positionals {
+		completion := p.Completion
+		if completion == nil {
+			if et, ok := p.Type.(EnumType); ok && len(et.Values) > 0 {
+				completion = et.Values
+			}
+		}
+		completions[i] = completion
+		if completion != nil {
+			lastDeclared = i
+		}
+	}
+
+	// A variadic positional's own completion.positional[i] entry only ever covers its first
+	// word — carapace has no concept of "repeat this index's action" — so without also using
+	// it as positionalany, every word after the first would silently get no completion at all.
+	if positionals[len(positionals)-1].Variadic {
+		variadicFallback = completions[len(positionals)-1]
+	}
+
+	if lastDeclared == -1 {
+		return nil, variadicFallback
+	}
+	return completions[:lastDeclared+1], variadicFallback
 }

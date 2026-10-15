@@ -14,10 +14,7 @@
 eval "$(compleo up <<SPEC
 description: Demo of the \$spec(...) macro - delegates completion to a separate spec file.
 flags:
-  --other-spec=: {description: "\$spec - delegates completion to a whole separate spec file"}
-completion:
-  flag:
-    other-spec: ["\$spec(${0:A:h}/other_spec.subspec.yaml)"]
+  --other-spec=: {description: "\$spec - delegates completion to a whole separate spec file", completion: ["\$spec(${0:A:h}/other_spec.subspec.yaml)"]}
 SPEC
 )"
 
