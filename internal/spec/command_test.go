@@ -362,24 +362,6 @@ positionals:
 	assert.Equal(t, []string{"$files"}, converted.Completion.PositionalAny)
 }
 
-// An explicitly declared completion.positionalany always wins over the variadic fallback.
-func TestToCarapaceExplicitPositionalAnyWinsOverVariadicFallback(t *testing.T) {
-	cmd, err := decodeYAML(`
-name: mytool
-positionals:
-  - name: files
-    variadic: true
-    completion: ["$files"]
-completion:
-  positionalany: ["$directories"]
-`)
-	require.NoError(t, err)
-
-	converted := cmd.toCarapace()
-
-	assert.Equal(t, []string{"$directories"}, converted.Completion.PositionalAny)
-}
-
 // A command with no positionals at all must not be left to whatever carapace's own
 // cobra-compat fallback does for an undeclared position (observed to offer default file
 // completion) — it should explicitly complete to nothing.

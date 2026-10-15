@@ -6,9 +6,9 @@ document — the same format carapace-bin's completers use — with three additi
 own definition, instead of plain carapace-spec's separate, name/index-keyed top-level
 `completion:` section. Everything else (`name`, `description`, `flags`, `persistentflags`,
 `commands`, `aliases`, `group`, `hidden`, ...) is plain carapace-spec; see its docs for the full
-field reference. A command's top-level `completion:` still exists, but only for
-`positionalany`/`dash`/`dashany` — the handful of completion slots with no single flag or
-positional to live on.
+field reference. A command's top-level `completion:` section (`positionalany`/`dash`/`dashany`
+in plain carapace-spec) is gone entirely — compleo found no realistic case for declaring it by
+hand once completion lives on a flag's/positional's own definition instead; see below.
 
 For completion *actions* specifically (`$files`, `$directories`, and the rest of the
 `$macro(...)` syntax used in a flag's or positional's own `completion:`), see carapace-spec's
@@ -39,9 +39,10 @@ currently-running binary's own name, namespacing its own macros, same as `$carap
 - `commands` — subcommands, each a full `Command` in its own right (so `positionals:` and a
   flag's `type:` both nest into subcommands too).
 - `completion:` — completion actions, using carapace-bin's macros. Plain carapace-spec keys
-  these by flag name/position under a separate top-level `flag`/`positional` map; compleo
-  changes where `flag`/`positional` entries live (see below) but keeps `positionalany`/`dash`/
-  `dashany` as plain carapace-spec has them.
+  these by flag name/position under a separate top-level `flag`/`positional` map; compleo moves
+  `flag`/`positional` entries onto the flag/positional itself instead (see below), and drops the
+  rest of that top-level section (`positionalany`/`dash`/`dashany`) rather than keep it as a
+  spec-author-facing feature — see below.
 - `run:` — carapace-spec's own field for making a spec directly runnable. compleo **ignores
   it**: compleo parses a command line and emits zsh, it never executes the spec itself.
 
@@ -99,13 +100,22 @@ index-keyed, not name-keyed:
   for you instead of you counting them by hand).
 - A trailing **variadic** positional's own `completion:` only ever covers its first word —
   carapace's index-keyed list has no way to say "and every word after this one too" — so it's
-  also used as the command's `completion.positionalany` fallback when nothing else declares one
-  explicitly (an explicit `positionalany:` on the command always wins).
+  also used as the command's `completion.positionalany` fallback (the only way left to
+  influence it; see below).
 
-If nothing above applies — no positionals declared at all, or none of them have a `completion:`,
-and the command doesn't declare its own `positionalany:` either — Tab-completion for that
-position explicitly completes to nothing, rather than being left to whatever carapace's own
-fallback does for a position nobody declared.
+If nothing above applies — no positionals declared at all, or none of them have a
+`completion:`, and there's no trailing variadic positional to fall back to — Tab-completion for
+that position explicitly completes to nothing (`$compleo.none`), rather than being left to
+whatever carapace's own fallback does for a position nobody declared (observed to be the cwd's
+files). There's deliberately no way to declare a command-level `completion.positionalany`/`dash`/
+`dashany` yourself: every case we could construct for wanting one either already has a better,
+named equivalent via a variadic `positionals:` entry, or describes a position compleo's own
+parser (`internal/parse`) would reject as an arity error anyway — completion for an argument
+that's guaranteed to fail isn't useful, it's misleading. `dash`/`dashany` specifically would also
+create drift between parsing and completion: compleo's parser doesn't distinguish an argument
+before vs. after a literal `--` (pflag strips it before `internal/parse` ever sees the args), so
+giving it different completion than an ordinary positional would promise something parsing
+doesn't honor — exactly what compleo's one-spec-is-the-source-of-truth design exists to prevent.
 
 For an `enum` *flag or positional* (`type: {kind: enum, values: [...]}`, see Types below), a
 `completion:` also gets auto-filled from the same `values:` if you don't declare one yourself

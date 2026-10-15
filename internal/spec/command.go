@@ -24,23 +24,12 @@ type Command struct {
 	PersistentFlags FlagSet     `yaml:"persistentflags,omitempty"`
 	ExclusiveFlags  [][]string  `yaml:"exclusiveflags,omitempty"`
 	Run             command.Run `yaml:"run,omitempty"`
-	Completion      Completion  `yaml:"completion,omitempty"`
 	Commands        []Command   `yaml:"commands,omitempty"`
 
 	Documentation Documentation     `yaml:"documentation,omitempty"`
 	Examples      map[string]string `yaml:"examples,omitempty"`
 
 	Positionals []Positional `yaml:"positionals,omitempty"`
-}
-
-// Completion holds a command's completion actions that have no single flag/positional to live
-// on — a flag's own completion is Flag.Completion, a positional's is Positional.Completion.
-//
-// https://github.com/carapace-sh/carapace/blob/v1.16.3/pkg/command/command.go
-type Completion struct {
-	PositionalAny []string   `yaml:"positionalany,omitempty"`
-	Dash          [][]string `yaml:"dash,omitempty"`
-	DashAny       []string   `yaml:"dashany,omitempty"`
 }
 
 // Documentation holds extra help text for a command, keyed by flag name or positional index.
@@ -140,18 +129,14 @@ func (c Command) toCarapace() carapacespec.Command {
 	out.Completion.Flag = flagCompletions(c.Flags, c.PersistentFlags)
 	positionalCompletion, variadicFallback := positionalCompletions(c.Positionals)
 	out.Completion.Positional = positionalCompletion
-	out.Completion.PositionalAny = c.Completion.PositionalAny
-	if out.Completion.PositionalAny == nil {
-		out.Completion.PositionalAny = variadicFallback
-	}
-	// Otherwise left unset, carapace falls through to a cobra-compat bridge path whose
-	// completion is effectively undefined for a position the spec never declared — offer
-	// nothing explicitly rather than risk a surprise (e.g. file candidates).
+	// A trailing variadic positional's own completion is the only way a spec can still
+	// influence this; otherwise left unset, carapace falls through to a cobra-compat bridge
+	// path whose completion is effectively undefined for a position the spec never declared
+	// — offer nothing explicitly rather than risk a surprise (e.g. file candidates).
+	out.Completion.PositionalAny = variadicFallback
 	if out.Completion.PositionalAny == nil {
 		out.Completion.PositionalAny = noPositionalCompletion
 	}
-	out.Completion.Dash = c.Completion.Dash
-	out.Completion.DashAny = c.Completion.DashAny
 	out.Documentation.Command = c.Documentation.Command
 	out.Documentation.Flag = c.Documentation.Flag
 	out.Documentation.Positional = c.Documentation.Positional
