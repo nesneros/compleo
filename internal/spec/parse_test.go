@@ -38,3 +38,11 @@ func TestParseYAMLLeavesDeclaredNameAloneWhenNoneGiven(t *testing.T) {
 
 	assert.Equal(t, "greet", sp.Name)
 }
+
+// Command no longer has a custom UnmarshalYAML re-decoding the document through a fresh
+// *yaml.Node (which didn't inherit the outer Decoder's KnownFields(true)) — so a stray
+// top-level key, like the now-removed flagtypes:, is finally actually caught.
+func TestParseYAMLRejectsUnknownTopLevelKey(t *testing.T) {
+	_, _, err := ParseYAML(strings.NewReader("name: greet\nflagtypes:\n  times: int\n"), "")
+	assert.Error(t, err)
+}

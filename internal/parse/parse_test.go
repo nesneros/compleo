@@ -100,9 +100,7 @@ func TestParseFlagWithIntTypeAcceptsValidValue(t *testing.T) {
 	cmd, sp := buildCobra(t, `
 name: mytool
 flags:
-  --times=: how many times
-flagtypes:
-  times: int
+  --times=: {description: how many times, type: int}
 `)
 
 	result, err := Parse(cmd, sp, []string{"--times", "3"})
@@ -114,12 +112,26 @@ func TestParseFlagWithIntTypeRejectsNonNumericValue(t *testing.T) {
 	cmd, sp := buildCobra(t, `
 name: mytool
 flags:
-  --times=: how many times
-flagtypes:
-  times: int
+  --times=: {description: how many times, type: int}
 `)
 
 	_, err := Parse(cmd, sp, []string{"--times", "soon"})
+	assert.Error(t, err)
+}
+
+// A persistent flag's type must still be validated on a subcommand — cobra merges an
+// ancestor's persistent flags into a subcommand's own cmd.Flags(), so the type lookup has
+// to follow the same inheritance, not just look at the matched (sub)command's own Flags.
+func TestParsePersistentFlagWithIntTypeIsValidatedOnSubcommand(t *testing.T) {
+	cmd, sp := buildCobra(t, `
+name: mytool
+persistentflags:
+  --times=: {description: how many times, type: int}
+commands:
+  - name: sub
+`)
+
+	_, err := Parse(cmd, sp, []string{"sub", "--times", "soon"})
 	assert.Error(t, err)
 }
 
@@ -236,4 +248,33 @@ func TestParsePanicsOnNilArgv(t *testing.T) {
 	assert.Panics(t, func() {
 		_, _ = Parse(cmd, sp, nil)
 	})
+}
+
+// Regression test for the carapace-sh/carapace-pflag replace in go.mod: without it, a
+// shorthand-only flag (no --longhand) silently fails to register at all — present in the
+// spec, absent from --help, and unknown if actually typed — rather than erroring up front.
+func TestParseShorthandOnlyFlagParses(t *testing.T) {
+	cmd, sp := buildCobra(t, `
+name: mytool
+flags:
+  -v: verbose output
+`)
+
+	result, err := Parse(cmd, sp, []string{"-v"})
+	require.NoError(t, err)
+	assert.True(t, result.Flags["v"].Bool)
+}
+
+// Same regression, for a nargs-consuming flag (no longhand required here, but nargs is
+// equally fork-only — without it, --pair silently never registers either).
+func TestParseNargsFlagConsumesMultipleArgs(t *testing.T) {
+	cmd, sp := buildCobra(t, `
+name: mytool
+flags:
+  --pair=: {description: two values, nargs: 2}
+`)
+
+	result, err := Parse(cmd, sp, []string{"--pair", "a", "b"})
+	require.NoError(t, err)
+	assert.Equal(t, "a,b", result.Flags["pair"].String)
 }

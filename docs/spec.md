@@ -2,9 +2,9 @@
 
 A compleo spec is a [carapace-spec](https://carapace-sh.github.io/carapace-spec/) YAML
 document — the same format carapace-bin's completers use — with two additions: `positionals:`
-and `flagtypes:`. Everything else (`name`, `description`, `flags`, `persistentflags`,
-`commands`, `completion`, `aliases`, `group`, `hidden`, ...) is plain carapace-spec; see its
-docs for the full field reference.
+and a `type:` key on a flag's (or positional's) own definition. Everything else (`name`,
+`description`, `flags`, `persistentflags`, `commands`, `completion`, `aliases`, `group`,
+`hidden`, ...) is plain carapace-spec; see its docs for the full field reference.
 
 For completion *actions* specifically (`$files`, `$directories`, and the rest of the
 `$macro(...)` syntax used under `completion:`), see carapace-spec's own
@@ -29,10 +29,10 @@ currently-running binary's own name, namespacing its own macros, same as `$carap
 - `name`, `description` — shown in `--help` and used for zsh's `#compdef`.
 - `flags` / `persistentflags` — carapace-spec's shorthand-and-modifier syntax
   (`-c, --count=`, `--tag*=`, `--optarg?`, ...). Flags only ever carry a `string`, `[]string`
-  (repeatable), `bool`, or `count` value at this layer — see `flagtypes:` below to declare
-  anything more specific.
-- `commands` — subcommands, each a full `Command` in its own right (so `positionals:` and
-  `flagtypes:` both nest into subcommands too).
+  (repeatable), `bool`, or `count` value at this layer — see `type:` below to declare anything
+  more specific.
+- `commands` — subcommands, each a full `Command` in its own right (so `positionals:` and a
+  flag's `type:` both nest into subcommands too).
 - `completion:` — `flag`/`positional`/`positionalany`/`dash`/`dashany` completion actions,
   keyed by flag/position, using carapace-bin's macros.
 - `run:` — carapace-spec's own field for making a spec directly runnable. compleo **ignores
@@ -62,21 +62,25 @@ This is separate from, and not automatically linked to, carapace-spec's own
 `completion.positional`/`completion.positionalany` (which complete by *index*, not name) —
 you declare both independently if you want a positional both parsed *and* completed.
 
-### `flagtypes:`
+### `type:` on a flag
 
-carapace-spec flags are always `string`/`[]string`/`bool`/`count` as far as parsing goes.
-`flagtypes:` maps a flag's bare name (no dashes) to a compleo `Type`, validated after
-parsing (cobra/pflag never see it — an invalid value is still just a string to them):
+carapace-spec flags are always `string`/`[]string`/`bool`/`count` as far as parsing goes. A
+flag's object-form value accepts one more key, `type:`, alongside `description`/`nargs`/
+`default`, naming a compleo `Type` validated after parsing (cobra/pflag never see it — an
+invalid value is still just a string to them):
 
 ```yaml
 flags:
-  --times=: {description: how many times to repeat, default: "1"}
-flagtypes:
-  times: int
+  --times=: {description: how many times to repeat, default: "1", type: int}
 ```
 
 A declared type also gets appended to the flag's `--help` description (e.g. `` (`int`) ``),
 so `--times int` reads correctly even though pflag's underlying registered type is `string`.
+
+Plain carapace-spec/carapace-bin tolerates this fine if the same file is ever consumed
+directly by them: their `FlagSet` decoder already accepts the object form and simply ignores
+any key besides `description`/`nargs`/`default` — compleo's own decoder is the one that
+additionally reads (and, on an unrecognized key, rejects a typo in) `type:`.
 
 ### Types
 
@@ -89,7 +93,7 @@ so `--times int` reads correctly even though pflag's underlying registered type 
 | `duration` | must parse as a Go duration (`"1h30m"`, ...) |
 | `path`     | accepted like `string` — no extra validation yet |
 
-`type:` works the same way on a `positionals:` entry as it does in `flagtypes:`.
+`type:` works the same way on a `positionals:` entry as it does on a flag.
 
 ## Full example
 
@@ -100,15 +104,13 @@ name: ${0:t}
 description: Print a greeting.
 flags:
   --loud: {description: shout the greeting}
-  --times=: {description: how many times to repeat, default: "1"}
-flagtypes:
-  times: int
+  --times=: {description: how many times to repeat, default: "1", type: int}
 positionals:
   - name: name
     description: who to greet
     required: true
 ```
 
-See `examples/greet` (parsing/positionals/flagtypes), `examples/macros` (every core
+See `examples/greet` (parsing/positionals/a typed flag), `examples/macros` (every core
 carapace-spec completion macro except `$spec`), and `examples/other_spec` (`$spec`, which
 needs a dynamic path a quoted heredoc can't supply on its own) for complete, runnable scripts.

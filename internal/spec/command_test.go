@@ -54,17 +54,24 @@ positionals:
 	assert.Equal(t, typePath, p.Type)
 }
 
-func TestParseFlagTypeOverlay(t *testing.T) {
+func TestParseFlagTypeIsSpecifiedOnTheFlagItself(t *testing.T) {
 	cmd, err := decodeYAML(strings.NewReader(`
 name: mytool
 flags:
-  --count=: consumes a count
-flagtypes:
-  count: int
+  --count=: {description: consumes a count, type: int}
 `))
 	require.NoError(t, err)
 
-	assert.Equal(t, typeInt, cmd.FlagTypes["count"])
+	assert.Equal(t, typeInt, cmd.Flags["count"].Type)
+}
+
+func TestParseFlagRejectsUnknownObjectKey(t *testing.T) {
+	_, err := decodeYAML(strings.NewReader(`
+name: mytool
+flags:
+  --count=: {description: consumes a count, tpye: int}
+`))
+	assert.Error(t, err)
 }
 
 func TestParseSubcommandCarriesItsOwnPositionals(t *testing.T) {
@@ -85,10 +92,6 @@ commands:
 	require.Len(t, sub.Positionals, 1)
 	assert.Equal(t, "arg", sub.Positionals[0].Name)
 	assert.True(t, sub.Positionals[0].Required)
-
-	// The embedded command.Command's own Commands field is superseded by cmd.Commands
-	// above and must be cleared, not left as a stale duplicate.
-	assert.Empty(t, cmd.Command.Commands)
 }
 
 func TestCommandToCarapace(t *testing.T) {
@@ -120,9 +123,7 @@ func TestToCarapaceAddsTypeHintToTypedFlagDescription(t *testing.T) {
 	cmd, err := decodeYAML(strings.NewReader(`
 name: mytool
 flags:
-  --times=: how many times
-flagtypes:
-  times: int
+  --times=: {description: how many times, type: int}
 `))
 	require.NoError(t, err)
 
@@ -151,9 +152,7 @@ func TestParseYAMLUsageShowsDeclaredFlagType(t *testing.T) {
 	cmd, _, err := ParseYAML(strings.NewReader(`
 name: mytool
 flags:
-  --times=: how many times
-flagtypes:
-  times: int
+  --times=: {description: how many times, type: int}
 `), "")
 	require.NoError(t, err)
 

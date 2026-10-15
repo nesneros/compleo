@@ -16,3 +16,8 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 )
+
+// Full flag-syntax support (shorthand-only flags, non-posix single-dash flags, nargs-consuming
+// flags): without this, carapace-spec's addFlagTo silently drops those forms instead of
+// registering them — see CLAUDE.md's "Full flag-syntax support" design decision.
+replace github.com/spf13/pflag => github.com/carapace-sh/carapace-pflag v1.3.0

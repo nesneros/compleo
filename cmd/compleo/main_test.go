@@ -139,9 +139,7 @@ func TestRunParseErrorDoesNotDuplicateOntoRealStderr(t *testing.T) {
 	specReader := strings.NewReader(`
 name: mytool
 flags:
-  --times=: how many times
-flagtypes:
-  times: int
+  --times=: {description: how many times, type: int}
 `)
 	var runErr error
 	stderr := captureRealStderr(t, func() {

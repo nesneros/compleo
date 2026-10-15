@@ -63,7 +63,7 @@ greeting="Hello, ${compleo[name]}!"
 Everything below happens from that one `eval` line — no extra code needed in the script:
 
 - **`--help`**: prints the usage text and exits 0.
-- **A bad argument** (unknown flag, missing required positional, a `flagtypes:`/`type:`
+- **A bad argument** (unknown flag, missing required positional, a `type:`
   mismatch): prints `<name>: <error>` to stderr and exits **2** (not compleo's own generic
   exit 1 for *its* invocation failures — a script checking `$?` can tell the two apart). No
   `|| exit $?` needed after the `eval` — exiting is already part of what gets `eval`'d.
@@ -124,9 +124,7 @@ eval "$(compleo up <<'SPEC'
 description: Print a greeting.
 flags:
   --loud: {description: shout the greeting}
-  --times=: {description: how many times to repeat, default: "1"}
-flagtypes:
-  times: int
+  --times=: {description: how many times to repeat, default: "1", type: int}
 positionals:
   - name: name
     description: who to greet

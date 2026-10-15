@@ -175,10 +175,8 @@ func TestEmitEndToEndScalarsAndArraysUnderRealZsh(t *testing.T) {
 name: greet
 flags:
   --loud: {description: shout}
-  --times=: {description: how many times, default: "1"}
+  --times=: {description: how many times, default: "1", type: int}
   --tag*=: a tag
-flagtypes:
-  times: int
 positionals:
   - name: name
     required: true

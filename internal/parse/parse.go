@@ -5,6 +5,7 @@ package parse
 
 import (
 	"fmt"
+	stdmaps "maps"
 	"slices"
 	"strconv"
 
@@ -84,12 +85,19 @@ func helpRequested(cmd *cobra.Command) bool {
 }
 
 func wire(cmd *cobra.Command, sp spec.Command, result *Result) error {
+	return wireCommand(cmd, sp, result, nil)
+}
+
+// wireCommand recurses with inherited: a subcommand's effective flag types are its own
+// Flags/PersistentFlags plus whatever its ancestors declared as PersistentFlags — cobra
+// merges ancestors' persistent flags into a subcommand's own cmd.Flags() the same way.
+func wireCommand(cmd *cobra.Command, sp spec.Command, result *Result, inherited map[string]spec.Type) error {
 	if err := validatePositionals(sp.Positionals); err != nil {
 		return fmt.Errorf("command %q: %w", sp.Name, err)
 	}
 
 	positionals := sp.Positionals
-	flagTypes := sp.FlagTypes
+	flagTypes := mergeFlagTypes(inherited, flagTypeMap(sp.Flags), flagTypeMap(sp.PersistentFlags))
 	cmd.Args = func(c *cobra.Command, args []string) error {
 		_, err := bindPositionals(positionals, args)
 		return err
@@ -109,10 +117,11 @@ func wire(cmd *cobra.Command, sp spec.Command, result *Result) error {
 		return nil
 	}
 
+	childInherited := mergeFlagTypes(inherited, flagTypeMap(sp.PersistentFlags))
 	for _, sub := range cmd.Commands() {
 		for _, subSpec := range sp.Commands {
 			if subSpec.Name == sub.Name() {
-				if err := wire(sub, subSpec, result); err != nil {
+				if err := wireCommand(sub, subSpec, result, childInherited); err != nil {
 					return err
 				}
 				break
@@ -120,6 +129,28 @@ func wire(cmd *cobra.Command, sp spec.Command, result *Result) error {
 		}
 	}
 	return nil
+}
+
+// flagTypeMap extracts each flag's declared Type, keyed by its bare name.
+func flagTypeMap(fs spec.FlagSet) map[string]spec.Type {
+	m := make(map[string]spec.Type, len(fs))
+	for name, f := range fs {
+		m[name] = f.Type
+	}
+	return m
+}
+
+// mergeFlagTypes unions maps left to right; a later map's entry wins on a name collision.
+func mergeFlagTypes(maps ...map[string]spec.Type) map[string]spec.Type {
+	size := 0
+	for _, m := range maps {
+		size += len(m)
+	}
+	merged := make(map[string]spec.Type, size)
+	for _, m := range maps {
+		stdmaps.Copy(merged, m)
+	}
+	return merged
 }
 
 // validatePositionals: at most one variadic, and it must be last; no required

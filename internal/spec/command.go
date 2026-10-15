@@ -7,42 +7,60 @@ import (
 
 	carapacespec "github.com/carapace-sh/carapace-spec"
 	"github.com/carapace-sh/carapace/pkg/command"
-	yaml "gopkg.in/yaml.v3"
 )
 
-// Command is compleo's superset of carapace-spec's command.Command, adding Positionals
-// and FlagTypes, which carapace-spec has no fields for at all.
+// Command mirrors carapace-sh/carapace's pkg/command.Command (imported here as "command") —
+// same field names/YAML tags, duplicated rather than embedded, so a compleo extension (Type on
+// Flag, Positionals here) lives directly on the field it extends, not in a side-channel map
+// keyed by name alongside it. toCarapace converts back to the real command.Command, just before
+// building the cobra tree — the one place that still needs it. Keep this in sync by hand if
+// command.Command ever changes; nothing enforces it automatically.
+//
+// https://github.com/carapace-sh/carapace/blob/v1.16.3/pkg/command/command.go
 type Command struct {
-	command.Command `yaml:",inline"`
+	Name        string          `yaml:"name"`
+	Aliases     []string        `yaml:"aliases,omitempty"`
+	Description string          `yaml:"description,omitempty"`
+	Group       string          `yaml:"group,omitempty"`
+	Hidden      bool            `yaml:"hidden,omitempty"`
+	Parsing     command.Parsing `yaml:"parsing,omitempty"`
 
-	// yaml:"-": decoded separately by UnmarshalYAML, so subcommands get Positionals too.
-	Commands []Command `yaml:"-"`
+	Flags           FlagSet     `yaml:"flags,omitempty"`
+	PersistentFlags FlagSet     `yaml:"persistentflags,omitempty"`
+	ExclusiveFlags  [][]string  `yaml:"exclusiveflags,omitempty"`
+	Run             command.Run `yaml:"run,omitempty"`
+	Completion      Completion  `yaml:"completion,omitempty"`
+	Commands        []Command   `yaml:"commands,omitempty"`
+
+	Documentation Documentation     `yaml:"documentation,omitempty"`
+	Examples      map[string]string `yaml:"examples,omitempty"`
 
 	Positionals []Positional `yaml:"positionals,omitempty"`
-
-	// FlagTypes maps a flag's bare name to a compleo value type (carapace-spec flags are
-	// only ever string/[]string/bool/count).
-	FlagTypes map[string]Type `yaml:"flagtypes,omitempty"`
 }
 
-// UnmarshalYAML re-decodes "commands" into []Command (not command.Command.Commands'
-// plain []command.Command), so subcommands carry Positionals/FlagTypes too.
-func (c *Command) UnmarshalYAML(value *yaml.Node) error {
-	type alias Command // no UnmarshalYAML method, to avoid infinite recursion
-	if err := value.Decode((*alias)(c)); err != nil {
-		return err
-	}
+// Completion mirrors command.Command's own anonymous Completion field shape — Go can't
+// reference another package's anonymous struct type from outside it, so this is a plain copy.
+//
+// https://github.com/carapace-sh/carapace/blob/v1.16.3/pkg/command/command.go
+type Completion struct {
+	Flag          map[string][]string `yaml:"flag,omitempty"`
+	Positional    [][]string          `yaml:"positional,omitempty"`
+	PositionalAny []string            `yaml:"positionalany,omitempty"`
+	Dash          [][]string          `yaml:"dash,omitempty"`
+	DashAny       []string            `yaml:"dashany,omitempty"`
+}
 
-	for i := 0; i+1 < len(value.Content); i += 2 {
-		if value.Content[i].Value == "commands" {
-			if err := value.Content[i+1].Decode(&c.Commands); err != nil {
-				return err
-			}
-			break
-		}
-	}
-	c.Command.Commands = nil // superseded by c.Commands
-	return nil
+// Documentation mirrors command.Command's own anonymous Documentation field shape (see
+// Completion above — same reason this is a plain copy, not a reference).
+//
+// https://github.com/carapace-sh/carapace/blob/v1.16.3/pkg/command/command.go
+type Documentation struct {
+	Command       string            `yaml:"command,omitempty"`
+	Flag          map[string]string `yaml:"flag,omitempty"`
+	Positional    []string          `yaml:"positional,omitempty"`
+	PositionalAny string            `yaml:"positionalany,omitempty"`
+	Dash          []string          `yaml:"dash,omitempty"`
+	DashAny       string            `yaml:"dashany,omitempty"`
 }
 
 // Positional describes one named positional argument.
@@ -89,32 +107,39 @@ func (t Type) Validate(s string) error {
 	return nil
 }
 
-// toCarapace converts c, recursively, into carapace-spec's Command (so ParseYAML can
-// call .ToCobraE() on it directly), dropping Positionals (FlagTypes is consumed into
-// flag description hints, see addFlagTypeHints, then dropped too).
+// toCarapace converts c, recursively, into carapace-spec's Command so ParseYAML can call
+// .ToCobraE() on it directly. Positionals has no carapace-spec equivalent and is dropped here
+// (it's consumed separately by applySpec).
 func (c Command) toCarapace() carapacespec.Command {
-	cmd := c.Command
-	cmd.Flags = addFlagTypeHints(cmd.Flags, c.FlagTypes)
-	cmd.Commands = make([]command.Command, len(c.Commands))
-	for i, sub := range c.Commands {
-		cmd.Commands[i] = command.Command(sub.toCarapace())
+	sub := make([]command.Command, len(c.Commands))
+	for i, s := range c.Commands {
+		sub[i] = command.Command(s.toCarapace())
 	}
-	return carapacespec.Command(cmd)
-}
 
-// addFlagTypeHints appends a backtick-quoted type name to each typed flag's description, so
-// usage shows e.g. "--times int" — pflag.UnquoteUsage prefers a backtick-quoted segment over
-// the flag's actual registered type.
-func addFlagTypeHints(flags command.FlagSet, flagTypes map[string]Type) command.FlagSet {
-	if len(flagTypes) == 0 {
-		return flags
+	out := command.Command{
+		Name:            c.Name,
+		Aliases:         c.Aliases,
+		Description:     c.Description,
+		Group:           c.Group,
+		Hidden:          c.Hidden,
+		Parsing:         c.Parsing,
+		Flags:           c.Flags.toCarapace(),
+		PersistentFlags: c.PersistentFlags.toCarapace(),
+		ExclusiveFlags:  c.ExclusiveFlags,
+		Run:             c.Run,
+		Commands:        sub,
+		Examples:        c.Examples,
 	}
-	hinted := make(command.FlagSet, len(flags))
-	for name, f := range flags {
-		if t, ok := flagTypes[name]; ok && t != typeString {
-			f.Description += " (`" + string(t) + "`)"
-		}
-		hinted[name] = f
-	}
-	return hinted
+	out.Completion.Flag = c.Completion.Flag
+	out.Completion.Positional = c.Completion.Positional
+	out.Completion.PositionalAny = c.Completion.PositionalAny
+	out.Completion.Dash = c.Completion.Dash
+	out.Completion.DashAny = c.Completion.DashAny
+	out.Documentation.Command = c.Documentation.Command
+	out.Documentation.Flag = c.Documentation.Flag
+	out.Documentation.Positional = c.Documentation.Positional
+	out.Documentation.PositionalAny = c.Documentation.PositionalAny
+	out.Documentation.Dash = c.Documentation.Dash
+	out.Documentation.DashAny = c.Documentation.DashAny
+	return carapacespec.Command(out)
 }

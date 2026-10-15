@@ -9,8 +9,8 @@ import (
 )
 
 // decodeYAML decodes a compleo spec file. Must use gopkg.in/yaml.v3, matching the pinned
-// carapace-sh/carapace v1.16.3 — command.FlagSet/Run's custom UnmarshalYAML won't be
-// found by a different library's decoder.
+// carapace-sh/carapace v1.16.3 — command.Run's custom UnmarshalYAML won't be found by a
+// different library's decoder. (FlagSet decoding is compleo's own now, see flag.go.)
 func decodeYAML(r io.Reader) (Command, error) {
 	var cmd Command
 	decoder := yaml.NewDecoder(r)
