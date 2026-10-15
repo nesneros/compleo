@@ -21,21 +21,17 @@ import (
 //go:embed spec.yaml
 var specYAML []byte
 
-// COMPLEO_MODE values: what "compleo parse" does beyond parsing "$@" — same heredoc
-// re-delivers the spec either way, so no mode-aware logic is needed in the script itself.
-const modeGenerate = "generate"
-
 func main() {
-	if err := run(os.Args[1:], isPiped(os.Stdin), os.Stdin, os.Stdout, os.Getenv(cmdutil.EnvMode)); err != nil {
+	generateName := os.Getenv(cmdutil.EnvGenerateName)
+	if err := run(os.Args[1:], isPiped(os.Stdin), os.Stdin, os.Stdout, generateName); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		logDebug(os.Args[1:], err)
 		os.Exit(1)
 	}
 }
 
-// logDebug appends err to EnvDebugLog, if set — a second channel for a caller (e.g. a Tab
-// press's "2>/dev/null"'d _carapace invocation) that already discards real stderr. Best
-// effort: a bad path here must never turn into compleo's own secondary failure.
+// logDebug appends a timestamped record of args and err to the file named by EnvDebugLog, if
+// set. It is a no-op if the env var is unset or the file can't be opened.
 func logDebug(args []string, err error) {
 	path := os.Getenv(cmdutil.EnvDebugLog)
 	if path == "" {
@@ -58,8 +54,9 @@ func isPiped(f *os.File) bool {
 	return info.Mode()&os.ModeCharDevice == 0
 }
 
-// run routes on an explicit "parse" token, since --help/--version could otherwise be compleo's or the wrapped script's.
-func run(args []string, piped bool, in io.Reader, out io.Writer, mode string) error {
+// run parses args as a compleo invocation and dispatches to the matching subcommand,
+// writing its output to out.
+func run(args []string, piped bool, in io.Reader, out io.Writer, generateName string) error {
 	if args == nil {
 		panic("run: args must not be nil (use an empty slice for 'no arguments')")
 	}
@@ -69,12 +66,11 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, mode string) er
 	// ownCmd's own _carapace subcommand below only knows how to complete compleo itself.
 	if len(args) > 0 && args[0] == "_carapace" {
 		if specFile := os.Getenv(cmdutil.EnvSpecFile); specFile != "" {
-			f, err := os.Open(specFile)
+			data, err := os.ReadFile(specFile)
 			if err != nil {
-				return fmt.Errorf("opening embedded spec file %q: %w", specFile, err)
+				return fmt.Errorf("reading embedded spec file %q: %w", specFile, err)
 			}
-			defer f.Close() //nolint:errcheck
-			return runCarapace(f, args, out)
+			return runCarapace(string(data), args, out)
 		}
 	}
 
@@ -90,7 +86,20 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, mode string) er
 		return nil
 	}
 
-	switch result.Path[len(result.Path)-1] {
+	cmdName := result.Path[len(result.Path)-1]
+	var rawSpec string
+	// Ensure stdin is piped for commands that require it, and read rawSpec from it.
+	if cmdName == "parse" || cmdName == "up" || cmdName == "validate" {
+		if !piped {
+			return errors.New("no spec piped on stdin")
+		}
+		rawSpecBytes, err := io.ReadAll(in)
+		if err != nil {
+			return fmt.Errorf("reading spec: %w", err)
+		}
+		rawSpec = string(rawSpecBytes)
+	}
+	switch cmdName {
 	case "activate":
 		dir := cmdutil.CompletionDir()
 		snippet, err := zsh.Completion(ownCmd)
@@ -109,14 +118,11 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, mode string) er
 		if wrappedArgs == nil {
 			wrappedArgs = []string{}
 		}
-		return runParse(wrappedArgs, piped, in, out, result.Flags["name"].String, mode)
+		return runParse(wrappedArgs, rawSpec, out, result.Flags["name"].String, generateName)
 	case "up":
-		return runUp(piped, in, out)
+		return zsh.EmitUp(out, rawSpec)
 	case "validate":
-		if !piped {
-			return errors.New("no spec piped on stdin (compleo expects a spec to validate on stdin)")
-		}
-		if _, _, err := spec.ParseYAML(in, ""); err != nil {
+		if _, _, err := spec.ParseYAML(rawSpec, ""); err != nil {
 			return fmt.Errorf("invalid spec: %w", err)
 		}
 		fmt.Fprintln(out, "ok")
@@ -128,18 +134,10 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, mode string) er
 	return nil
 }
 
-// runParse parses args against the piped spec, or (COMPLEO_MODE=generate) writes its
-// completion file instead. name is --name's value, passed straight to spec.ParseYAML. Reads
-// all of in upfront so the raw bytes are available to pass to runGenerate verbatim.
-func runParse(args []string, piped bool, in io.Reader, out io.Writer, name string, mode string) error {
-	if !piped {
-		return errors.New("no spec piped on stdin (compleo expects its target script's spec on stdin)")
-	}
-	rawSpec, err := io.ReadAll(in)
-	if err != nil {
-		return fmt.Errorf("reading spec: %w", err)
-	}
-	cmd, sp, err := spec.ParseYAML(bytes.NewReader(rawSpec), name)
+// runParse parses args against the spec in rawSpec, or, when generateName is non-empty,
+// writes a completion file for it instead. name is passed to spec.ParseYAML as the spec's name.
+func runParse(args []string, rawSpec string, out io.Writer, name string, generateName string) error {
+	cmd, sp, err := spec.ParseYAML(rawSpec, name)
 	if err != nil {
 		return fmt.Errorf("invalid spec: %w", err)
 	}
@@ -147,30 +145,16 @@ func runParse(args []string, piped bool, in io.Reader, out io.Writer, name strin
 	cmd.SilenceErrors = true
 	cmd.SilenceUsage = true
 
-	if mode == modeGenerate {
-		return generate.Generate(cmd, sp, string(rawSpec), out)
+	if generateName != "" {
+		return generate.Generate(cmd, sp, rawSpec, out)
 	}
 	return runEmit(cmd, sp, args, out)
 }
 
-// runUp reads the piped spec and writes zsh that re-invokes "compleo parse" with it
-// embedded (see zsh.EmitUp) — doesn't validate the spec itself, that happens naturally
-// once the generated command actually runs.
-func runUp(piped bool, in io.Reader, out io.Writer) error {
-	if !piped {
-		return errors.New("no spec piped on stdin (compleo expects its target script's spec on stdin)")
-	}
-	rawSpec, err := io.ReadAll(in)
-	if err != nil {
-		return fmt.Errorf("reading spec: %w", err)
-	}
-	return zsh.EmitUp(out, string(rawSpec))
-}
-
-// runCarapace serves one live Tab-press request: specYAML is the companion file its
-// generated completion points at, built into a fresh cobra tree and dispatched into
-// directly. _carapace's own Run never returns a Go error (reports failures to stderr itself).
-func runCarapace(specYAML io.Reader, args []string, out io.Writer) error {
+// runCarapace builds a cobra command tree from specYAML and executes args against it,
+// writing to out. A failure in the underlying completion command is reported to out rather
+// than returned.
+func runCarapace(specYAML string, args []string, out io.Writer) error {
 	cmd, _, err := spec.ParseYAML(specYAML, "")
 	if err != nil {
 		return fmt.Errorf("invalid embedded spec: %w", err)
@@ -203,10 +187,10 @@ func runEmit(cmd *cobra.Command, sp spec.Command, args []string, out io.Writer) 
 	}
 }
 
-// compleoCmd builds compleo's own cobra command tree from its embedded spec. Panics on a
-// parse failure — spec.yaml is built in via go:embed, so that'd be a bug, not a runtime error.
+// compleoCmd builds compleo's own cobra command tree from its embedded spec.yaml. It panics
+// if that spec fails to parse.
 func compleoCmd(stdout io.Writer) (*cobra.Command, spec.Command) {
-	cmd, sp, err := spec.ParseYAML(bytes.NewReader(specYAML), "")
+	cmd, sp, err := spec.ParseYAML(string(specYAML), "")
 	if err != nil {
 		panic(fmt.Errorf("compleo's own embedded spec.yaml is invalid: %w", err))
 	}

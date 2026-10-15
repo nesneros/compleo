@@ -1,7 +1,6 @@
 package parse
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/nesneros/compleo/internal/spec"
@@ -13,7 +12,7 @@ import (
 func buildCobra(t *testing.T, yaml string) (*cobra.Command, spec.Command) {
 	t.Helper()
 
-	cmd, sp, err := spec.ParseYAML(strings.NewReader(yaml), "")
+	cmd, sp, err := spec.ParseYAML(yaml, "")
 	require.NoError(t, err)
 
 	return cmd, sp

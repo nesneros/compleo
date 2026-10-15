@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -50,14 +49,14 @@ func TestCompleoScriptsMacroCompletesOnlyWrappedExecutablesOnPath(t *testing.T) 
 	write("my-compleo-mention-binary", "not a script, just mentions compleo in its bytes")
 	t.Setenv("PATH", dir)
 
-	cmd, _, err := ParseYAML(strings.NewReader(`
+	cmd, _, err := ParseYAML(`
 name: mytool
 positionals:
   - name: target
 completion:
   positional:
     - ["$_.scripts"]
-`), "")
+`, "")
 	require.NoError(t, err)
 
 	var buf bytes.Buffer
@@ -77,14 +76,14 @@ func TestCompleoScriptsMacroAlsoCompletesFilePaths(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "some-file"), []byte("x"), 0o644))
 	t.Setenv("PATH", "")
 
-	cmd, _, err := ParseYAML(strings.NewReader(`
+	cmd, _, err := ParseYAML(`
 name: mytool
 positionals:
   - name: target
 completion:
   positional:
     - ["$_.scripts"]
-`), "")
+`, "")
 	require.NoError(t, err)
 
 	var buf bytes.Buffer

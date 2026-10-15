@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// version, commit, date are set at build time via GoReleaser's default ldflags.
+// version, commit, date are populated via linker flags at build time.
 var (
 	version = "dev"
 	commit  string

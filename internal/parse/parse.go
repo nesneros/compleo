@@ -20,8 +20,8 @@ type Result struct {
 	// Path is the invoked (sub)command's name path, e.g. ["mytool", "sub"].
 	Path []string
 
-	// HelpRequested: cobra intercepts --help before RunE runs, so Path/Flags/Positionals
-	// stay zero-valued whenever this is true — check it before relying on them.
+	// HelpRequested reports whether --help was invoked; Path, Flags, and Positionals are
+	// zero-valued when this is true.
 	HelpRequested bool
 
 	Flags       map[string]FlagValue
@@ -49,7 +49,8 @@ type FlagValue struct {
 	Count   int
 }
 
-// PositionalValue is one positional's value(s); Variadic tells callers like zsh.Emit to render it as a list.
+// PositionalValue is one positional's value(s). Variadic reports whether it should be
+// treated as a list rather than a scalar.
 type PositionalValue struct {
 	Values   []string
 	Variadic bool
@@ -77,9 +78,7 @@ func Parse(cmd *cobra.Command, sp spec.Command, argv []string) (Result, error) {
 	return result, nil
 }
 
-// helpRequested reports whether --help was changed anywhere in cmd's tree: cobra
-// intercepts --help before RunE runs, so there's no other way to detect it per
-// resolved command.
+// helpRequested reports whether --help was set anywhere in cmd's command tree.
 func helpRequested(cmd *cobra.Command) bool {
 	return cmd.Flags().Changed("help") || slices.ContainsFunc(cmd.Commands(), helpRequested)
 }
@@ -88,10 +87,9 @@ func wire(cmd *cobra.Command, sp spec.Command, result *Result) error {
 	return wireCommand(cmd, sp, result, nil)
 }
 
-// wireCommand recurses with inherited: a subcommand's effective flags (for validation
-// purposes) are its own Flags/PersistentFlags plus whatever its ancestors declared as
-// PersistentFlags — cobra merges ancestors' persistent flags into a subcommand's own
-// cmd.Flags() the same way.
+// wireCommand wires sp onto cmd and recurses into matching subcommands. inherited carries
+// flags declared as PersistentFlags by an ancestor, merged into each subcommand's own
+// effective flag set.
 func wireCommand(cmd *cobra.Command, sp spec.Command, result *Result, inherited map[string]spec.Flag) error {
 	if err := validatePositionals(sp.Positionals); err != nil {
 		return fmt.Errorf("command %q: %w", sp.Name, err)
@@ -213,9 +211,8 @@ func commandPath(c *cobra.Command) []string {
 	return path
 }
 
-// bindFlags also validates against each flag's declared Type (and, for an enum, Values):
-// cobra/pflag only ever parse those as a plain string, so this is the only place an invalid
-// value is caught.
+// bindFlags collects each of cmd's registered flags' parsed values, validating each one
+// against the corresponding spec.Flag's declared Type.
 func bindFlags(cmd *cobra.Command, specFlags map[string]spec.Flag) (map[string]FlagValue, error) {
 	flags := make(map[string]FlagValue)
 	var firstErr error

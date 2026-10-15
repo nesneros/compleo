@@ -171,7 +171,7 @@ func zshEval(t *testing.T, snippet string, exprs ...string) []string {
 }
 
 func TestEmitEndToEndScalarsAndArraysUnderRealZsh(t *testing.T) {
-	cmd, sp, err := spec.ParseYAML(strings.NewReader(`
+	cmd, sp, err := spec.ParseYAML(`
 name: greet
 flags:
   --loud: {description: shout}
@@ -182,7 +182,7 @@ positionals:
     required: true
   - name: extra
     variadic: true
-`), "")
+`, "")
 	require.NoError(t, err)
 
 	result, err := parse.Parse(cmd, sp, []string{
@@ -287,7 +287,7 @@ func TestEmitGeneratedPrintsConfirmationToStderrAndExitsZero(t *testing.T) {
 // _comps[greet] — a hint that only sets _comps correctly without a real autoload target
 // still fails at the actual Tab press with "command not found".
 func TestEmitGeneratedActivationHintActuallyWorksFromColdStart(t *testing.T) {
-	cmd, _, err := spec.ParseYAML(strings.NewReader("name: greet\nflags:\n  --loud: shout\n"), "")
+	cmd, _, err := spec.ParseYAML("name: greet\nflags:\n  --loud: shout\n", "")
 	require.NoError(t, err)
 	content, err := WrappedCompletion(cmd, "greet", "name: greet\nflags:\n  --loud: shout\n")
 	require.NoError(t, err)

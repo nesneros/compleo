@@ -2,28 +2,26 @@ package spec
 
 import (
 	"fmt"
-	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v3"
 )
 
-// decodeYAML decodes a compleo spec file. Must use gopkg.in/yaml.v3, matching the pinned
-// carapace-sh/carapace v1.16.3 — command.Run's custom UnmarshalYAML won't be found by a
-// different library's decoder. (FlagSet decoding is compleo's own now, see flag.go.)
-func decodeYAML(r io.Reader) (Command, error) {
+// decodeYAML decodes a compleo spec document into a Command, rejecting unknown fields.
+func decodeYAML(data string) (Command, error) {
 	var cmd Command
-	decoder := yaml.NewDecoder(r)
+	decoder := yaml.NewDecoder(strings.NewReader(data))
 	decoder.KnownFields(true)
 	err := decoder.Decode(&cmd)
 	return cmd, err
 }
 
-// ParseYAML reads a spec from r and builds its cobra command tree, with usage wired in.
+// ParseYAML parses a spec from data and builds its cobra command tree, with usage wired in.
 // name, if non-empty, fills in a missing name: or must match a declared one (error on
 // mismatch); pass "" when there's no outside name to contribute.
-func ParseYAML(r io.Reader, name string) (*cobra.Command, Command, error) {
-	sp, err := decodeYAML(r)
+func ParseYAML(data string, name string) (*cobra.Command, Command, error) {
+	sp, err := decodeYAML(data)
 	if err != nil {
 		return nil, Command{}, err
 	}

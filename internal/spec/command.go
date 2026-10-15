@@ -9,12 +9,8 @@ import (
 	yaml "gopkg.in/yaml.v3"
 )
 
-// Command mirrors carapace-sh/carapace's pkg/command.Command (imported here as "command") —
-// same field names/YAML tags, duplicated rather than embedded, so a compleo extension (Type on
-// Flag, Positionals here) lives directly on the field it extends, not in a side-channel map
-// keyed by name alongside it. toCarapace converts back to the real command.Command, just before
-// building the cobra tree — the one place that still needs it. Keep this in sync by hand if
-// command.Command ever changes; nothing enforces it automatically.
+// Command is a compleo spec's command definition, with the same field names and YAML tags as
+// carapace-sh/carapace's pkg/command.Command (imported here as "command"), plus Positionals.
 //
 // https://github.com/carapace-sh/carapace/blob/v1.16.3/pkg/command/command.go
 type Command struct {
@@ -38,8 +34,7 @@ type Command struct {
 	Positionals []Positional `yaml:"positionals,omitempty"`
 }
 
-// Completion mirrors command.Command's own anonymous Completion field shape — Go can't
-// reference another package's anonymous struct type from outside it, so this is a plain copy.
+// Completion holds a command's completion actions, keyed by flag name or positional index.
 //
 // https://github.com/carapace-sh/carapace/blob/v1.16.3/pkg/command/command.go
 type Completion struct {
@@ -50,8 +45,7 @@ type Completion struct {
 	DashAny       []string            `yaml:"dashany,omitempty"`
 }
 
-// Documentation mirrors command.Command's own anonymous Documentation field shape (see
-// Completion above — same reason this is a plain copy, not a reference).
+// Documentation holds extra help text for a command, keyed by flag name or positional index.
 //
 // https://github.com/carapace-sh/carapace/blob/v1.16.3/pkg/command/command.go
 type Documentation struct {
@@ -72,8 +66,8 @@ type Positional struct {
 	Type        Type
 }
 
-// Validate reports whether s is a valid value for p. A nil Type (a zero-value Positional
-// constructed outside of decoding, e.g. in a test) means no validation, same as StringType.
+// Validate reports whether s is a valid value for p. A nil Type means no validation,
+// equivalent to StringType.
 func (p Positional) Validate(s string) error {
 	if p.Type == nil {
 		return nil
@@ -86,9 +80,7 @@ var validPositionalKeys = map[string]bool{
 	"name": true, "description": true, "required": true, "variadic": true, "type": true,
 }
 
-// UnmarshalYAML decodes into a map first (like FlagSet does), rather than relying on plain
-// struct tags, so an unrecognized key is still caught (see type.go's decodeType) and so Type
-// — an interface, with no natural YAML shape of its own — can be built explicitly.
+// UnmarshalYAML decodes a positionals: entry, rejecting any key not in validPositionalKeys.
 func (p *Positional) UnmarshalYAML(value *yaml.Node) error {
 	m := make(map[string]any)
 	if err := value.Decode(&m); err != nil {
@@ -113,9 +105,8 @@ func (p *Positional) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
-// toCarapace converts c, recursively, into carapace-spec's Command so ParseYAML can call
-// .ToCobraE() on it directly. Positionals has no carapace-spec equivalent and is dropped here
-// (it's consumed separately by applySpec).
+// toCarapace recursively converts c into carapace-spec's Command. Positionals has no
+// carapace-spec equivalent and is not included.
 func (c Command) toCarapace() carapacespec.Command {
 	sub := make([]command.Command, len(c.Commands))
 	for i, s := range c.Commands {

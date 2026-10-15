@@ -16,8 +16,7 @@ func init() {
 }
 
 // actionScripts implements $compleo.scripts: like $executables, narrowed to compleo-wrapped
-// ones, merged with plain file completion (generate also accepts a path, unfiltered there —
-// carapace's path completion has no hook to filter by file content).
+// executables, merged with plain file completion.
 func actionScripts() carapace.Action {
 	return carapace.Batch(actionPathScripts(), carapace.ActionFiles()).ToA()
 }
@@ -51,8 +50,8 @@ func actionPathScripts() carapace.Action {
 	})
 }
 
-// IsCompleoScript checks for a shebang plus "compleo" in path's first 4KB — cheap, not a
-// guarantee. Used by $compleo.scripts and generate's sanity check.
+// IsCompleoScript reports whether path looks like a compleo-wrapped script: a shebang plus
+// "compleo" somewhere in its first 4KB. Cheap, not a guarantee.
 func IsCompleoScript(path string) bool {
 	f, err := os.Open(path)
 	if err != nil {

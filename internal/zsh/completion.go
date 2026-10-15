@@ -23,10 +23,9 @@ func Completion(cmd *cobra.Command) (string, error) {
 	return snippet, nil
 }
 
-// WrappedCompletion generates the completion function for a wrapped script's cmd, registered
-// under name — the real, invokable name, not necessarily cmd.Name() (the caller's call).
-// specFilePath is where the caller already wrote the spec on disk; only the path is embedded
-// (as EnvSpecFile), to avoid an env var's size limits.
+// WrappedCompletion generates the completion function for a wrapped script's cmd,
+// registering it under name (which may differ from cmd.Name()). specFilePath is embedded
+// into the snippet as EnvSpecFile.
 func WrappedCompletion(cmd *cobra.Command, name string, specFilePath string) (string, error) {
 	renameCommand(cmd, name)
 	snippet, err := Completion(cmd)

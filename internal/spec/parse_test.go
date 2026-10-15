@@ -1,7 +1,6 @@
 package spec
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,7 +8,7 @@ import (
 )
 
 func TestParseYAMLFillsInNameWhenSpecDoesNotDeclareOne(t *testing.T) {
-	cmd, sp, err := ParseYAML(strings.NewReader("flags:\n  --loud: shout\n"), "greet")
+	cmd, sp, err := ParseYAML("flags:\n  --loud: shout\n", "greet")
 	require.NoError(t, err)
 
 	assert.Equal(t, "greet", sp.Name)
@@ -17,7 +16,7 @@ func TestParseYAMLFillsInNameWhenSpecDoesNotDeclareOne(t *testing.T) {
 }
 
 func TestParseYAMLAcceptsNameMatchingDeclaredOne(t *testing.T) {
-	cmd, sp, err := ParseYAML(strings.NewReader("name: greet\n"), "greet")
+	cmd, sp, err := ParseYAML("name: greet\n", "greet")
 	require.NoError(t, err)
 
 	assert.Equal(t, "greet", sp.Name)
@@ -26,14 +25,14 @@ func TestParseYAMLAcceptsNameMatchingDeclaredOne(t *testing.T) {
 
 // A declared name: that disagrees with the given name is an error, not a silent override.
 func TestParseYAMLRejectsNameDisagreeingWithDeclaredOne(t *testing.T) {
-	_, _, err := ParseYAML(strings.NewReader("name: greet\n"), "other-name")
+	_, _, err := ParseYAML("name: greet\n", "other-name")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `spec declares name: "greet"`)
 	assert.Contains(t, err.Error(), `"other-name" was given`)
 }
 
 func TestParseYAMLLeavesDeclaredNameAloneWhenNoneGiven(t *testing.T) {
-	_, sp, err := ParseYAML(strings.NewReader("name: greet\n"), "")
+	_, sp, err := ParseYAML("name: greet\n", "")
 	require.NoError(t, err)
 
 	assert.Equal(t, "greet", sp.Name)
@@ -43,6 +42,6 @@ func TestParseYAMLLeavesDeclaredNameAloneWhenNoneGiven(t *testing.T) {
 // *yaml.Node (which didn't inherit the outer Decoder's KnownFields(true)) — so a stray
 // top-level key, like the now-removed flagtypes:, is finally actually caught.
 func TestParseYAMLRejectsUnknownTopLevelKey(t *testing.T) {
-	_, _, err := ParseYAML(strings.NewReader("name: greet\nflagtypes:\n  times: int\n"), "")
+	_, _, err := ParseYAML("name: greet\nflagtypes:\n  times: int\n", "")
 	assert.Error(t, err)
 }

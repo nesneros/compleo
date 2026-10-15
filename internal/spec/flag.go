@@ -9,11 +9,8 @@ import (
 	yaml "gopkg.in/yaml.v3"
 )
 
-// Flag mirrors carapace-sh/carapace's pkg/command.Flag (imported here as "command") — same
-// fields, duplicated rather than embedded, so Type (and any future per-flag extension) lives
-// directly on it, specified together with the rest of the flag's own definition, instead of in
-// a side-channel map keyed by flag name alongside Flags. Keep this in sync by hand if
-// command.Flag ever changes; nothing enforces it automatically.
+// Flag is a compleo spec's flag definition, with the same fields as carapace-sh/carapace's
+// pkg/command.Flag (imported here as "command"), plus Type.
 //
 // https://github.com/carapace-sh/carapace/blob/v1.16.3/pkg/command/flag.go
 type Flag struct {
@@ -32,16 +29,13 @@ type Flag struct {
 	Nargs   int
 	Default string
 
-	// Type coerces the flag's parsed value; cobra/pflag only ever register it as a plain
-	// string/[]string/bool/count, so it's validated separately (see internal/parse). See
-	// type.go. toCarapace also uses an EnumType's Values to auto-populate this flag's
-	// completion, when none was explicitly declared.
+	// Type validates the flag's value and describes it beyond pflag's own
+	// string/[]string/bool/count.
 	Type Type
 }
 
-// Validate reports whether s is a valid value for f. A nil Type (a zero-value Flag
-// constructed outside of decoding, e.g. in a test, or a name with no entry in a FlagSet map)
-// means no validation, same as StringType.
+// Validate reports whether s is a valid value for f. A nil Type means no validation,
+// equivalent to StringType.
 func (f Flag) Validate(s string) error {
 	if f.Type == nil {
 		return nil
@@ -57,10 +51,8 @@ func (f Flag) Name() string {
 	return f.Shorthand
 }
 
-// toCarapace converts f into carapace's own Flag for ToCobraE to register, folding Type into
-// a backtick-quoted description hint (e.g. "... (`int`)", or "... (`one|two|three`)" for an
-// enum) — pflag's UnquoteUsage prefers a backtick-quoted segment in the description over the
-// flag's actual (always string) type.
+// toCarapace converts f into carapace's own Flag, appending Type's hint to the description as
+// a backtick-quoted segment (e.g. "... (`int`)", or "... (`one|two|three`)" for an enum).
 func (f Flag) toCarapace() command.Flag {
 	desc := f.Description
 	if f.Type != nil {
@@ -101,9 +93,7 @@ func (fs FlagSet) toCarapace() command.FlagSet {
 	return out
 }
 
-// flagKeyPattern parses a flag's shorthand-and-modifier key syntax (e.g. "-c, --count=*!")
-// — duplicated from carapace's own (unexported) command.parseFlag, since compleo decodes
-// into its own Flag struct instead of carapace's.
+// flagKeyPattern parses a flag's shorthand-and-modifier key syntax, e.g. "-c, --count=*!".
 var flagKeyPattern = regexp.MustCompile(`^(?P<shorthand>-[^-][^ =*?&!]*)?(, )?(?P<longhand>-[-]?[^ =*?&!]*)?(?P<modifier>[=*?&!]*)$`)
 
 // parseFlagKey parses s (a FlagSet map key) into a Flag with everything but
@@ -143,9 +133,8 @@ func parseFlagKey(s string) (Flag, error) {
 // validFlagObjectKeys are the only keys recognized in a flag's object-form value.
 var validFlagObjectKeys = map[string]bool{"description": true, "nargs": true, "default": true, "type": true}
 
-// UnmarshalYAML duplicates carapace's command.FlagSet.UnmarshalYAML (a bare string is the
-// description; an object form additionally allows nargs/default), plus a "type:" key (see
-// type.go's decodeType for its own shorthand-string-or-object duality).
+// UnmarshalYAML decodes a flags: entry. A bare string is the description; an object form
+// additionally accepts nargs, default, and type.
 func (fs *FlagSet) UnmarshalYAML(value *yaml.Node) error {
 	m := make(map[string]any)
 	if err := value.Decode(&m); err != nil {

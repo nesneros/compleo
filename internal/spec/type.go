@@ -9,13 +9,10 @@ import (
 	"time"
 )
 
-// Type coerces a flag's or positional's parsed string value; cobra never sees it. One
-// concrete implementation per kind, each owning only the attributes that kind needs —
-// deliberately not a single flat struct with every kind's fields bolted on regardless of
-// which kind is actually in use (an enum's Values next to an int's Min/Max, etc.).
+// Type validates a flag's or positional's parsed string value and supplies the type hint
+// shown in --help. Each kind (int, enum, ...) is a separate implementation.
 type Type interface {
-	// Validate reports whether s is a valid value of this type: cobra/pflag only ever
-	// parse it as a plain string, so this is the only place an invalid value is caught.
+	// Validate reports whether s is a valid value of this type.
 	Validate(s string) error
 
 	// hint is what --help's backtick-quoted type hint shows (e.g. "int", "red|green|blue"),
@@ -63,9 +60,8 @@ func (t FloatType) Validate(s string) error {
 }
 func (t FloatType) hint() string { return rangeHint("float", t.Min, t.Max) }
 
-// checkRange reports whether v is within [min, max] (either may be nil, meaning unbounded) —
-// shared by IntType and FloatType, whose Validate otherwise differs only in how the string is
-// parsed and how a value prints in an error message.
+// checkRange returns an error if v is outside [min, max]; either bound may be nil for
+// unbounded.
 func checkRange[T cmp.Ordered](v T, min, max *T) error {
 	if min != nil && v < *min {
 		return fmt.Errorf("must be >= %v", *min)
@@ -76,8 +72,8 @@ func checkRange[T cmp.Ordered](v T, min, max *T) error {
 	return nil
 }
 
-// rangeHint renders kind plus any bounds (e.g. "int 1-65535", "int >=1", "int" alone when
-// neither is set) — shared by IntType and FloatType's own hint().
+// rangeHint renders kind plus any bounds, e.g. "int 1-65535", "int >=1", or just kind when
+// neither is set.
 func rangeHint[T cmp.Ordered](kind string, min, max *T) string {
 	switch {
 	case min != nil && max != nil:
@@ -113,8 +109,7 @@ func (DurationType) Validate(s string) error {
 }
 func (DurationType) hint() string { return "duration" }
 
-// PathType is accepted like a string — no extra validation yet (room to grow: e.g. Exists,
-// Must — see CLAUDE.md's open questions).
+// PathType is accepted like a string — no extra validation yet.
 type PathType struct{}
 
 func (PathType) Validate(string) error { return nil }

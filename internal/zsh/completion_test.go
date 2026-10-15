@@ -16,11 +16,11 @@ import (
 )
 
 func TestCompletionGeneratesZshSnippet(t *testing.T) {
-	cmd, _, err := spec.ParseYAML(strings.NewReader(`
+	cmd, _, err := spec.ParseYAML(`
 name: mytool
 flags:
   --count=: how many times
-`), "")
+`, "")
 	require.NoError(t, err)
 
 	snippet, err := Completion(cmd)
@@ -44,12 +44,12 @@ commands:
     flags:
       --tag=: a tag
 `
-	cmd1, _, err := spec.ParseYAML(strings.NewReader(yaml), "")
+	cmd1, _, err := spec.ParseYAML(yaml, "")
 	require.NoError(t, err)
 	snippet1, err := Completion(cmd1)
 	require.NoError(t, err)
 
-	cmd2, _, err := spec.ParseYAML(strings.NewReader(yaml), "")
+	cmd2, _, err := spec.ParseYAML(yaml, "")
 	require.NoError(t, err)
 	snippet2, err := Completion(cmd2)
 	require.NoError(t, err)
@@ -58,7 +58,7 @@ commands:
 }
 
 func TestWrappedCompletionEmbedsSpecFilePathAndLeavesCarapacesInvocationUntouched(t *testing.T) {
-	cmd, _, err := spec.ParseYAML(strings.NewReader("name: greet\nflags:\n  --loud: shout\n"), "")
+	cmd, _, err := spec.ParseYAML("name: greet\nflags:\n  --loud: shout\n", "")
 	require.NoError(t, err)
 
 	snippet, err := WrappedCompletion(cmd, "greet", "/some/dir/.greet.spec.yaml")
@@ -72,7 +72,7 @@ func TestWrappedCompletionEmbedsSpecFilePathAndLeavesCarapacesInvocationUntouche
 }
 
 func TestWrappedCompletionIsSyntacticallyValidZsh(t *testing.T) {
-	cmd, _, err := spec.ParseYAML(strings.NewReader("name: greet\nflags:\n  --loud: shout\n"), "")
+	cmd, _, err := spec.ParseYAML("name: greet\nflags:\n  --loud: shout\n", "")
 	require.NoError(t, err)
 	snippet, err := WrappedCompletion(cmd, "greet", "/some/dir/.greet.spec.yaml")
 	require.NoError(t, err)
@@ -83,7 +83,7 @@ func TestWrappedCompletionIsSyntacticallyValidZsh(t *testing.T) {
 // #compdef registration must use the given name, not whatever a spec's own (possibly
 // stale) name: declares, or Tab-completion silently never triggers.
 func TestWrappedCompletionUsesGivenNameNotCmdName(t *testing.T) {
-	cmd, _, err := spec.ParseYAML(strings.NewReader("name: carapace-bin-macros\nflags:\n  --loud: shout\n"), "")
+	cmd, _, err := spec.ParseYAML("name: carapace-bin-macros\nflags:\n  --loud: shout\n", "")
 	require.NoError(t, err)
 	require.Equal(t, "carapace-bin-macros", cmd.Name())
 
@@ -100,7 +100,7 @@ func TestWrappedCompletionUsesGivenNameNotCmdName(t *testing.T) {
 // "xargs" captures it to a file instead of it being readable after the function returns.
 func TestWrappedCompletionSpecFilePathRoundTripsThroughRealZsh(t *testing.T) {
 	specPath := "/some dir/with '$pecial `chars/.greet.spec.yaml"
-	cmd, _, err := spec.ParseYAML(strings.NewReader("name: greet\nflags:\n  --loud: shout\n"), "")
+	cmd, _, err := spec.ParseYAML("name: greet\nflags:\n  --loud: shout\n", "")
 	require.NoError(t, err)
 
 	snippet, err := WrappedCompletion(cmd, "greet", specPath)

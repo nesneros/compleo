@@ -81,6 +81,15 @@ func TestRunWithValidateHelpSucceedsEvenWhenNotPiped(t *testing.T) {
 	assert.Contains(t, stdout.String(), "Usage:")
 }
 
+// Unlike parse/up, validate has no isPiped check: it just reads whatever in is, regardless of
+// whether stdin was detected as piped.
+func TestRunWithValidateSucceedsEvenWhenStdinIsNotDetectedAsPiped(t *testing.T) {
+	var stdout bytes.Buffer
+	err := run([]string{"validate"}, false, strings.NewReader("name: mytool\n"), &stdout, "")
+	require.NoError(t, err)
+	assert.Equal(t, "ok\n", stdout.String())
+}
+
 // compleo's own --version must never shadow the wrapped script's own --version flag.
 func TestRunParseVersionFlagIsWrappedScriptsOwn(t *testing.T) {
 	specReader := strings.NewReader(`
@@ -361,7 +370,7 @@ func TestRunParseGenerateModeWritesWrappedScriptsCompletionFile(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv(cmdutil.EnvCompletionDir, dir)
 
-	err := run([]string{"parse"}, true, strings.NewReader("name: greet\nflags:\n  --loud: shout\n"), &bytes.Buffer{}, modeGenerate)
+	err := run([]string{"parse"}, true, strings.NewReader("name: greet\nflags:\n  --loud: shout\n"), &bytes.Buffer{}, "greet")
 	require.NoError(t, err)
 
 	content, err := os.ReadFile(filepath.Join(dir, "_greet"))
@@ -379,7 +388,7 @@ func TestRunParseGenerateModeReportsSuccessAsSelfExitingZsh(t *testing.T) {
 	t.Setenv(cmdutil.EnvCompletionDir, dir)
 
 	var stdout bytes.Buffer
-	err := run([]string{"parse"}, true, strings.NewReader("name: greet\n"), &stdout, modeGenerate)
+	err := run([]string{"parse"}, true, strings.NewReader("name: greet\n"), &stdout, "greet")
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "exit 0")
 	assert.Contains(t, stdout.String(), "To activate completion for greet in this shell, run:")
@@ -389,13 +398,13 @@ func TestRunParseGenerateModeDoesNotRequireWrappedArgs(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv(cmdutil.EnvCompletionDir, dir)
 
-	// Unlike a normal parse, generate mode doesn't parse "$@" at all, so a script run as
-	// "COMPLEO_MODE=generate ./greet" (no args of its own) must not fail or need "--".
-	err := run([]string{"parse"}, true, strings.NewReader("name: greet\npositionals:\n  - name: who\n    required: true\n"), &bytes.Buffer{}, modeGenerate)
+	// Unlike a normal parse, generate mode doesn't parse "$@" at all, so a script run with
+	// _COMPLEO_GENERATE_NAME set (no args of its own) must not fail or need "--".
+	err := run([]string{"parse"}, true, strings.NewReader("name: greet\npositionals:\n  - name: who\n    required: true\n"), &bytes.Buffer{}, "greet")
 	assert.NoError(t, err)
 }
 
-// Simulates one Tab-press callback: COMPLEO_SPEC_FILE is the companion spec file path
+// Simulates one Tab-press callback: _COMPLEO_SPEC_FILE is the companion spec file path
 // WrappedCompletion embeds; args[0] is the typed command name (carapace's "_carapace zsh
 // <name> <words>" convention).
 func TestRunCarapaceWithCompleoSpecFileCompletesTheReferencedSpec(t *testing.T) {

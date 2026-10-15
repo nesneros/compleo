@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/nesneros/compleo/internal/cmdutil"
@@ -22,7 +21,7 @@ func TestGenerateInsertsNameWhenSpecDoesNotDeclareOne(t *testing.T) {
 	t.Setenv(cmdutil.EnvGenerateName, "real-name")
 
 	rawSpec := "flags:\n  --loud: shout\n"
-	cmd, sp, err := spec.ParseYAML(strings.NewReader(rawSpec), "")
+	cmd, sp, err := spec.ParseYAML(rawSpec, "")
 	require.NoError(t, err)
 	require.Empty(t, sp.Name)
 
@@ -47,7 +46,7 @@ func TestGenerateInsertsNameSuppliedOnlyViaNameFlag(t *testing.T) {
 	t.Setenv(cmdutil.EnvCompletionDir, completionDir)
 
 	rawSpec := "flags:\n  --loud: shout\n"
-	cmd, sp, err := spec.ParseYAML(strings.NewReader(rawSpec), "greet")
+	cmd, sp, err := spec.ParseYAML(rawSpec, "greet")
 	require.NoError(t, err)
 	require.Equal(t, "greet", sp.Name)
 
@@ -65,7 +64,7 @@ func TestGenerateFailsWhenSpecNameDisagreesWithInvokedName(t *testing.T) {
 	t.Setenv(cmdutil.EnvGenerateName, "real-name")
 
 	rawSpec := "name: wrong-name\nflags:\n  --loud: shout\n"
-	cmd, sp, err := spec.ParseYAML(strings.NewReader(rawSpec), "")
+	cmd, sp, err := spec.ParseYAML(rawSpec, "")
 	require.NoError(t, err)
 
 	err = Generate(cmd, sp, rawSpec, &bytes.Buffer{})
@@ -81,16 +80,16 @@ func TestGenerateFailsWhenSpecNameDisagreesWithInvokedName(t *testing.T) {
 
 // Checks GenerateFor's own wiring (PATH resolution, env var, stdout passthrough), not
 // the full parse/generate pipeline.
-func TestGenerateForSetsCompleoModeEnvVarOnTheResolvedExecutable(t *testing.T) {
+func TestGenerateForSetsGenerateNameEnvVarOnTheResolvedExecutable(t *testing.T) {
 	dir := t.TempDir()
 	scriptPath := filepath.Join(dir, "fake-wrapped")
-	require.NoError(t, os.WriteFile(scriptPath, fmt.Appendf(nil, "#!/bin/sh\n# calls compleo\necho \"mode=$%s\"\n", cmdutil.EnvMode), 0o755))
+	require.NoError(t, os.WriteFile(scriptPath, fmt.Appendf(nil, "#!/bin/sh\n# calls compleo\necho \"name=$%s\"\n", cmdutil.EnvGenerateName), 0o755))
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	var stdout bytes.Buffer
 	err := GenerateFor("fake-wrapped", &stdout)
 	require.NoError(t, err)
-	assert.Equal(t, "mode=generate\n", stdout.String())
+	assert.Equal(t, "name=fake-wrapped\n", stdout.String())
 }
 
 // Regression test: exec.LookPath resolves a path directly, without consulting $PATH at all,
@@ -114,7 +113,7 @@ func TestGenerateForFailsForUnknownExecutable(t *testing.T) {
 }
 
 // Regression test: "generate" used to run whatever exec.LookPath resolved with no check at
-// all — happily executing any binary on PATH with COMPLEO_MODE set, compleo-wrapped or not.
+// all — happily executing any binary on PATH with EnvGenerateName set, compleo-wrapped or not.
 func TestGenerateForRefusesExecutableThatIsNotCompleoWrapped(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "not-wrapped"), []byte("#!/bin/sh\necho hi\n"), 0o755))

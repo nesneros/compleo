@@ -2,7 +2,6 @@ package spec
 
 import (
 	"bytes"
-	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -53,7 +52,7 @@ func TestSynopsisLineWithoutFlags(t *testing.T) {
 func buildCobra(t *testing.T, yaml, root string) *cobra.Command {
 	t.Helper()
 
-	cmd, _, err := ParseYAML(strings.NewReader(yaml), "")
+	cmd, _, err := ParseYAML(yaml, "")
 	require.NoError(t, err)
 
 	if root == "" {

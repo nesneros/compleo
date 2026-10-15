@@ -1,7 +1,6 @@
 package spec
 
 import (
-	"strings"
 	"testing"
 
 	carapacespec "github.com/carapace-sh/carapace-spec"
@@ -10,11 +9,11 @@ import (
 )
 
 func TestParseFlagDescriptionAndDefault(t *testing.T) {
-	cmd, err := decodeYAML(strings.NewReader(`
+	cmd, err := decodeYAML(`
 name: mytool
 flags:
   --count=: {description: how many times, default: "1"}
-`))
+`)
 	require.NoError(t, err)
 
 	f, ok := cmd.Flags["count"]
@@ -24,11 +23,11 @@ flags:
 }
 
 func TestParseRequiredFlag(t *testing.T) {
-	cmd, err := decodeYAML(strings.NewReader(`
+	cmd, err := decodeYAML(`
 name: mytool
 flags:
   --verbose!: verbose output
-`))
+`)
 	require.NoError(t, err)
 
 	f, ok := cmd.Flags["verbose"]
@@ -37,14 +36,14 @@ flags:
 }
 
 func TestParsePositionalTypeAndRequired(t *testing.T) {
-	cmd, err := decodeYAML(strings.NewReader(`
+	cmd, err := decodeYAML(`
 name: mytool
 positionals:
   - name: file
     description: input file
     required: true
     type: path
-`))
+`)
 	require.NoError(t, err)
 	require.Len(t, cmd.Positionals, 1)
 
@@ -55,34 +54,34 @@ positionals:
 }
 
 func TestParseFlagTypeIsSpecifiedOnTheFlagItself(t *testing.T) {
-	cmd, err := decodeYAML(strings.NewReader(`
+	cmd, err := decodeYAML(`
 name: mytool
 flags:
   --count=: {description: consumes a count, type: int}
-`))
+`)
 	require.NoError(t, err)
 
 	assert.Equal(t, IntType{}, cmd.Flags["count"].Type)
 }
 
 func TestParseFlagTypeBareStringIsShorthandForKindOnlyObject(t *testing.T) {
-	cmd, err := decodeYAML(strings.NewReader(`
+	cmd, err := decodeYAML(`
 name: mytool
 flags:
   --count=: {type: int}
   --count2=: {type: {kind: int}}
-`))
+`)
 	require.NoError(t, err)
 
 	assert.Equal(t, cmd.Flags["count2"].Type, cmd.Flags["count"].Type)
 }
 
 func TestParseFlagIntTypeWithMinMax(t *testing.T) {
-	cmd, err := decodeYAML(strings.NewReader(`
+	cmd, err := decodeYAML(`
 name: mytool
 flags:
   --port=: {description: a port, type: {kind: int, min: 1, max: 65535}}
-`))
+`)
 	require.NoError(t, err)
 
 	one, max := 1, 65535
@@ -90,11 +89,11 @@ flags:
 }
 
 func TestParseFlagFloatTypeWithMinMax(t *testing.T) {
-	cmd, err := decodeYAML(strings.NewReader(`
+	cmd, err := decodeYAML(`
 name: mytool
 flags:
   --ratio=: {type: {kind: float, min: 0, max: 1.5}}
-`))
+`)
 	require.NoError(t, err)
 
 	min, max := 0.0, 1.5
@@ -102,11 +101,11 @@ flags:
 }
 
 func TestParseFlagEnumValuesAreSpecifiedOnTheFlagItself(t *testing.T) {
-	cmd, err := decodeYAML(strings.NewReader(`
+	cmd, err := decodeYAML(`
 name: mytool
 flags:
   --color=: {description: a color, type: {kind: enum, values: [red, green, blue]}}
-`))
+`)
 	require.NoError(t, err)
 
 	f := cmd.Flags["color"]
@@ -114,43 +113,43 @@ flags:
 }
 
 func TestParseFlagRejectsNonStringInValuesList(t *testing.T) {
-	_, err := decodeYAML(strings.NewReader(`
+	_, err := decodeYAML(`
 name: mytool
 flags:
   --color=: {type: {kind: enum, values: [red, 2, blue]}}
-`))
+`)
 	assert.Error(t, err)
 }
 
 func TestParseFlagRejectsUnknownTypeObjectKey(t *testing.T) {
-	_, err := decodeYAML(strings.NewReader(`
+	_, err := decodeYAML(`
 name: mytool
 flags:
   --count=: {type: {kind: int, maxx: 5}}
-`))
+`)
 	assert.Error(t, err)
 }
 
 func TestParseFlagRejectsUnknownTypeKind(t *testing.T) {
-	_, err := decodeYAML(strings.NewReader(`
+	_, err := decodeYAML(`
 name: mytool
 flags:
   --count=: {type: bogus}
-`))
+`)
 	assert.Error(t, err)
 }
 
 func TestParseFlagRejectsUnknownObjectKey(t *testing.T) {
-	_, err := decodeYAML(strings.NewReader(`
+	_, err := decodeYAML(`
 name: mytool
 flags:
   --count=: {description: consumes a count, tpye: int}
-`))
+`)
 	assert.Error(t, err)
 }
 
 func TestParseSubcommandCarriesItsOwnPositionals(t *testing.T) {
-	cmd, err := decodeYAML(strings.NewReader(`
+	cmd, err := decodeYAML(`
 name: mytool
 commands:
   - name: sub
@@ -158,7 +157,7 @@ commands:
     positionals:
       - name: arg
         required: true
-`))
+`)
 	require.NoError(t, err)
 	require.Len(t, cmd.Commands, 1)
 
@@ -170,7 +169,7 @@ commands:
 }
 
 func TestCommandToCarapace(t *testing.T) {
-	cmd, err := decodeYAML(strings.NewReader(`
+	cmd, err := decodeYAML(`
 name: mytool
 flags:
   --count=: {description: how many times, default: "1"}
@@ -181,7 +180,7 @@ commands:
   - name: sub
     positionals:
       - name: arg
-`))
+`)
 	require.NoError(t, err)
 
 	converted := cmd.toCarapace()
@@ -195,11 +194,11 @@ commands:
 }
 
 func TestToCarapaceAddsTypeHintToTypedFlagDescription(t *testing.T) {
-	cmd, err := decodeYAML(strings.NewReader(`
+	cmd, err := decodeYAML(`
 name: mytool
 flags:
   --times=: {description: how many times, type: int}
-`))
+`)
 	require.NoError(t, err)
 
 	converted := cmd.toCarapace()
@@ -208,11 +207,11 @@ flags:
 }
 
 func TestToCarapaceAddsIntMinMaxHintToFlagDescription(t *testing.T) {
-	cmd, err := decodeYAML(strings.NewReader(`
+	cmd, err := decodeYAML(`
 name: mytool
 flags:
   --port=: {description: a port, type: {kind: int, min: 1, max: 65535}}
-`))
+`)
 	require.NoError(t, err)
 
 	converted := cmd.toCarapace()
@@ -221,11 +220,11 @@ flags:
 }
 
 func TestToCarapaceAddsEnumValuesHintToFlagDescription(t *testing.T) {
-	cmd, err := decodeYAML(strings.NewReader(`
+	cmd, err := decodeYAML(`
 name: mytool
 flags:
   --color=: {description: a color, type: {kind: enum, values: [red, green, blue]}}
-`))
+`)
 	require.NoError(t, err)
 
 	converted := cmd.toCarapace()
@@ -236,11 +235,11 @@ flags:
 // toCarapace derives completion.flag for an enum flag from its own Values, so Tab-completion
 // and parse-time validation stay in sync without declaring the same list twice.
 func TestToCarapaceDerivesCompletionFromEnumValues(t *testing.T) {
-	cmd, err := decodeYAML(strings.NewReader(`
+	cmd, err := decodeYAML(`
 name: mytool
 flags:
   --color=: {type: {kind: enum, values: [red, green, blue]}}
-`))
+`)
 	require.NoError(t, err)
 
 	converted := cmd.toCarapace()
@@ -251,14 +250,14 @@ flags:
 // An explicitly declared completion (e.g. styled/described values) is never overridden by
 // the derived one.
 func TestToCarapaceLeavesExplicitCompletionForEnumFlagAlone(t *testing.T) {
-	cmd, err := decodeYAML(strings.NewReader(`
+	cmd, err := decodeYAML(`
 name: mytool
 flags:
   --color=: {type: {kind: enum, values: [red, green, blue]}}
 completion:
   flag:
     color: ["red\tlike a tomato"]
-`))
+`)
 	require.NoError(t, err)
 
 	converted := cmd.toCarapace()
@@ -267,11 +266,11 @@ completion:
 }
 
 func TestToCarapaceLeavesUntypedFlagDescriptionAlone(t *testing.T) {
-	cmd, err := decodeYAML(strings.NewReader(`
+	cmd, err := decodeYAML(`
 name: mytool
 flags:
   --name=: a name
-`))
+`)
 	require.NoError(t, err)
 
 	converted := cmd.toCarapace()
@@ -283,11 +282,11 @@ flags:
 // the intermediate carapace-spec struct — pflag.UnquoteUsage is what does this, and it's
 // easy to get its backtick convention subtly wrong without seeing the real output.
 func TestParseYAMLUsageShowsDeclaredFlagType(t *testing.T) {
-	cmd, _, err := ParseYAML(strings.NewReader(`
+	cmd, _, err := ParseYAML(`
 name: mytool
 flags:
   --times=: {description: how many times, type: int}
-`), "")
+`, "")
 	require.NoError(t, err)
 
 	assert.Contains(t, cmd.UsageString(), "--times int")

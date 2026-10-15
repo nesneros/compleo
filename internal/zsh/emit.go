@@ -12,25 +12,20 @@ import (
 	"github.com/nesneros/compleo/internal/parse"
 )
 
-// EmitHelp writes captured --help text as zsh that prints it and exits 0. Uses exit, not
-// return, since the eval'd code may run at a script's top level where return isn't valid.
+// EmitHelp writes text as zsh that prints it and exits 0.
 func EmitHelp(w io.Writer, text string) error {
 	_, err := fmt.Fprintf(w, "print -r -- %s\nexit 0\n", Quote(strings.TrimRight(text, "\n")))
 	return err
 }
 
-// EmitError prints "name: err" to stderr and exits 2 (conventional "bad usage", distinct
-// from main()'s generic exit(1) for compleo's own failures) — eval'ing the output alone
-// stops the script, no separate exit-code check needed by the caller.
+// EmitError writes zsh that prints "name: parseErr" to stderr and exits 2.
 func EmitError(w io.Writer, name string, parseErr error) error {
 	_, err := fmt.Fprintf(w, "print -u2 -- %s\nexit 2\n", Quote(fmt.Sprintf("%s: %s", name, parseErr)))
 	return err
 }
 
-// EmitGenerated prints the activation hint for the current shell (compleo can't run it
-// itself — a subprocess can't touch its parent shell's state). Must autoload "_<name>" (the
-// file), not "_<name>_completion" (the function inside it) — only the file is a real
-// autoload target; calling it is what defines and rebinds the inner function.
+// EmitGenerated writes zsh that prints the hint for activating name's completion in the
+// current shell: autoloading "_<name>" and binding it via compdef.
 func EmitGenerated(w io.Writer, name string) error {
 	msg := Quote(fmt.Sprintf(
 		"To activate completion for %s in this shell, run: autoload -Uz _%s && compdef _%s %s",
@@ -40,21 +35,15 @@ func EmitGenerated(w io.Writer, name string) error {
 	return err
 }
 
-// EmitUp wires compleo into a script without it writing --name/--/"$@" itself: the printed
-// zsh fills those in and embeds rawSpec as a quoted here-string. Not mode-aware — the
-// generated command just inherits whatever COMPLEO_MODE the real invocation runs under.
+// EmitUp writes zsh that invokes "compleo parse" with "${0:t}", "$@", and rawSpec (as a
+// quoted here-string) filled in.
 func EmitUp(w io.Writer, rawSpec string) error {
 	_, err := fmt.Fprintf(w, `eval "$(compleo parse --name="${0:t}" -- "$@" <<<%s)"`+"\n", Quote(rawSpec))
 	return err
 }
 
-// activateTemplate defines the "compleo" shell function (via "command", so the function
-// doesn't recurse into itself — today a transparent passthrough, but a function, unlike a
-// subprocess, can later also touch the calling shell's own environment), then adds dir to
-// fpath plus a guarded autoload+compdef for everything already in it. Guarded because compdef
-// doesn't exist until compinit has run once — before compinit (the documented use) this is a
-// harmless no-op; it only does real work when activate (re-)runs in an already-initialized
-// shell. dir always has at least "_compleo", so the glob always matches.
+// activateTemplate defines a "compleo" shell function wrapping the real binary, adds dir to
+// fpath, and autoloads and binds (via compdef, if available) every completion file in dir.
 const activateTemplate = `compleo() {
   command compleo "$@"
 }
@@ -65,15 +54,15 @@ if (( $+functions[compdef] )); then
 fi
 `
 
-// EmitActivate wires the completions directory dir into the current shell. See activateTemplate.
+// EmitActivate writes zsh that wires the completions directory dir into the current shell.
 func EmitActivate(w io.Writer, dir string) error {
 	_, err := fmt.Fprintf(w, activateTemplate, Quote(dir))
 	return err
 }
 
-// Emit fills a fixed "compleo" assoc array with scalar values; a repeatable flag or
-// variadic positional gets its own real zsh array instead, since assoc values are scalars
-// only. Arrays are deferred so they still print after every scalar.
+// Emit writes zsh that populates a "compleo" assoc array from result's scalar flag and
+// positional values. A repeatable flag or variadic positional instead gets its own zsh
+// array, written after all scalar assignments.
 func Emit(w io.Writer, result parse.Result) error {
 	var writeErr error
 	write := func(s string) {

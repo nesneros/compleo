@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 )
 
-// CompletionDir is where "activate" wires fpath to, and where generated completions live.
-// Recomputed on each call so a changed EnvCompletionDir or XDG_DATA_HOME is honored.
-// Panics if determination fails.
+// CompletionDir returns the directory completion files are read from and written to:
+// EnvCompletionDir if set, else "$XDG_DATA_HOME/compleo/completions" (defaulting
+// XDG_DATA_HOME to "~/.local/share"). It panics if the home directory can't be determined.
 func CompletionDir() string {
 	if dir := os.Getenv(EnvCompletionDir); dir != "" {
 		return dir
@@ -26,8 +26,8 @@ func CompletionDir() string {
 	return filepath.Join(dataHome, "compleo", "completions")
 }
 
-// WriteCompletionFile skips the write when content is unchanged, so activate (which may run
-// on every shell startup) doesn't bump the dir's mtime and force a full compinit rescan.
+// WriteCompletionFile writes content to name in dir, creating dir if needed. It leaves the
+// file's mtime untouched when content already matches what's on disk.
 func WriteCompletionFile(dir, name, content string) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("creating completion directory: %w", err)

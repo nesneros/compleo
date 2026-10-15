@@ -16,12 +16,12 @@ import (
 	"io"
 )
 
-// declaredNamePattern matches a spec's own top-level name: key — anchored to column 0, so it
-// doesn't match an indented one (a subcommand's, or a --name flag's own description text).
+// declaredNamePattern matches a spec's top-level name: key, anchored to column 0 so an
+// indented one (e.g. a subcommand's) doesn't match.
 var declaredNamePattern = regexp.MustCompile(`(?m)^name:`)
 
-// Generate writes sp's completion file (skip-if-unchanged, like activate's own _compleo)
-// and reports success the same eval'd-zsh way EmitHelp/EmitError do.
+// Generate writes a completion file for sp's command tree, with rawSpec embedded as its
+// companion spec file, to the completion directory. It writes a zsh success report to out.
 func Generate(cmd *cobra.Command, sp spec.Command, rawSpec string, out io.Writer) error {
 	dir := cmdutil.CompletionDir()
 
@@ -62,9 +62,8 @@ func Generate(cmd *cobra.Command, sp spec.Command, rawSpec string, out io.Writer
 	return zsh.EmitGenerated(out, name)
 }
 
-// GenerateFor is the "generate" subcommand: a convenience wrapper that runs script
-// (a bare name resolved via $PATH, or a path) with EnvMode=generate set, same as doing
-// it by hand.
+// GenerateFor runs script (a bare name resolved via $PATH, or a path) as a subprocess with
+// EnvGenerateName set, writing its output to out.
 func GenerateFor(script string, out io.Writer) error {
 	path, err := exec.LookPath(script)
 	if err != nil {
@@ -78,9 +77,7 @@ func GenerateFor(script string, out io.Writer) error {
 	// one directly, without even consulting $PATH), but EnvGenerateName must be a bare
 	// name to match what the script's own "${0:t}" computes from its argv[0].
 	cmd := exec.Command(path)
-	cmd.Env = append(os.Environ(),
-		cmdutil.EnvMode+"=generate",
-		cmdutil.EnvGenerateName+"="+filepath.Base(script))
+	cmd.Env = append(os.Environ(), cmdutil.EnvGenerateName+"="+filepath.Base(script))
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = out
 	cmd.Stderr = os.Stderr

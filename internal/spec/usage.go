@@ -7,10 +7,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// applySpec wires a synopsis line and "Arguments:" help section onto cmd and every
-// descendant, from sp's Positionals (subcommands matched by name, since cobra sorts
-// Commands() alphabetically). Children wired before their parent, so UsageFunc()'s
-// fallback-to-parent only ever reaches cobra's true default, never a sibling's closure.
+// applySpec wires a synopsis line and an "Arguments:" help section onto cmd and every
+// descendant, from sp's Positionals. Subcommands are matched by name; descendants are wired
+// before their ancestor.
 func applySpec(cmd *cobra.Command, sp Command) {
 	for _, sub := range cmd.Commands() {
 		for _, subSpec := range sp.Commands {
