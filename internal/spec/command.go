@@ -2,6 +2,9 @@ package spec
 
 import (
 	"fmt"
+	"iter"
+	"maps"
+	"slices"
 
 	carapacespec "github.com/carapace-sh/carapace-spec"
 	"github.com/carapace-sh/carapace/pkg/command"
@@ -30,6 +33,53 @@ type Command struct {
 	Examples      map[string]string `yaml:"examples,omitempty"`
 
 	Positionals []Positional `yaml:"positionals,omitempty"`
+}
+
+// All yields c and every command nested under it, depth-first in spec order.
+func (c *Command) All() iter.Seq[*Command] {
+	return func(yield func(*Command) bool) {
+		if c == nil || !yield(c) {
+			return
+		}
+		for i := range c.Commands {
+			for sub := range c.Commands[i].All() {
+				if !yield(sub) {
+					return
+				}
+			}
+		}
+	}
+}
+
+// Completions yields every completion expression on c and its nested commands.
+// Within a command: flags, then persistent flags, each in name order, then positionals in spec order.
+func (c *Command) Completions() iter.Seq[string] {
+	return func(yield func(string) bool) {
+		for cmd := range c.All() {
+			if !yieldFlagCompletions(cmd.Flags, yield) || !yieldFlagCompletions(cmd.PersistentFlags, yield) {
+				return
+			}
+			for _, p := range cmd.Positionals {
+				for _, expr := range p.Completion {
+					if !yield(expr) {
+						return
+					}
+				}
+			}
+		}
+	}
+}
+
+// yieldFlagCompletions yields each flag's completion expressions in flag-name order.
+func yieldFlagCompletions(fs FlagSet, yield func(string) bool) bool {
+	for _, name := range slices.Sorted(maps.Keys(fs)) {
+		for _, expr := range fs[name].Completion {
+			if !yield(expr) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // Documentation holds extra help text for a command, keyed by flag name or positional index.

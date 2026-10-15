@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/nesneros/compleo/internal/cmdutil"
@@ -110,6 +112,99 @@ func TestGenerateForPathArgumentUsesBasenameNotFullPath(t *testing.T) {
 func TestGenerateForFailsForUnknownExecutable(t *testing.T) {
 	err := GenerateFor("definitely-not-a-real-command-xyz", &bytes.Buffer{})
 	assert.Error(t, err)
+}
+
+func TestGenerateWarnsWhenMacroBinaryIsNotOnPath(t *testing.T) {
+	completionDir := t.TempDir()
+	t.Setenv(cmdutil.EnvCompletionDir, completionDir)
+	path := os.Getenv("PATH")
+	t.Setenv("PATH", "")
+
+	rawSpec := "" +
+		"name: demo\n" +
+		"persistentflags:\n" +
+		"  --remote=: {completion: [\"$missinga.hosts\"]}\n" +
+		"commands:\n" +
+		"  - name: sub\n" +
+		"    flags:\n" +
+		"      --color=: {completion: [\"$missingb.color ||| $nospace\"]}\n" +
+		"      --again=: {completion: [\"$missinga.again(1)\"]}\n" +
+		"    positionals:\n" +
+		"      - name: file\n" +
+		"        completion: [\"$files\"]\n"
+	cmd, sp, err := spec.ParseYAML(rawSpec, "")
+	require.NoError(t, err)
+
+	var out bytes.Buffer
+	require.NoError(t, Generate(cmd, sp, rawSpec, &out))
+
+	_, statErr := os.Stat(filepath.Join(completionDir, "_demo"))
+	require.NoError(t, statErr)
+
+	t.Setenv("PATH", path)
+	stderr := evalGenerated(t, out.String())
+	assert.Equal(t, 1, strings.Count(stderr, "warning:"))
+	assert.Contains(t, stderr, "warning: not on PATH, so these completion macros will not work: $missinga.*, $missingb.*")
+	assert.NotContains(t, stderr, "$files")
+	assert.Contains(t, stderr, "To activate completion for demo in this shell, run:")
+}
+
+func TestGenerateDoesNotWarnWhenMacroBinaryIsOnPath(t *testing.T) {
+	completionDir := t.TempDir()
+	t.Setenv(cmdutil.EnvCompletionDir, completionDir)
+	binDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(binDir, "onpath"), []byte("#!/bin/sh\n"), 0o755))
+	path := os.Getenv("PATH")
+	t.Setenv("PATH", binDir)
+
+	rawSpec := "name: demo\nflags:\n  --remote=: {completion: [\"$onpath.hosts\"]}\n"
+	cmd, sp, err := spec.ParseYAML(rawSpec, "")
+	require.NoError(t, err)
+
+	var out bytes.Buffer
+	require.NoError(t, Generate(cmd, sp, rawSpec, &out))
+
+	t.Setenv("PATH", path)
+	stderr := evalGenerated(t, out.String())
+	assert.NotContains(t, stderr, "warning:")
+	assert.Contains(t, stderr, "To activate completion for demo in this shell, run:")
+}
+
+func TestGenerateDoesNotWarnForCoreOrOwnMacros(t *testing.T) {
+	completionDir := t.TempDir()
+	t.Setenv(cmdutil.EnvCompletionDir, completionDir)
+	path := os.Getenv("PATH")
+	t.Setenv("PATH", "")
+
+	exe, err := os.Executable()
+	require.NoError(t, err)
+	self := filepath.Base(exe)
+
+	rawSpec := "name: demo\nflags:\n" +
+		"  --file=: {completion: [\"$files\"]}\n" +
+		"  --ext=: {completion: [\"$files([.go])\"]}\n" +
+		"  --script=: {completion: [\"$" + self + ".scripts\"]}\n" +
+		"  --old=: {completion: [\"$_deprecated.thing\"]}\n"
+	cmd, sp, err := spec.ParseYAML(rawSpec, "")
+	require.NoError(t, err)
+
+	var out bytes.Buffer
+	require.NoError(t, Generate(cmd, sp, rawSpec, &out))
+
+	t.Setenv("PATH", path)
+	stderr := evalGenerated(t, out.String())
+	assert.NotContains(t, stderr, "warning:")
+}
+
+func evalGenerated(t *testing.T, snippet string) string {
+	t.Helper()
+	cmd := exec.Command("zsh", "-fc", snippet)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	require.NoError(t, err)
+	assert.Empty(t, out)
+	return stderr.String()
 }
 
 // Regression test: "generate" used to run whatever exec.LookPath resolved with no check at

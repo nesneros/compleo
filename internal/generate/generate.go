@@ -3,17 +3,19 @@ package generate
 
 import (
 	"fmt"
+	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/nesneros/compleo/internal/cmdutil"
 	"github.com/nesneros/compleo/internal/spec"
 	"github.com/nesneros/compleo/internal/zsh"
 	"github.com/spf13/cobra"
-	"io"
 )
 
 // declaredNamePattern matches a spec's top-level name: key, anchored to column 0 so an
@@ -59,7 +61,55 @@ func Generate(cmd *cobra.Command, sp spec.Command, rawSpec string, out io.Writer
 	if err := cmdutil.WriteCompletionFile(dir, fileName, snippet); err != nil {
 		return err
 	}
-	return zsh.EmitGenerated(out, name)
+	// A missing $bin.* target fails at Tab time as a completion message, not a shell error.
+	return zsh.EmitGenerated(out, name, missingMacroBins(sp))
+}
+
+// missingMacroBins returns binaries ActionMacro would exec for sp that are not on PATH.
+// Macros namespaced to this process are dispatched in-process, so they are not included.
+func missingMacroBins(sp spec.Command) []string {
+	self := "compleo"
+	if exe, err := os.Executable(); err == nil {
+		self = filepath.Base(exe)
+	}
+	var missing []string
+	for _, bin := range slices.Sorted(maps.Keys(externalMacros(sp, self))) {
+		if _, err := exec.LookPath(bin); err != nil {
+			missing = append(missing, bin)
+		}
+	}
+	return missing
+}
+
+// externalMacros returns the set of binaries ActionMacro would exec for sp's completion macros.
+func externalMacros(sp spec.Command, self string) map[string]struct{} {
+	found := make(map[string]struct{})
+	for expr := range sp.Completions() {
+		found[macroBin(expr, self)] = struct{}{}
+	}
+	delete(found, "")
+	return found
+}
+
+// macroBin is the command ActionMacro would exec: the macro name up to its first dot.
+// "(" starts arguments ($files([.go]) has a dot that is not a name separator), and " ||| "
+// starts a modifier. An empty return means the expression execs nothing. self is the
+// running binary's basename: a macro starting with $<self>. is in-process.
+func macroBin(expr, self string) string {
+	head, _, _ := strings.Cut(expr, " ||| ")
+	if !strings.HasPrefix(head, "$") || strings.HasPrefix(head, "$"+self+".") {
+		return ""
+	}
+	name, _, _ := strings.Cut(strings.TrimPrefix(head, "$"), "(")
+	// "$_…" is a deprecation message; "$_." is an in-process key. Neither execs a binary.
+	if strings.HasPrefix(name, "_") {
+		return ""
+	}
+	bin, _, ok := strings.Cut(name, ".")
+	if !ok {
+		return ""
+	}
+	return bin
 }
 
 // GenerateFor runs script (a bare name resolved via $PATH, or a path) as a subprocess with

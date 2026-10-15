@@ -148,6 +148,99 @@ flags:
 	assert.Error(t, err)
 }
 
+func TestCommandAllYieldsEveryCommandDepthFirst(t *testing.T) {
+	cmd, err := decodeYAML(`
+name: root
+commands:
+  - name: a
+    commands:
+      - name: a1
+  - name: b
+`)
+	require.NoError(t, err)
+
+	var names []string
+	var first *Command
+	for c := range cmd.All() {
+		if first == nil {
+			first = c
+		}
+		names = append(names, c.Name)
+	}
+	assert.Same(t, &cmd, first)
+	assert.Equal(t, []string{"root", "a", "a1", "b"}, names)
+}
+
+func TestCommandAllStopsWhenYieldReturnsFalse(t *testing.T) {
+	cmd, err := decodeYAML(`
+name: root
+commands:
+  - name: a
+    commands:
+      - name: a1
+  - name: b
+`)
+	require.NoError(t, err)
+
+	var names []string
+	for c := range cmd.All() {
+		names = append(names, c.Name)
+		if c.Name == "a" {
+			break
+		}
+	}
+	assert.Equal(t, []string{"root", "a"}, names)
+}
+
+func TestCommandCompletionsYieldsEveryExpression(t *testing.T) {
+	cmd, err := decodeYAML(`
+name: root
+flags:
+  --zeta=: {completion: ["$zeta"]}
+  --alpha=: {completion: ["$alpha", "literal"]}
+  --plain=: no completion
+persistentflags:
+  --persist=: {completion: ["$persist"]}
+positionals:
+  - name: file
+    completion: ["$files"]
+  - name: bare
+commands:
+  - name: sub
+    flags:
+      --color=: {completion: ["$carapace.color"]}
+`)
+	require.NoError(t, err)
+
+	var got []string
+	for expr := range cmd.Completions() {
+		got = append(got, expr)
+	}
+	assert.Equal(t, []string{"$alpha", "literal", "$zeta", "$persist", "$files", "$carapace.color"}, got)
+}
+
+func TestCommandCompletionsStopsWhenYieldReturnsFalse(t *testing.T) {
+	cmd, err := decodeYAML(`
+name: root
+flags:
+  --alpha=: {completion: ["$alpha", "literal"]}
+commands:
+  - name: sub
+    flags:
+      --color=: {completion: ["$carapace.color"]}
+`)
+	require.NoError(t, err)
+
+	var got []string
+	for expr := range cmd.Completions() {
+		got = append(got, expr)
+		if expr == "$alpha" {
+			break
+		}
+	}
+	assert.Equal(t, []string{"$alpha"}, got)
+}
+
 func TestParseSubcommandCarriesItsOwnPositionals(t *testing.T) {
 	cmd, err := decodeYAML(`
 name: mytool

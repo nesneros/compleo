@@ -40,7 +40,7 @@ func emitError(t *testing.T, name string, err error) string {
 func emitGenerated(t *testing.T, name string) string {
 	t.Helper()
 	var buf bytes.Buffer
-	require.NoError(t, EmitGenerated(&buf, name))
+	require.NoError(t, EmitGenerated(&buf, name, nil))
 	return buf.String()
 }
 
@@ -281,6 +281,22 @@ func TestEmitGeneratedPrintsConfirmationToStderrAndExitsZero(t *testing.T) {
 	assert.Empty(t, out)
 	assert.Contains(t, stderr.String(), "To activate completion for greet in this shell, run:")
 	assert.Contains(t, stderr.String(), "autoload -Uz _greet && compdef _greet greet")
+	assert.NotContains(t, stderr.String(), "warning:")
+}
+
+func TestEmitGeneratedPrintsOneWarningForMissingMacros(t *testing.T) {
+	var buf bytes.Buffer
+	require.NoError(t, EmitGenerated(&buf, "greet", []string{"carapace", "missingb"}))
+
+	cmd := exec.Command("zsh", "-fc", buf.String())
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	require.NoError(t, err)
+	assert.Empty(t, out)
+	assert.Equal(t, 1, strings.Count(stderr.String(), "warning:"))
+	assert.Contains(t, stderr.String(), "warning: not on PATH, so these completion macros will not work: $carapace.*, $missingb.*")
+	assert.Contains(t, stderr.String(), "To activate completion for greet in this shell, run:")
 }
 
 // Uses real generated content and calls the autoloaded name, not just checking

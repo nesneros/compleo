@@ -25,8 +25,19 @@ func EmitError(w io.Writer, name string, parseErr error) error {
 }
 
 // EmitGenerated writes zsh that prints the hint for activating name's completion in the
-// current shell: autoloading "_<name>" and binding it via compdef.
-func EmitGenerated(w io.Writer, name string) error {
+// current shell: autoloading "_<name>" and binding it via compdef. When missing is
+// non-empty, it first prints one warning listing those $bin.* completion macros.
+func EmitGenerated(w io.Writer, name string, missing []string) error {
+	if len(missing) > 0 {
+		macros := make([]string, len(missing))
+		for i, bin := range missing {
+			macros[i] = "$" + bin + ".*"
+		}
+		msg := "warning: not on PATH, so these completion macros will not work: " + strings.Join(macros, ", ")
+		if _, err := fmt.Fprintf(w, "print -u2 -- %s\n", Quote(msg)); err != nil {
+			return err
+		}
+	}
 	msg := Quote(fmt.Sprintf(
 		"To activate completion for %s in this shell, run: autoload -Uz _%s && compdef _%s %s",
 		name, name, name, name,
