@@ -364,6 +364,30 @@ func TestEmitActivatePrintsFpathWiring(t *testing.T) {
 	assert.Contains(t, emitActivate(t, "/some/dir"), "fpath+=('/some/dir')")
 }
 
+func TestEmitActivateDefinesCompleoFunction(t *testing.T) {
+	assert.Contains(t, emitActivate(t, "/some/dir"), "compleo() {\n  command compleo \"$@\"\n}\n")
+}
+
+// The function must forward via "command", or calling "compleo" inside it would recurse into
+// itself instead of reaching the real binary.
+func TestEmitActivateCompleoFunctionWrapsTheRealBinary(t *testing.T) {
+	binDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(binDir, "compleo"), []byte("#!/bin/sh\necho \"wrapped: $*\"\n"), 0o755))
+
+	completionDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(completionDir, "_compleo"), []byte("#compdef compleo\n"), 0o644))
+
+	script := fmt.Sprintf(`
+path=(%[1]s $path)
+%[2]s
+compleo foo bar
+`, Quote(binDir), emitActivate(t, completionDir))
+
+	out, err := exec.Command("zsh", "-fc", script).Output()
+	require.NoError(t, err)
+	assert.Equal(t, "wrapped: foo bar\n", string(out))
+}
+
 // Before compinit runs, compdef doesn't even exist (confirmed empirically) — activate's
 // guarded autoload+compdef block must be a true no-op there, not an error, since activate's
 // documented use is to run before compinit.

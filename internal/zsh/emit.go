@@ -48,17 +48,26 @@ func EmitUp(w io.Writer, rawSpec string) error {
 	return err
 }
 
-// EmitActivate adds dir to fpath plus a guarded autoload+compdef for everything already in
-// it. Guarded because compdef doesn't exist until compinit has run once — before compinit
-// (the documented use) this is a harmless no-op; it only does real work when activate
-// (re-)runs in an already-initialized shell. dir always has at least "_compleo".
-func EmitActivate(w io.Writer, dir string) error {
-	_, err := fmt.Fprintf(w, `fpath+=(%[1]s)
+// activateTemplate defines the "compleo" shell function (via "command", so the function
+// doesn't recurse into itself — today a transparent passthrough, but a function, unlike a
+// subprocess, can later also touch the calling shell's own environment), then adds dir to
+// fpath plus a guarded autoload+compdef for everything already in it. Guarded because compdef
+// doesn't exist until compinit has run once — before compinit (the documented use) this is a
+// harmless no-op; it only does real work when activate (re-)runs in an already-initialized
+// shell. dir always has at least "_compleo", so the glob always matches.
+const activateTemplate = `compleo() {
+  command compleo "$@"
+}
+fpath+=(%[1]s)
 autoload -Uz %[1]s/*
 if (( $+functions[compdef] )); then
   for f (%[1]s/*) compdef ${f:t} ${f:t:s/_//}
 fi
-`, Quote(dir))
+`
+
+// EmitActivate wires the completions directory dir into the current shell. See activateTemplate.
+func EmitActivate(w io.Writer, dir string) error {
+	_, err := fmt.Fprintf(w, activateTemplate, Quote(dir))
 	return err
 }
 
