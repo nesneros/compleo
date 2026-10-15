@@ -304,7 +304,8 @@ func TestEmitGeneratedActivationHintActuallyWorksFromColdStart(t *testing.T) {
 	script := fmt.Sprintf(`
 fpath+=(%[1]s)
 autoload -Uz compinit
-compinit -d %[2]s
+# -u: non-interactive compinit aborts and unfunctions compdef on an insecure dir (Ubuntu CI).
+compinit -u -d %[2]s
 %[3]s
 _greet
 print -r -- "${_comps[greet]}"
@@ -410,7 +411,8 @@ func TestEmitActivateRegistersEveryFileWhenCompdefAlreadyAvailable(t *testing.T)
 
 	script := fmt.Sprintf(`
 autoload -Uz compinit
-compinit -d %[1]s
+# -u: non-interactive compinit aborts and unfunctions compdef on an insecure dir (Ubuntu CI).
+compinit -u -d %[1]s
 %[2]s
 print -r -- "compleo: ${_comps[compleo]:-<none>}"
 print -r -- "greet: ${_comps[greet]:-<none>}"
