@@ -33,19 +33,18 @@ type Flag struct {
 	Default string
 
 	// Type coerces the flag's parsed value; cobra/pflag only ever register it as a plain
-	// string/[]string/bool/count, so it's validated separately (see internal/parse).
+	// string/[]string/bool/count, so it's validated separately (see internal/parse). See
+	// type.go. toCarapace also uses an EnumType's Values to auto-populate this flag's
+	// completion, when none was explicitly declared.
 	Type Type
-
-	// Values is the allowed set for Type == typeEnum; meaningless otherwise. toCarapace also
-	// uses it to auto-populate this flag's completion, when none was explicitly declared.
-	Values []string
 }
 
-// Validate reports whether s is a valid value for f: Type.Validate for everything but enum,
-// which needs Values too (Type alone doesn't carry the allowed set).
+// Validate reports whether s is a valid value for f. A nil Type (a zero-value Flag
+// constructed outside of decoding, e.g. in a test, or a name with no entry in a FlagSet map)
+// means no validation, same as StringType.
 func (f Flag) Validate(s string) error {
-	if f.Type == typeEnum {
-		return validateEnum(s, f.Values)
+	if f.Type == nil {
+		return nil
 	}
 	return f.Type.Validate(s)
 }
@@ -64,8 +63,10 @@ func (f Flag) Name() string {
 // flag's actual (always string) type.
 func (f Flag) toCarapace() command.Flag {
 	desc := f.Description
-	if hint := f.typeHint(); hint != "" {
-		desc += " (`" + hint + "`)"
+	if f.Type != nil {
+		if hint := f.Type.hint(); hint != "" {
+			desc += " (`" + hint + "`)"
+		}
 	}
 	return command.Flag{
 		Longhand:        f.Longhand,
@@ -80,19 +81,6 @@ func (f Flag) toCarapace() command.Flag {
 		Persistent:      f.Persistent,
 		Nargs:           f.Nargs,
 		Default:         f.Default,
-	}
-}
-
-// typeHint is what shows in --help's backtick-quoted hint: the enum's own values for
-// typeEnum (more useful than the literal word "enum"), else the type name, else nothing.
-func (f Flag) typeHint() string {
-	switch {
-	case f.Type == typeEnum:
-		return strings.Join(f.Values, "|")
-	case f.Type != typeString:
-		return string(f.Type)
-	default:
-		return ""
 	}
 }
 
@@ -153,10 +141,11 @@ func parseFlagKey(s string) (Flag, error) {
 }
 
 // validFlagObjectKeys are the only keys recognized in a flag's object-form value.
-var validFlagObjectKeys = map[string]bool{"description": true, "nargs": true, "default": true, "type": true, "values": true}
+var validFlagObjectKeys = map[string]bool{"description": true, "nargs": true, "default": true, "type": true}
 
 // UnmarshalYAML duplicates carapace's command.FlagSet.UnmarshalYAML (a bare string is the
-// description; an object form additionally allows nargs/default), plus a "type:" key.
+// description; an object form additionally allows nargs/default), plus a "type:" key (see
+// type.go's decodeType for its own shorthand-string-or-object duality).
 func (fs *FlagSet) UnmarshalYAML(value *yaml.Node) error {
 	m := make(map[string]any)
 	if err := value.Decode(&m); err != nil {
@@ -169,6 +158,7 @@ func (fs *FlagSet) UnmarshalYAML(value *yaml.Node) error {
 		if err != nil {
 			return err
 		}
+		f.Type = StringType{}
 
 		switch v := v.(type) {
 		case string:
@@ -188,16 +178,11 @@ func (fs *FlagSet) UnmarshalYAML(value *yaml.Node) error {
 			default:
 				f.Default = fmt.Sprint(d)
 			}
-			if t, ok := v["type"].(string); ok {
-				f.Type = Type(t)
+			t, err := decodeType(v["type"])
+			if err != nil {
+				return fmt.Errorf("flag %q: %w", k, err)
 			}
-			if values, ok := v["values"]; ok {
-				strs, err := decodeStringList(values)
-				if err != nil {
-					return fmt.Errorf("flag %q: values: %w", k, err)
-				}
-				f.Values = strs
-			}
+			f.Type = t
 		default:
 			return fmt.Errorf("flag %q: invalid value", k)
 		}

@@ -3,13 +3,10 @@ package spec
 import (
 	"fmt"
 	"maps"
-	"slices"
-	"strconv"
-	"strings"
-	"time"
 
 	carapacespec "github.com/carapace-sh/carapace-spec"
 	"github.com/carapace-sh/carapace/pkg/command"
+	yaml "gopkg.in/yaml.v3"
 )
 
 // Command mirrors carapace-sh/carapace's pkg/command.Command (imported here as "command") —
@@ -66,78 +63,53 @@ type Documentation struct {
 	DashAny       string            `yaml:"dashany,omitempty"`
 }
 
-// Positional describes one named positional argument.
+// Positional describes one named positional argument. See type.go for Type.
 type Positional struct {
-	Name        string `yaml:"name"`
-	Description string `yaml:"description,omitempty"`
-	Required    bool   `yaml:"required,omitempty"`
-	Variadic    bool   `yaml:"variadic,omitempty"`
-	Type        Type   `yaml:"type,omitempty"`
-
-	// Values is the allowed set for Type == typeEnum; meaningless otherwise. Unlike Flag's
-	// Values, this never feeds completion (carapace-spec's own positional completion is
-	// index-keyed, not name-keyed, so there's no single natural slot to derive it into).
-	Values []string `yaml:"values,omitempty"`
+	Name        string
+	Description string
+	Required    bool
+	Variadic    bool
+	Type        Type
 }
 
-// Validate reports whether s is a valid value for p: Type.Validate for everything but enum,
-// which needs Values too (Type alone doesn't carry the allowed set).
+// Validate reports whether s is a valid value for p. A nil Type (a zero-value Positional
+// constructed outside of decoding, e.g. in a test) means no validation, same as StringType.
 func (p Positional) Validate(s string) error {
-	if p.Type == typeEnum {
-		return validateEnum(s, p.Values)
+	if p.Type == nil {
+		return nil
 	}
 	return p.Type.Validate(s)
 }
 
-// Type coerces a flag's or positional's parsed string value; cobra never sees it.
-type Type string
-
-const (
-	typeString   Type = ""
-	typeInt      Type = "int"
-	typeFloat    Type = "float"
-	typeBool     Type = "bool"
-	typeDuration Type = "duration"
-	typePath     Type = "path"
-	// typeEnum alone doesn't carry the allowed set — see Flag.Values/Positional.Values and
-	// the Flag.Validate/Positional.Validate methods that combine the two.
-	typeEnum Type = "enum"
-)
-
-// validateEnum reports whether s is one of values — shared by Flag.Validate and
-// Positional.Validate, since typeEnum means the same thing on both.
-func validateEnum(s string, values []string) error {
-	if len(values) == 0 {
-		return fmt.Errorf("type enum declared with no values")
-	}
-	if !slices.Contains(values, s) {
-		return fmt.Errorf("invalid value %q: must be one of %s", s, strings.Join(values, ", "))
-	}
-	return nil
+// validPositionalKeys are the only keys recognized on a positionals: entry.
+var validPositionalKeys = map[string]bool{
+	"name": true, "description": true, "required": true, "variadic": true, "type": true,
 }
 
-// Validate reports whether s is a valid t: cobra only ever parses these as plain strings.
-// typeEnum is intentionally absent here — it needs Values too, which Type alone never
-// carries; use Flag.Validate/Positional.Validate instead, which have access to both.
-func (t Type) Validate(s string) error {
-	switch t {
-	case typeInt:
-		if _, err := strconv.Atoi(s); err != nil {
-			return fmt.Errorf("invalid int value %q", s)
-		}
-	case typeFloat:
-		if _, err := strconv.ParseFloat(s, 64); err != nil {
-			return fmt.Errorf("invalid float value %q", s)
-		}
-	case typeBool:
-		if _, err := strconv.ParseBool(s); err != nil {
-			return fmt.Errorf("invalid bool value %q", s)
-		}
-	case typeDuration:
-		if _, err := time.ParseDuration(s); err != nil {
-			return fmt.Errorf("invalid duration value %q", s)
+// UnmarshalYAML decodes into a map first (like FlagSet does), rather than relying on plain
+// struct tags, so an unrecognized key is still caught (see type.go's decodeType) and so Type
+// — an interface, with no natural YAML shape of its own — can be built explicitly.
+func (p *Positional) UnmarshalYAML(value *yaml.Node) error {
+	m := make(map[string]any)
+	if err := value.Decode(&m); err != nil {
+		return err
+	}
+	for key := range m {
+		if !validPositionalKeys[key] {
+			return fmt.Errorf("positional: unknown key %q", key)
 		}
 	}
+
+	p.Name, _ = m["name"].(string)
+	p.Description, _ = m["description"].(string)
+	p.Required, _ = m["required"].(bool)
+	p.Variadic, _ = m["variadic"].(bool)
+
+	t, err := decodeType(m["type"])
+	if err != nil {
+		return fmt.Errorf("positional %q: %w", p.Name, err)
+	}
+	p.Type = t
 	return nil
 }
 
@@ -185,7 +157,8 @@ func withEnumCompletions(completion map[string][]string, flagSets ...FlagSet) ma
 	var out map[string][]string
 	for _, fs := range flagSets {
 		for name, f := range fs {
-			if f.Type != typeEnum || len(f.Values) == 0 {
+			et, ok := f.Type.(EnumType)
+			if !ok || len(et.Values) == 0 {
 				continue
 			}
 			if _, declared := completion[name]; declared {
@@ -195,7 +168,7 @@ func withEnumCompletions(completion map[string][]string, flagSets ...FlagSet) ma
 				out = make(map[string][]string, len(completion))
 				maps.Copy(out, completion)
 			}
-			out[name] = f.Values
+			out[name] = et.Values
 		}
 	}
 	if out != nil {

@@ -51,7 +51,7 @@ positionals:
 	p := cmd.Positionals[0]
 	assert.Equal(t, "file", p.Name)
 	assert.True(t, p.Required)
-	assert.Equal(t, typePath, p.Type)
+	assert.Equal(t, PathType{}, p.Type)
 }
 
 func TestParseFlagTypeIsSpecifiedOnTheFlagItself(t *testing.T) {
@@ -62,27 +62,80 @@ flags:
 `))
 	require.NoError(t, err)
 
-	assert.Equal(t, typeInt, cmd.Flags["count"].Type)
+	assert.Equal(t, IntType{}, cmd.Flags["count"].Type)
+}
+
+func TestParseFlagTypeBareStringIsShorthandForKindOnlyObject(t *testing.T) {
+	cmd, err := decodeYAML(strings.NewReader(`
+name: mytool
+flags:
+  --count=: {type: int}
+  --count2=: {type: {kind: int}}
+`))
+	require.NoError(t, err)
+
+	assert.Equal(t, cmd.Flags["count2"].Type, cmd.Flags["count"].Type)
+}
+
+func TestParseFlagIntTypeWithMinMax(t *testing.T) {
+	cmd, err := decodeYAML(strings.NewReader(`
+name: mytool
+flags:
+  --port=: {description: a port, type: {kind: int, min: 1, max: 65535}}
+`))
+	require.NoError(t, err)
+
+	one, max := 1, 65535
+	assert.Equal(t, IntType{Min: &one, Max: &max}, cmd.Flags["port"].Type)
+}
+
+func TestParseFlagFloatTypeWithMinMax(t *testing.T) {
+	cmd, err := decodeYAML(strings.NewReader(`
+name: mytool
+flags:
+  --ratio=: {type: {kind: float, min: 0, max: 1.5}}
+`))
+	require.NoError(t, err)
+
+	min, max := 0.0, 1.5
+	assert.Equal(t, FloatType{Min: &min, Max: &max}, cmd.Flags["ratio"].Type)
 }
 
 func TestParseFlagEnumValuesAreSpecifiedOnTheFlagItself(t *testing.T) {
 	cmd, err := decodeYAML(strings.NewReader(`
 name: mytool
 flags:
-  --color=: {description: a color, type: enum, values: [red, green, blue]}
+  --color=: {description: a color, type: {kind: enum, values: [red, green, blue]}}
 `))
 	require.NoError(t, err)
 
 	f := cmd.Flags["color"]
-	assert.Equal(t, typeEnum, f.Type)
-	assert.Equal(t, []string{"red", "green", "blue"}, f.Values)
+	assert.Equal(t, EnumType{Values: []string{"red", "green", "blue"}}, f.Type)
 }
 
 func TestParseFlagRejectsNonStringInValuesList(t *testing.T) {
 	_, err := decodeYAML(strings.NewReader(`
 name: mytool
 flags:
-  --color=: {type: enum, values: [red, 2, blue]}
+  --color=: {type: {kind: enum, values: [red, 2, blue]}}
+`))
+	assert.Error(t, err)
+}
+
+func TestParseFlagRejectsUnknownTypeObjectKey(t *testing.T) {
+	_, err := decodeYAML(strings.NewReader(`
+name: mytool
+flags:
+  --count=: {type: {kind: int, maxx: 5}}
+`))
+	assert.Error(t, err)
+}
+
+func TestParseFlagRejectsUnknownTypeKind(t *testing.T) {
+	_, err := decodeYAML(strings.NewReader(`
+name: mytool
+flags:
+  --count=: {type: bogus}
 `))
 	assert.Error(t, err)
 }
@@ -154,11 +207,24 @@ flags:
 	assert.Equal(t, "how many times (`int`)", converted.Flags["times"].Description)
 }
 
+func TestToCarapaceAddsIntMinMaxHintToFlagDescription(t *testing.T) {
+	cmd, err := decodeYAML(strings.NewReader(`
+name: mytool
+flags:
+  --port=: {description: a port, type: {kind: int, min: 1, max: 65535}}
+`))
+	require.NoError(t, err)
+
+	converted := cmd.toCarapace()
+
+	assert.Equal(t, "a port (`int 1-65535`)", converted.Flags["port"].Description)
+}
+
 func TestToCarapaceAddsEnumValuesHintToFlagDescription(t *testing.T) {
 	cmd, err := decodeYAML(strings.NewReader(`
 name: mytool
 flags:
-  --color=: {description: a color, type: enum, values: [red, green, blue]}
+  --color=: {description: a color, type: {kind: enum, values: [red, green, blue]}}
 `))
 	require.NoError(t, err)
 
@@ -173,7 +239,7 @@ func TestToCarapaceDerivesCompletionFromEnumValues(t *testing.T) {
 	cmd, err := decodeYAML(strings.NewReader(`
 name: mytool
 flags:
-  --color=: {type: enum, values: [red, green, blue]}
+  --color=: {type: {kind: enum, values: [red, green, blue]}}
 `))
 	require.NoError(t, err)
 
@@ -188,7 +254,7 @@ func TestToCarapaceLeavesExplicitCompletionForEnumFlagAlone(t *testing.T) {
 	cmd, err := decodeYAML(strings.NewReader(`
 name: mytool
 flags:
-  --color=: {type: enum, values: [red, green, blue]}
+  --color=: {type: {kind: enum, values: [red, green, blue]}}
 completion:
   flag:
     color: ["red\tlike a tomato"]
@@ -228,58 +294,15 @@ flags:
 	assert.NotContains(t, cmd.UsageString(), "--times string")
 }
 
-func TestTypeValidateIntAcceptsValidValue(t *testing.T) {
-	assert.NoError(t, typeInt.Validate("3"))
+// Flag.Validate/Positional.Validate's own behavior (nil Type, delegating to Type.Validate)
+// is covered in type_test.go, alongside each concrete Type's own Validate tests.
+
+func TestFlagValidateWithNilTypeAcceptsAnything(t *testing.T) {
+	f := Flag{}
+	assert.NoError(t, f.Validate("anything at all"))
 }
 
-func TestTypeValidateIntRejectsNonNumeric(t *testing.T) {
-	assert.Error(t, typeInt.Validate("abc"))
-}
-
-func TestTypeValidateFloatRejectsNonNumeric(t *testing.T) {
-	assert.Error(t, typeFloat.Validate("abc"))
-}
-
-func TestTypeValidateBoolRejectsNonBool(t *testing.T) {
-	assert.Error(t, typeBool.Validate("maybe"))
-}
-
-func TestTypeValidateDurationRejectsInvalid(t *testing.T) {
-	assert.Error(t, typeDuration.Validate("soon"))
-}
-
-func TestTypeValidateDurationAcceptsValid(t *testing.T) {
-	assert.NoError(t, typeDuration.Validate("5m"))
-}
-
-func TestTypeValidateStringAndPathAcceptAnything(t *testing.T) {
-	assert.NoError(t, typeString.Validate("anything at all"))
-	assert.NoError(t, typePath.Validate("anything at all"))
-}
-
-func TestFlagValidateEnumAcceptsListedValue(t *testing.T) {
-	f := Flag{Type: typeEnum, Values: []string{"red", "green", "blue"}}
-	assert.NoError(t, f.Validate("green"))
-}
-
-func TestFlagValidateEnumRejectsUnlistedValue(t *testing.T) {
-	f := Flag{Type: typeEnum, Values: []string{"red", "green", "blue"}}
-	assert.Error(t, f.Validate("purple"))
-}
-
-// A spec author declaring type: enum with no values at all is a mistake worth failing loudly
-// on, rather than silently accepting every value (which would hide the mistake).
-func TestFlagValidateEnumWithNoValuesAlwaysRejects(t *testing.T) {
-	f := Flag{Type: typeEnum}
-	assert.Error(t, f.Validate("anything"))
-}
-
-func TestPositionalValidateEnumAcceptsListedValue(t *testing.T) {
-	p := Positional{Type: typeEnum, Values: []string{"up", "down"}}
-	assert.NoError(t, p.Validate("up"))
-}
-
-func TestPositionalValidateEnumRejectsUnlistedValue(t *testing.T) {
-	p := Positional{Type: typeEnum, Values: []string{"up", "down"}}
-	assert.Error(t, p.Validate("sideways"))
+func TestPositionalValidateWithNilTypeAcceptsAnything(t *testing.T) {
+	p := Positional{}
+	assert.NoError(t, p.Validate("anything at all"))
 }

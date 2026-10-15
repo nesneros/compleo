@@ -139,7 +139,7 @@ func TestParseEnumFlagAcceptsListedValue(t *testing.T) {
 	cmd, sp := buildCobra(t, `
 name: mytool
 flags:
-  --color=: {type: enum, values: [red, green, blue]}
+  --color=: {type: {kind: enum, values: [red, green, blue]}}
 `)
 
 	result, err := Parse(cmd, sp, []string{"--color", "green"})
@@ -151,7 +151,7 @@ func TestParseEnumFlagRejectsUnlistedValue(t *testing.T) {
 	cmd, sp := buildCobra(t, `
 name: mytool
 flags:
-  --color=: {type: enum, values: [red, green, blue]}
+  --color=: {type: {kind: enum, values: [red, green, blue]}}
 `)
 
 	_, err := Parse(cmd, sp, []string{"--color", "purple"})

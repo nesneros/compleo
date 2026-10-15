@@ -84,32 +84,40 @@ additionally reads (and, on an unrecognized key, rejects a typo in) `type:`.
 
 ### Types
 
-| YAML value | Meaning                                    |
+A bare string (e.g. `type: int`) is shorthand for the kind alone, with no further attributes.
+Some kinds accept more, as a nested object with a `kind:` key instead:
+
+| `type:` | Meaning                                    |
 | ---------- | ------------------------------------------- |
 | *(omitted)*, `string` | no extra validation (the default) |
-| `int`      | must parse as a Go `int` (`strconv.Atoi`)   |
-| `float`    | must parse as a `float64`                   |
+| `int`, or `{kind: int, min: N, max: N}` | must parse as a Go `int` (`strconv.Atoi`); `min`/`max` (either optional) bound it, inclusive |
+| `float`, or `{kind: float, min: N, max: N}` | must parse as a `float64`; `min`/`max` as above |
 | `bool`     | must parse as a bool (`true`/`false`/`1`/`0`/...) |
 | `duration` | must parse as a Go duration (`"1h30m"`, ...) |
 | `path`     | accepted like `string` — no extra validation yet |
-| `enum`     | must be one of `values:` (see below)         |
+| `{kind: enum, values: [...]}` | must be one of `values:` — always needs the object form, since there's nothing meaningful to validate with just the bare word `enum` |
 
 `type:` works the same way on a `positionals:` entry as it does on a flag.
 
-#### `type: enum`
-
-Needs one more key, `values:`, naming the allowed set:
-
 ```yaml
 flags:
-  --color=: {description: a color, type: enum, values: [red, green, blue]}
+  --port=: {description: a port, type: {kind: int, min: 1, max: 65535}}
+  --color=: {description: a color, type: {kind: enum, values: [red, green, blue]}}
 ```
 
-For a flag (not a positional), this also auto-fills `completion.flag` for that same flag with
-the same values, unless one is already explicitly declared there — so the list only needs
-writing once to get both validation and Tab-completion. A positional's `values:` only
+`--help`'s type hint shows the bounds too when either is set, not just the bare kind name —
+`--port`'s declared above renders as `--port int 1-65535` (only one of `min`/`max` shows as
+`>=1` or `<=65535` instead).
+
+For an `enum` *flag* (not a positional), this also auto-fills `completion.flag` for that same
+flag with the same values, unless one is already explicitly declared there — so the list only
+needs writing once to get both validation and Tab-completion. A positional's `values:` only
 validates; carapace-spec's positional completion is matched by index, not name, so there's no
-single slot to derive it into automatically.
+single slot to derive it into automatically. `int`/`float`'s `min`/`max` have no such
+completion-derivation — there's no core carapace-spec macro for a bounded range that doesn't
+need the separately-installed `carapace` binary (see `examples/carapace_bin_macros`), so unlike
+`enum`'s free literal-values completion, deriving one here would trade a dependency-free
+feature for one with a hidden runtime dependency; declare `completion:` yourself if you want it.
 
 ## Full example
 
@@ -120,7 +128,7 @@ name: ${0:t}
 description: Print a greeting.
 flags:
   --loud: {description: shout the greeting}
-  --times=: {description: how many times to repeat, default: "1", type: int}
+  --times=: {description: how many times to repeat, default: "1", type: {kind: int, min: 1}}
 positionals:
   - name: name
     description: who to greet

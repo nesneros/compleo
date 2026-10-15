@@ -2,17 +2,20 @@
 # shellcheck disable=SC1071 # intentionally zsh; ShellCheck does not support it
 #
 # Demo of compleo's own extensions on top of plain carapace-spec: positionals: (required,
-# optional, variadic) and type: on a flag or positional (int, float, bool, duration, path,
-# enum). carapace-spec itself has no structured positional concept at all, and its flags are
-# always string/[]string/bool/count as far as parsing goes.
-#   mise run build && PATH="$PWD/bin:$PATH" examples/extensions --mode fast --retries 5 in.txt high extra1 extra2
+# optional, variadic) and type: on a flag or positional. A bare type: name (e.g. "int") is
+# shorthand for an object with nothing but that kind ({kind: int}); the object form adds
+# kind-specific attributes — min/max for int/float, values for enum. carapace-spec itself has
+# no structured positional concept at all, and its flags are always string/[]string/bool/count
+# as far as parsing goes.
+#   mise run build && PATH="$PWD/bin:$PATH" examples/extensions --mode fast --retries 5 --port 8080 in.txt high extra1 extra2
 
 eval "$(compleo up <<'SPEC'
 description: Demo of compleo's own extensions (positionals, flag/positional types).
 flags:
-  --mode=: {description: processing mode, type: enum, values: [fast, slow, auto], default: auto}
+  --mode=: {description: processing mode, type: {kind: enum, values: [fast, slow, auto]}, default: auto}
   --retries=: {description: how many retries, type: int, default: "3"}
-  --ratio=: {description: a ratio, type: float}
+  --port=: {description: a port number, type: {kind: int, min: 1, max: 65535}}
+  --ratio=: {description: a ratio, type: {kind: float, min: 0, max: 1}}
   # Value-taking ("="), unlike a plain carapace-spec toggle flag (e.g. --verbose, no "="):
   # the value itself must parse as true/false, not just be present or absent.
   --enabled=: {description: a value-taking bool, type: bool}
@@ -24,8 +27,7 @@ positionals:
     required: true
   - name: priority
     description: optional priority
-    type: enum
-    values: [low, medium, high]
+    type: {kind: enum, values: [low, medium, high]}
   - name: extra
     description: zero or more extra arguments
     variadic: true
@@ -33,7 +35,7 @@ SPEC
 )"
 
 print -r -- "--- flags ---"
-for key in mode retries ratio enabled timeout config; do
+for key in mode retries port ratio enabled timeout config; do
   print -r -- "$key = $compleo[$key]"
 done
 

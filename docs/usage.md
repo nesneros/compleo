@@ -132,7 +132,7 @@ eval "$(compleo up <<'SPEC'
 description: Print a greeting.
 flags:
   --loud: {description: shout the greeting}
-  --times=: {description: how many times to repeat, default: "1", type: int}
+  --times=: {description: how many times to repeat, default: "1", type: {kind: int, min: 1}}
 positionals:
   - name: name
     description: who to greet
