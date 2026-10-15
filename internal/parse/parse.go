@@ -88,16 +88,17 @@ func wire(cmd *cobra.Command, sp spec.Command, result *Result) error {
 	return wireCommand(cmd, sp, result, nil)
 }
 
-// wireCommand recurses with inherited: a subcommand's effective flag types are its own
-// Flags/PersistentFlags plus whatever its ancestors declared as PersistentFlags — cobra
-// merges ancestors' persistent flags into a subcommand's own cmd.Flags() the same way.
-func wireCommand(cmd *cobra.Command, sp spec.Command, result *Result, inherited map[string]spec.Type) error {
+// wireCommand recurses with inherited: a subcommand's effective flags (for validation
+// purposes) are its own Flags/PersistentFlags plus whatever its ancestors declared as
+// PersistentFlags — cobra merges ancestors' persistent flags into a subcommand's own
+// cmd.Flags() the same way.
+func wireCommand(cmd *cobra.Command, sp spec.Command, result *Result, inherited map[string]spec.Flag) error {
 	if err := validatePositionals(sp.Positionals); err != nil {
 		return fmt.Errorf("command %q: %w", sp.Name, err)
 	}
 
 	positionals := sp.Positionals
-	flagTypes := mergeFlagTypes(inherited, flagTypeMap(sp.Flags), flagTypeMap(sp.PersistentFlags))
+	flags := mergeFlagMaps(inherited, sp.Flags, sp.PersistentFlags)
 	cmd.Args = func(c *cobra.Command, args []string) error {
 		_, err := bindPositionals(positionals, args)
 		return err
@@ -107,17 +108,17 @@ func wireCommand(cmd *cobra.Command, sp spec.Command, result *Result, inherited 
 		if err != nil {
 			return err
 		}
-		flags, err := bindFlags(c, flagTypes)
+		fv, err := bindFlags(c, flags)
 		if err != nil {
 			return err
 		}
 		result.Path = commandPath(c)
 		result.Positionals = bound
-		result.Flags = flags
+		result.Flags = fv
 		return nil
 	}
 
-	childInherited := mergeFlagTypes(inherited, flagTypeMap(sp.PersistentFlags))
+	childInherited := mergeFlagMaps(inherited, sp.PersistentFlags)
 	for _, sub := range cmd.Commands() {
 		for _, subSpec := range sp.Commands {
 			if subSpec.Name == sub.Name() {
@@ -131,24 +132,17 @@ func wireCommand(cmd *cobra.Command, sp spec.Command, result *Result, inherited 
 	return nil
 }
 
-// flagTypeMap extracts each flag's declared Type, keyed by its bare name.
-func flagTypeMap(fs spec.FlagSet) map[string]spec.Type {
-	m := make(map[string]spec.Type, len(fs))
-	for name, f := range fs {
-		m[name] = f.Type
+// mergeFlagMaps unions maps (a map and any number of spec.FlagSets) left to right; a later
+// one's entry wins on a name collision.
+func mergeFlagMaps(base map[string]spec.Flag, flagSets ...spec.FlagSet) map[string]spec.Flag {
+	size := len(base)
+	for _, fs := range flagSets {
+		size += len(fs)
 	}
-	return m
-}
-
-// mergeFlagTypes unions maps left to right; a later map's entry wins on a name collision.
-func mergeFlagTypes(maps ...map[string]spec.Type) map[string]spec.Type {
-	size := 0
-	for _, m := range maps {
-		size += len(m)
-	}
-	merged := make(map[string]spec.Type, size)
-	for _, m := range maps {
-		stdmaps.Copy(merged, m)
+	merged := make(map[string]spec.Flag, size)
+	stdmaps.Copy(merged, base)
+	for _, fs := range flagSets {
+		stdmaps.Copy(merged, fs)
 	}
 	return merged
 }
@@ -183,7 +177,7 @@ func bindPositionals(positionals []spec.Positional, args []string) (map[string]P
 				return nil, fmt.Errorf("missing required argument %q", p.Name)
 			}
 			for _, v := range rest {
-				if err := p.Type.Validate(v); err != nil {
+				if err := p.Validate(v); err != nil {
 					return nil, fmt.Errorf("argument %q: %w", p.Name, err)
 				}
 			}
@@ -198,7 +192,7 @@ func bindPositionals(positionals []spec.Positional, args []string) (map[string]P
 			bound[p.Name] = PositionalValue{}
 			continue
 		}
-		if err := p.Type.Validate(args[i]); err != nil {
+		if err := p.Validate(args[i]); err != nil {
 			return nil, fmt.Errorf("argument %q: %w", p.Name, err)
 		}
 		bound[p.Name] = PositionalValue{Values: []string{args[i]}}
@@ -219,9 +213,10 @@ func commandPath(c *cobra.Command) []string {
 	return path
 }
 
-// bindFlags also validates against flagTypes: cobra/pflag only ever parse a compleo
-// Type as a plain string, so this is the only place an invalid value is caught.
-func bindFlags(cmd *cobra.Command, flagTypes map[string]spec.Type) (map[string]FlagValue, error) {
+// bindFlags also validates against each flag's declared Type (and, for an enum, Values):
+// cobra/pflag only ever parse those as a plain string, so this is the only place an invalid
+// value is caught.
+func bindFlags(cmd *cobra.Command, specFlags map[string]spec.Flag) (map[string]FlagValue, error) {
 	flags := make(map[string]FlagValue)
 	var firstErr error
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
@@ -242,7 +237,7 @@ func bindFlags(cmd *cobra.Command, flagTypes map[string]spec.Type) (map[string]F
 				fv.Strings = sv.GetSlice()
 			}
 			for _, v := range fv.Strings {
-				if err := flagTypes[f.Name].Validate(v); err != nil {
+				if err := specFlags[f.Name].Validate(v); err != nil {
 					firstErr = fmt.Errorf("--%s: %w", f.Name, err)
 					return
 				}
@@ -250,9 +245,16 @@ func bindFlags(cmd *cobra.Command, flagTypes map[string]spec.Type) (map[string]F
 		default:
 			fv.Kind = KindString
 			fv.String = f.Value.String()
-			if err := flagTypes[f.Name].Validate(fv.String); err != nil {
-				firstErr = fmt.Errorf("--%s: %w", f.Name, err)
-				return
+			// An unset flag with no declared default still registers as "" (pflag's own
+			// zero value for a string-kind flag) — only validate that if the user actually
+			// typed it, or the spec itself declared a default (worth catching if that
+			// default is itself invalid); otherwise every optional typed flag would require
+			// a default just to be leavable unset.
+			if f.Changed || specFlags[f.Name].Default != "" {
+				if err := specFlags[f.Name].Validate(fv.String); err != nil {
+					firstErr = fmt.Errorf("--%s: %w", f.Name, err)
+					return
+				}
 			}
 		}
 		flags[f.Name] = fv

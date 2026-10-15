@@ -1,0 +1,43 @@
+#!/usr/bin/env zsh
+# shellcheck disable=SC1071 # intentionally zsh; ShellCheck does not support it
+#
+# Demo of compleo's own extensions on top of plain carapace-spec: positionals: (required,
+# optional, variadic) and type: on a flag or positional (int, float, bool, duration, path,
+# enum). carapace-spec itself has no structured positional concept at all, and its flags are
+# always string/[]string/bool/count as far as parsing goes.
+#   mise run build && PATH="$PWD/bin:$PATH" examples/extensions --mode fast --retries 5 in.txt high extra1 extra2
+
+eval "$(compleo up <<'SPEC'
+description: Demo of compleo's own extensions (positionals, flag/positional types).
+flags:
+  --mode=: {description: processing mode, type: enum, values: [fast, slow, auto], default: auto}
+  --retries=: {description: how many retries, type: int, default: "3"}
+  --ratio=: {description: a ratio, type: float}
+  # Value-taking ("="), unlike a plain carapace-spec toggle flag (e.g. --verbose, no "="):
+  # the value itself must parse as true/false, not just be present or absent.
+  --enabled=: {description: a value-taking bool, type: bool}
+  --timeout=: {description: how long to wait, type: duration, default: 30s}
+  --config=: {description: a config file path (no extra validation yet), type: path}
+positionals:
+  - name: input
+    description: required input file
+    required: true
+  - name: priority
+    description: optional priority
+    type: enum
+    values: [low, medium, high]
+  - name: extra
+    description: zero or more extra arguments
+    variadic: true
+SPEC
+)"
+
+print -r -- "--- flags ---"
+for key in mode retries ratio enabled timeout config; do
+  print -r -- "$key = $compleo[$key]"
+done
+
+print -r -- "--- positionals ---"
+print -r -- "input = $compleo[input]"
+print -r -- "priority = $compleo[priority]"
+print -r -- "extra = (${compleo_extra[*]})"

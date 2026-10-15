@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/nesneros/compleo/internal/cmdutil"
 	"github.com/nesneros/compleo/internal/generate"
@@ -26,8 +28,25 @@ const modeGenerate = "generate"
 func main() {
 	if err := run(os.Args[1:], isPiped(os.Stdin), os.Stdin, os.Stdout, os.Getenv(cmdutil.EnvMode)); err != nil {
 		fmt.Fprintln(os.Stderr, err)
+		logDebug(os.Args[1:], err)
 		os.Exit(1)
 	}
+}
+
+// logDebug appends err to EnvDebugLog, if set — a second channel for a caller (e.g. a Tab
+// press's "2>/dev/null"'d _carapace invocation) that already discards real stderr. Best
+// effort: a bad path here must never turn into compleo's own secondary failure.
+func logDebug(args []string, err error) {
+	path := os.Getenv(cmdutil.EnvDebugLog)
+	if path == "" {
+		return
+	}
+	f, openErr := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if openErr != nil {
+		return
+	}
+	defer f.Close() //nolint:errcheck
+	fmt.Fprintf(f, "%s args=%q: %s\n", time.Now().Format(time.RFC3339), strings.Join(args, " "), err)
 }
 
 // isPiped reports whether f has data piped in, vs. an interactive terminal.

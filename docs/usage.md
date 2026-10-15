@@ -146,7 +146,8 @@ HELLO, WORLD!
 HELLO, WORLD!
 ```
 
-See `examples/macros` for a second full script demonstrating every core carapace-spec
-completion macro (except `$spec`, split out into `examples/other_spec` since it needs a
-dynamic path a quoted heredoc can't supply), and [docs/spec.md](./spec.md) for everything
-that can go inside the spec.
+See `examples/extensions` for a script demonstrating every `positionals:`/`type:` combination
+compleo adds on top of plain carapace-spec, `examples/macros` for a second full script
+demonstrating every core carapace-spec completion macro (except `$spec`, split out into
+`examples/other_spec` since it needs a dynamic path a quoted heredoc can't supply), and
+[docs/spec.md](./spec.md) for everything that can go inside the spec.

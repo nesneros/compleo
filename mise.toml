@@ -9,6 +9,9 @@ act = "0.2.89"
 # instead of the derault ~/.local/share/compleo/completions.
 COMPLEO_COMPLETION_DIR = "{{config_root}}/.completions"
 
+# For debug append errors to a file. Errors are swallowed by the completion script (by design)
+COMPLEO_DEBUG_LOG = "{{config_root}}/bin/errors.txt"
+
 # So the demo scripts resolve as plain commands (e.g. "greet"), not just "./examples/greet" —
 # needed for their generated completions to work at all: the completion file's own xargs
 # callback re-invokes the script itself by bare name, which fails silently (stderr is

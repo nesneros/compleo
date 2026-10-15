@@ -12,4 +12,9 @@ const (
 	EnvGenerateName = "COMPLEO_GENERATE_NAME"
 	// EnvSpecFile points a live Tab-press at the companion spec file WrappedCompletion embeds.
 	EnvSpecFile = "COMPLEO_SPEC_FILE"
+	// EnvDebugLog, if set, is a file path compleo appends every top-level error to — a
+	// second channel for failures whose real stderr output a caller discards, e.g. a Tab
+	// press's "2>/dev/null"'d _carapace invocation (carapace's own generated template, not
+	// compleo's choice to make).
+	EnvDebugLog = "COMPLEO_DEBUG_LOG"
 )

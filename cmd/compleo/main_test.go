@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -422,6 +423,52 @@ func TestRunCarapaceWithMissingCompleoSpecFileFails(t *testing.T) {
 
 	err := run([]string{"_carapace", "zsh", "greet", ""}, false, strings.NewReader(""), &bytes.Buffer{}, "")
 	assert.Error(t, err)
+}
+
+func TestLogDebugWritesErrorWhenEnvSet(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "debug.log")
+	t.Setenv(cmdutil.EnvDebugLog, path)
+
+	logDebug([]string{"_carapace", "zsh", "greet", ""}, errors.New("invalid embedded spec: boom"))
+
+	content, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), `args="_carapace zsh greet "`)
+	assert.Contains(t, string(content), "invalid embedded spec: boom")
+}
+
+func TestLogDebugAppendsAcrossCalls(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "debug.log")
+	t.Setenv(cmdutil.EnvDebugLog, path)
+
+	logDebug([]string{"first"}, errors.New("one"))
+	logDebug([]string{"second"}, errors.New("two"))
+
+	content, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, 2, strings.Count(string(content), "\n"))
+	assert.Contains(t, string(content), "one")
+	assert.Contains(t, string(content), "two")
+}
+
+func TestLogDebugDoesNothingWhenEnvUnset(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "debug.log")
+	t.Setenv(cmdutil.EnvDebugLog, "")
+
+	logDebug([]string{"whatever"}, errors.New("boom"))
+
+	_, err := os.Stat(path)
+	assert.True(t, os.IsNotExist(err))
+}
+
+// Best effort: an unwritable path must never panic or otherwise disrupt the caller, since
+// this is a secondary debugging aid, not part of compleo's primary error reporting.
+func TestLogDebugIsBestEffortOnBadPath(t *testing.T) {
+	t.Setenv(cmdutil.EnvDebugLog, filepath.Join(t.TempDir(), "no-such-dir", "debug.log"))
+
+	assert.NotPanics(t, func() {
+		logDebug([]string{"whatever"}, errors.New("boom"))
+	})
 }
 
 func TestIsPiped(t *testing.T) {

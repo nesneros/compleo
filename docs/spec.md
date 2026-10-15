@@ -92,8 +92,24 @@ additionally reads (and, on an unrecognized key, rejects a typo in) `type:`.
 | `bool`     | must parse as a bool (`true`/`false`/`1`/`0`/...) |
 | `duration` | must parse as a Go duration (`"1h30m"`, ...) |
 | `path`     | accepted like `string` — no extra validation yet |
+| `enum`     | must be one of `values:` (see below)         |
 
 `type:` works the same way on a `positionals:` entry as it does on a flag.
+
+#### `type: enum`
+
+Needs one more key, `values:`, naming the allowed set:
+
+```yaml
+flags:
+  --color=: {description: a color, type: enum, values: [red, green, blue]}
+```
+
+For a flag (not a positional), this also auto-fills `completion.flag` for that same flag with
+the same values, unless one is already explicitly declared there — so the list only needs
+writing once to get both validation and Tab-completion. A positional's `values:` only
+validates; carapace-spec's positional completion is matched by index, not name, so there's no
+single slot to derive it into automatically.
 
 ## Full example
 
@@ -111,6 +127,8 @@ positionals:
     required: true
 ```
 
-See `examples/greet` (parsing/positionals/a typed flag), `examples/macros` (every core
-carapace-spec completion macro except `$spec`), and `examples/other_spec` (`$spec`, which
-needs a dynamic path a quoted heredoc can't supply on its own) for complete, runnable scripts.
+See `examples/greet` (parsing/positionals/a typed flag), `examples/extensions` (every
+`positionals:`/`type:` combination — required/optional/variadic, `int`/`float`/`bool`/
+`duration`/`path`/`enum` — in one script), `examples/macros` (every core carapace-spec
+completion macro except `$spec`), and `examples/other_spec` (`$spec`, which needs a dynamic
+path a quoted heredoc can't supply on its own) for complete, runnable scripts.

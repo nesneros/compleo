@@ -135,6 +135,60 @@ commands:
 	assert.Error(t, err)
 }
 
+func TestParseEnumFlagAcceptsListedValue(t *testing.T) {
+	cmd, sp := buildCobra(t, `
+name: mytool
+flags:
+  --color=: {type: enum, values: [red, green, blue]}
+`)
+
+	result, err := Parse(cmd, sp, []string{"--color", "green"})
+	require.NoError(t, err)
+	assert.Equal(t, "green", result.Flags["color"].String)
+}
+
+func TestParseEnumFlagRejectsUnlistedValue(t *testing.T) {
+	cmd, sp := buildCobra(t, `
+name: mytool
+flags:
+  --color=: {type: enum, values: [red, green, blue]}
+`)
+
+	_, err := Parse(cmd, sp, []string{"--color", "purple"})
+	assert.Error(t, err)
+}
+
+// Regression test: a typed, optional flag with no declared default used to fail validation
+// on its own unset zero value ("" — not a valid int/float/bool/duration/enum) even though
+// the user never touched it, making every optional typed flag unusable without a default.
+func TestParseUntypedUnsetOptionalTypedFlagDoesNotFailValidation(t *testing.T) {
+	cmd, sp := buildCobra(t, `
+name: mytool
+flags:
+  --ratio=: {type: float}
+positionals:
+  - name: input
+    required: true
+`)
+
+	result, err := Parse(cmd, sp, []string{"in.txt"})
+	require.NoError(t, err)
+	assert.Empty(t, result.Flags["ratio"].String)
+}
+
+// A declared default is still validated even if the user never overrides it — catches an
+// author mistake (e.g. a non-numeric default on an int flag) rather than silently accepting it.
+func TestParseInvalidDeclaredDefaultOnTypedFlagStillFails(t *testing.T) {
+	cmd, sp := buildCobra(t, `
+name: mytool
+flags:
+  --retries=: {type: int, default: not-a-number}
+`)
+
+	_, err := Parse(cmd, sp, []string{})
+	assert.Error(t, err)
+}
+
 func TestParsePositionalWithIntTypeRejectsNonNumericValue(t *testing.T) {
 	cmd, sp := buildCobra(t, `
 name: mytool

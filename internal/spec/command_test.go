@@ -65,6 +65,28 @@ flags:
 	assert.Equal(t, typeInt, cmd.Flags["count"].Type)
 }
 
+func TestParseFlagEnumValuesAreSpecifiedOnTheFlagItself(t *testing.T) {
+	cmd, err := decodeYAML(strings.NewReader(`
+name: mytool
+flags:
+  --color=: {description: a color, type: enum, values: [red, green, blue]}
+`))
+	require.NoError(t, err)
+
+	f := cmd.Flags["color"]
+	assert.Equal(t, typeEnum, f.Type)
+	assert.Equal(t, []string{"red", "green", "blue"}, f.Values)
+}
+
+func TestParseFlagRejectsNonStringInValuesList(t *testing.T) {
+	_, err := decodeYAML(strings.NewReader(`
+name: mytool
+flags:
+  --color=: {type: enum, values: [red, 2, blue]}
+`))
+	assert.Error(t, err)
+}
+
 func TestParseFlagRejectsUnknownObjectKey(t *testing.T) {
 	_, err := decodeYAML(strings.NewReader(`
 name: mytool
@@ -132,6 +154,52 @@ flags:
 	assert.Equal(t, "how many times (`int`)", converted.Flags["times"].Description)
 }
 
+func TestToCarapaceAddsEnumValuesHintToFlagDescription(t *testing.T) {
+	cmd, err := decodeYAML(strings.NewReader(`
+name: mytool
+flags:
+  --color=: {description: a color, type: enum, values: [red, green, blue]}
+`))
+	require.NoError(t, err)
+
+	converted := cmd.toCarapace()
+
+	assert.Equal(t, "a color (`red|green|blue`)", converted.Flags["color"].Description)
+}
+
+// toCarapace derives completion.flag for an enum flag from its own Values, so Tab-completion
+// and parse-time validation stay in sync without declaring the same list twice.
+func TestToCarapaceDerivesCompletionFromEnumValues(t *testing.T) {
+	cmd, err := decodeYAML(strings.NewReader(`
+name: mytool
+flags:
+  --color=: {type: enum, values: [red, green, blue]}
+`))
+	require.NoError(t, err)
+
+	converted := cmd.toCarapace()
+
+	assert.Equal(t, []string{"red", "green", "blue"}, converted.Completion.Flag["color"])
+}
+
+// An explicitly declared completion (e.g. styled/described values) is never overridden by
+// the derived one.
+func TestToCarapaceLeavesExplicitCompletionForEnumFlagAlone(t *testing.T) {
+	cmd, err := decodeYAML(strings.NewReader(`
+name: mytool
+flags:
+  --color=: {type: enum, values: [red, green, blue]}
+completion:
+  flag:
+    color: ["red\tlike a tomato"]
+`))
+	require.NoError(t, err)
+
+	converted := cmd.toCarapace()
+
+	assert.Equal(t, []string{"red\tlike a tomato"}, converted.Completion.Flag["color"])
+}
+
 func TestToCarapaceLeavesUntypedFlagDescriptionAlone(t *testing.T) {
 	cmd, err := decodeYAML(strings.NewReader(`
 name: mytool
@@ -187,4 +255,31 @@ func TestTypeValidateDurationAcceptsValid(t *testing.T) {
 func TestTypeValidateStringAndPathAcceptAnything(t *testing.T) {
 	assert.NoError(t, typeString.Validate("anything at all"))
 	assert.NoError(t, typePath.Validate("anything at all"))
+}
+
+func TestFlagValidateEnumAcceptsListedValue(t *testing.T) {
+	f := Flag{Type: typeEnum, Values: []string{"red", "green", "blue"}}
+	assert.NoError(t, f.Validate("green"))
+}
+
+func TestFlagValidateEnumRejectsUnlistedValue(t *testing.T) {
+	f := Flag{Type: typeEnum, Values: []string{"red", "green", "blue"}}
+	assert.Error(t, f.Validate("purple"))
+}
+
+// A spec author declaring type: enum with no values at all is a mistake worth failing loudly
+// on, rather than silently accepting every value (which would hide the mistake).
+func TestFlagValidateEnumWithNoValuesAlwaysRejects(t *testing.T) {
+	f := Flag{Type: typeEnum}
+	assert.Error(t, f.Validate("anything"))
+}
+
+func TestPositionalValidateEnumAcceptsListedValue(t *testing.T) {
+	p := Positional{Type: typeEnum, Values: []string{"up", "down"}}
+	assert.NoError(t, p.Validate("up"))
+}
+
+func TestPositionalValidateEnumRejectsUnlistedValue(t *testing.T) {
+	p := Positional{Type: typeEnum, Values: []string{"up", "down"}}
+	assert.Error(t, p.Validate("sideways"))
 }
