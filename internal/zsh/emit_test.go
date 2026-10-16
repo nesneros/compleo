@@ -19,7 +19,7 @@ import (
 func emitResult(t *testing.T, result parse.Result) string {
 	t.Helper()
 	var buf bytes.Buffer
-	require.NoError(t, Emit(&buf, result))
+	require.NoError(t, EmitResult(&buf, result))
 	return buf.String()
 }
 

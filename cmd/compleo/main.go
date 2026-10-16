@@ -171,7 +171,7 @@ func runCarapace(specYAML string, args []string, out io.Writer) error {
 // bad arg, the equivalently-wrapped help/error text instead.
 func runEmit(cmd *cobra.Command, sp spec.Command, args []string, out io.Writer) error {
 	// cobra's help writes straight to stdout; buffer it so it can be re-wrapped instead of
-	// corrupting Emit's own output on the same stream.
+	// corrupting EmitResult's own output on the same stream.
 	var helpBuf bytes.Buffer
 	cmd.SetOut(&helpBuf)
 
@@ -184,7 +184,7 @@ func runEmit(cmd *cobra.Command, sp spec.Command, args []string, out io.Writer) 
 	case parseResult.HelpRequested:
 		return zsh.EmitHelp(out, helpBuf.String())
 	default:
-		return zsh.Emit(out, parseResult)
+		return zsh.EmitResult(out, parseResult)
 	}
 }
 

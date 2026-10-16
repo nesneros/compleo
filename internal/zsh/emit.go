@@ -71,10 +71,10 @@ func EmitActivate(w io.Writer, dir string) error {
 	return err
 }
 
-// Emit writes zsh that populates a "compleo" assoc array from result's scalar flag and
+// EmitResult writes zsh that populates a "compleo" assoc array from result's scalar flag and
 // positional values. A repeatable flag or variadic positional instead gets its own zsh
 // array, written after all scalar assignments.
-func Emit(w io.Writer, result parse.Result) error {
+func EmitResult(w io.Writer, result parse.Result) error {
 	var writeErr error
 	write := func(s string) {
 		if writeErr != nil {
