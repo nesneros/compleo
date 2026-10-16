@@ -42,7 +42,8 @@ func logDebug(args []string, err error) {
 		return
 	}
 	defer f.Close() //nolint:errcheck
-	fmt.Fprintf(f, "%s args=%q: %s\n", time.Now().Format(time.RFC3339), strings.Join(args, " "), err)
+	ts := time.Now().UTC().Format(time.RFC3339)
+	fmt.Fprintf(f, "%s args=%q: %s\n", ts, strings.Join(args, " "), err)
 }
 
 // isPiped reports whether f has data piped in, vs. an interactive terminal.
