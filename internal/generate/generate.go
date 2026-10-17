@@ -54,7 +54,7 @@ func Generate(cmd *cobra.Command, sp spec.Command, rawSpec string, out io.Writer
 		return err
 	}
 
-	snippet, err := shells.CompletionEmitter().WrappedCompletion(cmd, name, filepath.Join(dir, specFileName))
+	snippet, err := shells.GetCompletionEmitter().WrappedCompletion(cmd, name, filepath.Join(dir, specFileName))
 	if err != nil {
 		return err
 	}
@@ -63,7 +63,7 @@ func Generate(cmd *cobra.Command, sp spec.Command, rawSpec string, out io.Writer
 		return err
 	}
 	// A missing $bin.* target fails at Tab time as a completion message, not a shell error.
-	return shells.EvalEmitter().EmitGenerated(out, name, missingMacroBins(sp))
+	return shells.GetEvalEmitter().EmitGenerated(out, name, missingMacroBins(sp))
 }
 
 // missingMacroBins returns binaries ActionMacro would exec for sp that are not on PATH.

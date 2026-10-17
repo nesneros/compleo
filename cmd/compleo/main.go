@@ -110,7 +110,7 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, generateName st
 	switch cmdName {
 	case "activate":
 		dir := cmdutil.CompletionDir()
-		em := shells.CompletionEmitter()
+		em := shells.GetCompletionEmitter()
 		snippet, err := shells.Completion(ownCmd, "zsh")
 		if err != nil {
 			return err
@@ -129,7 +129,7 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, generateName st
 		}
 		return runParse(wrappedArgs, rawSpec, out, result.Flags["name"].String, generateName)
 	case "up":
-		return shells.EvalEmitter().EmitUp(out, rawSpec)
+		return shells.GetEvalEmitter().EmitUp(out, rawSpec)
 	case "validate":
 		if _, _, err := spec.ParseYAML(rawSpec, ""); err != nil {
 			return fmt.Errorf("invalid spec: %w", err)
@@ -183,7 +183,7 @@ func runEmit(cmd *cobra.Command, sp spec.Command, args []string, out io.Writer) 
 	var helpBuf bytes.Buffer
 	cmd.SetOut(&helpBuf)
 
-	em := shells.EvalEmitter()
+	em := shells.GetEvalEmitter()
 	parseResult, err := parse.Parse(cmd, sp, args)
 	switch {
 	// Encoded into the output, not a Go error: eval alone should stop the script on a bad

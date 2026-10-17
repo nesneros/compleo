@@ -16,11 +16,11 @@ func TestCompletionAndEvalEmittersAreIndependent(t *testing.T) {
 
 	shells.SetCompletionEmitter(zsh.Emitter{})
 	shells.SetEvalEmitter(nil)
-	assert.Equal(t, zsh.Emitter{}, shells.CompletionEmitter())
-	assert.Nil(t, shells.EvalEmitter())
+	assert.Equal(t, zsh.Emitter{}, shells.GetCompletionEmitter())
+	assert.Nil(t, shells.GetEvalEmitter())
 
 	shells.SetEvalEmitter(zsh.Emitter{})
 	shells.SetCompletionEmitter(nil)
-	assert.Nil(t, shells.CompletionEmitter())
-	assert.Equal(t, zsh.Emitter{}, shells.EvalEmitter())
+	assert.Nil(t, shells.GetCompletionEmitter())
+	assert.Equal(t, zsh.Emitter{}, shells.GetEvalEmitter())
 }

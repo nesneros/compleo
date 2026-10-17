@@ -7,10 +7,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Emitter writes one shell's syntax. zsh.Emitter implements it; a bash emitter would too.
-type Emitter interface {
-	// Used through EvalEmitter: code a wrapped script evals.
-
+// EvalEmitter writes code a wrapped script evals.
+type EvalEmitter interface {
 	// EmitResult writes the parsed flag and positional values.
 	EmitResult(w io.Writer, result parse.Result) error
 	// EmitHelp writes text the script prints, then exits 0.
@@ -22,34 +20,41 @@ type Emitter interface {
 	// EmitGenerated writes the generate report, including any missing-binary warning.
 	EmitGenerated(w io.Writer, name string, missing []string) error
 
-	// Used through CompletionEmitter: the interactive shell, where Tab is pressed.
+	// Quote returns s quoted for this shell.
+	Quote(s string) string
+}
 
+// CompletionEmitter writes the interactive shell, where Tab is pressed.
+type CompletionEmitter interface {
 	// WrappedCompletion returns a wrapped script's completion snippet, with specFilePath embedded for Tab presses.
 	WrappedCompletion(cmd *cobra.Command, name string, specFilePath string) (string, error)
 	// EmitActivate wires the completions directory into the current shell.
 	EmitActivate(w io.Writer, dir string) error
 
-	// Used by both.
-
 	// Quote returns s quoted for this shell.
 	Quote(s string) string
 }
 
-// CompletionEmitter is the interactive shell, where Tab is pressed.
-// EvalEmitter is the shell that evals a wrapped script.
+// Emitter is an EvalEmitter and a CompletionEmitter.
+// zsh.Emitter and bash.Emitter implement it; only zsh is installed.
+type Emitter interface {
+	EvalEmitter
+	CompletionEmitter
+}
+
 var (
-	completionEmitter Emitter
-	evalEmitter       Emitter
+	completionEmitter CompletionEmitter
+	evalEmitter       EvalEmitter
 )
 
 // SetCompletionEmitter sets the interactive-shell emitter.
-func SetCompletionEmitter(e Emitter) { completionEmitter = e }
+func SetCompletionEmitter(e CompletionEmitter) { completionEmitter = e }
 
-// CompletionEmitter returns the interactive-shell emitter.
-func CompletionEmitter() Emitter { return completionEmitter }
+// GetCompletionEmitter returns the interactive-shell emitter.
+func GetCompletionEmitter() CompletionEmitter { return completionEmitter }
 
 // SetEvalEmitter sets the emitter for code a wrapped script evals.
-func SetEvalEmitter(e Emitter) { evalEmitter = e }
+func SetEvalEmitter(e EvalEmitter) { evalEmitter = e }
 
-// EvalEmitter returns the emitter for code a wrapped script evals.
-func EvalEmitter() Emitter { return evalEmitter }
+// GetEvalEmitter returns the emitter for code a wrapped script evals.
+func GetEvalEmitter() EvalEmitter { return evalEmitter }
