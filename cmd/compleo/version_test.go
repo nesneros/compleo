@@ -13,7 +13,7 @@ func TestVersionStringDefaultWithoutStampReturnsDev(t *testing.T) {
 
 func TestVersionStringDefaultWithStampIncludesDateAndCommit(t *testing.T) {
 	withVersion(t, "dev", "9e9877ba", "2026-10-12T21:18:04Z")
-	assert.Equal(t, "dev (2026-10-12T21:18:04Z) [9e9877ba]", versionString())
+	assert.Equal(t, "dev: 9e9877ba [2026-10-12T21:18:04Z]", versionString())
 }
 
 func TestVersionStringDefaultWithOnlyCommitReturnsDev(t *testing.T) {
@@ -23,7 +23,7 @@ func TestVersionStringDefaultWithOnlyCommitReturnsDev(t *testing.T) {
 
 func TestVersionStringSnapshotIncludesDateAndCommit(t *testing.T) {
 	withVersion(t, "1.2.3-SNAPSHOT-9e9877b", "9e9877ba", "2026-10-12T21:18:04Z")
-	assert.Equal(t, "1.2.3-SNAPSHOT-9e9877b (2026-10-12T21:18:04Z) [9e9877ba]", versionString())
+	assert.Equal(t, "1.2.3-SNAPSHOT-9e9877b: 9e9877ba [2026-10-12T21:18:04Z]", versionString())
 }
 
 func TestVersionStringReleaseReturnsVersion(t *testing.T) {
