@@ -9,23 +9,23 @@ import (
 )
 
 func TestQuotePlainString(t *testing.T) {
-	assert.Equal(t, `'hello'`, Quote("hello"))
+	assert.Equal(t, `'hello'`, em.Quote("hello"))
 }
 
 func TestQuoteEmptyString(t *testing.T) {
-	assert.Equal(t, `''`, Quote(""))
+	assert.Equal(t, `''`, em.Quote(""))
 }
 
 func TestQuoteEscapesSingleQuote(t *testing.T) {
-	assert.Equal(t, `'it'\''s'`, Quote("it's"))
+	assert.Equal(t, `'it'\''s'`, em.Quote("it's"))
 }
 
-// zshRoundTrip execs zsh -f (no rc files) to print Quote(s), proving the quoting is
+// zshRoundTrip execs zsh -f (no rc files) to print the quoted string, proving the quoting is
 // actually safe to splice into zsh code, not just plausible-looking Go string output.
 func zshRoundTrip(t *testing.T, s string) string {
 	t.Helper()
 
-	cmd := exec.Command("zsh", "-fc", "print -r -- "+Quote(s))
+	cmd := exec.Command("zsh", "-fc", "print -r -- "+em.Quote(s))
 	out, err := cmd.Output()
 	require.NoError(t, err)
 	return string(out)

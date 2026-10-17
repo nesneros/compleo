@@ -10,11 +10,18 @@ import (
 	"testing"
 
 	"github.com/nesneros/compleo/internal/cmdutil"
+	"github.com/nesneros/compleo/internal/shells"
+	"github.com/nesneros/compleo/internal/shells/zsh"
 	"github.com/nesneros/compleo/internal/spec"
-	"github.com/nesneros/compleo/internal/zsh"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestMain(m *testing.M) {
+	shells.SetCompletionEmitter(zsh.Emitter{})
+	shells.SetEvalEmitter(zsh.Emitter{})
+	os.Exit(m.Run())
+}
 
 // A spec without a name: at all (legal now) gets one embedded into its companion file.
 func TestGenerateInsertsNameWhenSpecDoesNotDeclareOne(t *testing.T) {
@@ -33,7 +40,7 @@ func TestGenerateInsertsNameWhenSpecDoesNotDeclareOne(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(content), "#compdef real-name")
 	assert.Contains(t, string(content), "function _real-name_completion")
-	assert.Contains(t, string(content), "local -x "+cmdutil.EnvSpecFile+"="+zsh.Quote(filepath.Join(completionDir, ".real-name.spec.yaml")))
+	assert.Contains(t, string(content), "local -x "+cmdutil.EnvSpecFile+"="+zsh.Emitter{}.Quote(filepath.Join(completionDir, ".real-name.spec.yaml")))
 
 	specContent, err := os.ReadFile(filepath.Join(completionDir, ".real-name.spec.yaml"))
 	require.NoError(t, err)

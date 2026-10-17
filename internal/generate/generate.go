@@ -13,8 +13,8 @@ import (
 	"strings"
 
 	"github.com/nesneros/compleo/internal/cmdutil"
+	"github.com/nesneros/compleo/internal/shells"
 	"github.com/nesneros/compleo/internal/spec"
-	"github.com/nesneros/compleo/internal/zsh"
 	"github.com/spf13/cobra"
 )
 
@@ -23,7 +23,8 @@ import (
 var declaredNamePattern = regexp.MustCompile(`(?m)^name:`)
 
 // Generate writes a completion file for sp's command tree, with rawSpec embedded as its
-// companion spec file, to the completion directory. It writes a zsh success report to out.
+// companion spec file, to the completion directory. The snippet is for the interactive
+// shell; the success report is eval'd by the script's shell.
 func Generate(cmd *cobra.Command, sp spec.Command, rawSpec string, out io.Writer) error {
 	dir := cmdutil.CompletionDir()
 
@@ -53,7 +54,7 @@ func Generate(cmd *cobra.Command, sp spec.Command, rawSpec string, out io.Writer
 		return err
 	}
 
-	snippet, err := zsh.WrappedCompletion(cmd, name, filepath.Join(dir, specFileName))
+	snippet, err := shells.CompletionEmitter().WrappedCompletion(cmd, name, filepath.Join(dir, specFileName))
 	if err != nil {
 		return err
 	}
@@ -62,7 +63,7 @@ func Generate(cmd *cobra.Command, sp spec.Command, rawSpec string, out io.Writer
 		return err
 	}
 	// A missing $bin.* target fails at Tab time as a completion message, not a shell error.
-	return zsh.EmitGenerated(out, name, missingMacroBins(sp))
+	return shells.EvalEmitter().EmitGenerated(out, name, missingMacroBins(sp))
 }
 
 // missingMacroBins returns binaries ActionMacro would exec for sp that are not on PATH.

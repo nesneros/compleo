@@ -13,13 +13,20 @@ import (
 	"github.com/nesneros/compleo/internal/cmdutil"
 	"github.com/nesneros/compleo/internal/generate"
 	"github.com/nesneros/compleo/internal/parse"
+	"github.com/nesneros/compleo/internal/shells"
+	"github.com/nesneros/compleo/internal/shells/zsh"
 	"github.com/nesneros/compleo/internal/spec"
-	"github.com/nesneros/compleo/internal/zsh"
 	"github.com/spf13/cobra"
 )
 
 //go:embed spec.yaml
 var specYAML []byte
+
+func init() {
+	// Detection will replace these. Until then both shells are zsh.
+	shells.SetCompletionEmitter(zsh.Emitter{})
+	shells.SetEvalEmitter(zsh.Emitter{})
+}
 
 func main() {
 	generateName := os.Getenv(cmdutil.EnvGenerateName)
@@ -103,14 +110,15 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, generateName st
 	switch cmdName {
 	case "activate":
 		dir := cmdutil.CompletionDir()
-		snippet, err := zsh.Completion(ownCmd)
+		em := shells.CompletionEmitter()
+		snippet, err := shells.Completion(ownCmd, "zsh")
 		if err != nil {
 			return err
 		}
 		if err := cmdutil.WriteCompletionFile(dir, "_"+ownSpec.Name, snippet); err != nil {
 			return err
 		}
-		return zsh.EmitActivate(out, dir)
+		return em.EmitActivate(out, dir)
 	case "generate":
 		return generate.GenerateFor(result.Positionals["script"].Values[0], out)
 	case "parse":
@@ -121,7 +129,7 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, generateName st
 		}
 		return runParse(wrappedArgs, rawSpec, out, result.Flags["name"].String, generateName)
 	case "up":
-		return zsh.EmitUp(out, rawSpec)
+		return shells.EvalEmitter().EmitUp(out, rawSpec)
 	case "validate":
 		if _, _, err := spec.ParseYAML(rawSpec, ""); err != nil {
 			return fmt.Errorf("invalid spec: %w", err)
@@ -175,16 +183,17 @@ func runEmit(cmd *cobra.Command, sp spec.Command, args []string, out io.Writer) 
 	var helpBuf bytes.Buffer
 	cmd.SetOut(&helpBuf)
 
+	em := shells.EvalEmitter()
 	parseResult, err := parse.Parse(cmd, sp, args)
 	switch {
 	// Encoded into the output, not a Go error: eval alone should stop the script on a bad
 	// arg, no caller-side exit-code check needed.
 	case err != nil:
-		return zsh.EmitError(out, sp.Name, err)
+		return em.EmitError(out, sp.Name, err)
 	case parseResult.HelpRequested:
-		return zsh.EmitHelp(out, helpBuf.String())
+		return em.EmitHelp(out, helpBuf.String())
 	default:
-		return zsh.EmitResult(out, parseResult)
+		return em.EmitResult(out, parseResult)
 	}
 }
 

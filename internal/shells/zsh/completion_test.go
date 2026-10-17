@@ -10,6 +10,7 @@ import (
 
 	"github.com/carapace-sh/carapace/pkg/uid"
 	"github.com/nesneros/compleo/internal/cmdutil"
+	"github.com/nesneros/compleo/internal/shells"
 	"github.com/nesneros/compleo/internal/spec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,7 +24,7 @@ flags:
 `, "")
 	require.NoError(t, err)
 
-	snippet, err := Completion(cmd)
+	snippet, err := shells.Completion(cmd, "zsh")
 	require.NoError(t, err)
 
 	assert.Contains(t, snippet, "#compdef mytool")
@@ -46,12 +47,12 @@ commands:
 `
 	cmd1, _, err := spec.ParseYAML(yaml, "")
 	require.NoError(t, err)
-	snippet1, err := Completion(cmd1)
+	snippet1, err := shells.Completion(cmd1, "zsh")
 	require.NoError(t, err)
 
 	cmd2, _, err := spec.ParseYAML(yaml, "")
 	require.NoError(t, err)
-	snippet2, err := Completion(cmd2)
+	snippet2, err := shells.Completion(cmd2, "zsh")
 	require.NoError(t, err)
 
 	assert.Equal(t, snippet1, snippet2)
@@ -61,11 +62,11 @@ func TestWrappedCompletionEmbedsSpecFilePathAndLeavesCarapacesInvocationUntouche
 	cmd, _, err := spec.ParseYAML("name: greet\nflags:\n  --loud: shout\n", "")
 	require.NoError(t, err)
 
-	snippet, err := WrappedCompletion(cmd, "greet", "/some/dir/.greet.spec.yaml")
+	snippet, err := em.WrappedCompletion(cmd, "greet", "/some/dir/.greet.spec.yaml")
 	require.NoError(t, err)
 
 	assert.Contains(t, snippet, "#compdef greet")
-	assert.Contains(t, snippet, "local -x "+cmdutil.EnvSpecFile+"="+Quote("/some/dir/.greet.spec.yaml"))
+	assert.Contains(t, snippet, "local -x "+cmdutil.EnvSpecFile+"="+em.Quote("/some/dir/.greet.spec.yaml"))
 	// Unlike the old re-invoke-the-script design, a Tab press now dispatches straight to
 	// compleo itself — carapace's own default invocation is left exactly as generated.
 	assert.Contains(t, snippet, "xargs "+uid.Executable()+" _carapace zsh")
@@ -74,7 +75,7 @@ func TestWrappedCompletionEmbedsSpecFilePathAndLeavesCarapacesInvocationUntouche
 func TestWrappedCompletionIsSyntacticallyValidZsh(t *testing.T) {
 	cmd, _, err := spec.ParseYAML("name: greet\nflags:\n  --loud: shout\n", "")
 	require.NoError(t, err)
-	snippet, err := WrappedCompletion(cmd, "greet", "/some/dir/.greet.spec.yaml")
+	snippet, err := em.WrappedCompletion(cmd, "greet", "/some/dir/.greet.spec.yaml")
 	require.NoError(t, err)
 
 	require.NoError(t, exec.Command("zsh", "-n", "-c", snippet).Run())
@@ -87,7 +88,7 @@ func TestWrappedCompletionUsesGivenNameNotCmdName(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "carapace-bin-macros", cmd.Name())
 
-	snippet, err := WrappedCompletion(cmd, "carapace_bin_macros", "/some/dir/.carapace_bin_macros.spec.yaml")
+	snippet, err := em.WrappedCompletion(cmd, "carapace_bin_macros", "/some/dir/.carapace_bin_macros.spec.yaml")
 	require.NoError(t, err)
 
 	assert.Contains(t, snippet, "#compdef carapace_bin_macros")
@@ -103,7 +104,7 @@ func TestWrappedCompletionSpecFilePathRoundTripsThroughRealZsh(t *testing.T) {
 	cmd, _, err := spec.ParseYAML("name: greet\nflags:\n  --loud: shout\n", "")
 	require.NoError(t, err)
 
-	snippet, err := WrappedCompletion(cmd, "greet", specPath)
+	snippet, err := em.WrappedCompletion(cmd, "greet", specPath)
 	require.NoError(t, err)
 
 	captureFile := filepath.Join(t.TempDir(), "captured")
@@ -118,7 +119,7 @@ words=(greet "")
 CURRENT=2
 curcontext=":completion::complete:greet::"
 _greet_completion
-`, cmdutil.EnvSpecFile, Quote(captureFile), snippet)
+`, cmdutil.EnvSpecFile, em.Quote(captureFile), snippet)
 
 	_, err = exec.Command("zsh", "-fc", script).Output()
 	require.NoError(t, err)
