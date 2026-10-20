@@ -1,28 +1,14 @@
 package bash
 
 import (
-	"cmp"
 	"fmt"
 	"io"
-	"maps"
-	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/nesneros/compleo/internal/parse"
+	"github.com/nesneros/compleo/internal/shells"
 )
-
-// EmitHelp writes bash that prints text and exits 0.
-func (e Emitter) EmitHelp(w io.Writer, text string) error {
-	_, err := fmt.Fprintf(w, "printf '%%s\\n' %s\nexit 0\n", e.Quote(strings.TrimRight(text, "\n")))
-	return err
-}
-
-// EmitError writes bash that prints "name: parseErr" to stderr and exits 2.
-func (e Emitter) EmitError(w io.Writer, name string, parseErr error) error {
-	_, err := fmt.Fprintf(w, "printf '%%s\\n' %s >&2\nexit 2\n", e.Quote(fmt.Sprintf("%s: %s", name, parseErr)))
-	return err
-}
 
 // EmitGenerated writes bash that prints an activation hint. When missing is non-empty,
 // it first prints one warning listing those $bin.* completion macros.
@@ -33,15 +19,18 @@ func (e Emitter) EmitGenerated(w io.Writer, name string, missing []string) error
 			macros[i] = "$" + bin + ".*"
 		}
 		msg := "warning: not on PATH, so these completion macros will not work: " + strings.Join(macros, ", ")
-		if _, err := fmt.Fprintf(w, "printf '%%s\\n' %s >&2\n", e.Quote(msg)); err != nil {
+		if err := e.PrintStderr(w, msg); err != nil {
 			return err
 		}
 	}
-	msg := e.Quote(fmt.Sprintf(
+	msg := fmt.Sprintf(
 		"To activate completion for %s in this shell, run: complete -o noquote -F _%s_completion %s",
 		name, name, name,
-	))
-	_, err := fmt.Fprintf(w, "printf '%%s\\n' %s >&2\nexit 0\n", msg)
+	)
+	if err := e.PrintStderr(w, msg); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintf(w, "exit %d\n", 0)
 	return err
 }
 
@@ -81,7 +70,7 @@ func (Emitter) EmitResult(w io.Writer, result parse.Result) error {
 	write("declare -A compleo")
 
 	var arrays []string
-	for _, name := range sortedKeys(result.Flags) {
+	for _, name := range shells.SortedKeys(result.Flags) {
 		fv := result.Flags[name]
 		if fv.Kind == parse.KindStrings {
 			arrays = append(arrays, arrayAssignment(name, fv.Strings))
@@ -90,7 +79,7 @@ func (Emitter) EmitResult(w io.Writer, result parse.Result) error {
 		write(scalarAssignment(name, flagScalar(fv)))
 	}
 
-	for _, name := range sortedKeys(result.Positionals) {
+	for _, name := range shells.SortedKeys(result.Positionals) {
 		pv := result.Positionals[name]
 		if pv.Variadic {
 			arrays = append(arrays, arrayAssignment(name, pv.Values))
@@ -124,14 +113,14 @@ func flagScalar(fv parse.FlagValue) string {
 }
 
 func scalarAssignment(name, value string) string {
-	return "compleo[" + name + "]=" + Emitter{}.Quote(value)
+	return "compleo[" + name + "]=" + Em.Quote(value)
 }
 
 func arrayAssignment(name string, values []string) string {
 	varName := arrayVarName(name)
 	quoted := make([]string, len(values))
 	for i, v := range values {
-		quoted[i] = Emitter{}.Quote(v)
+		quoted[i] = Em.Quote(v)
 	}
 	return "declare -a " + varName + "=(" + strings.Join(quoted, " ") + ")"
 }
@@ -147,8 +136,4 @@ func arrayVarName(name string) string {
 		}
 	}
 	return b.String()
-}
-
-func sortedKeys[K cmp.Ordered, V any](m map[K]V) []K {
-	return slices.Sorted(maps.Keys(m))
 }

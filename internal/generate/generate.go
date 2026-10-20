@@ -25,25 +25,39 @@ var declaredNamePattern = regexp.MustCompile(`(?m)^name:`)
 // Generate writes a completion file for sp's command tree, with rawSpec embedded as its
 // companion spec file, to the completion directory. The snippet is for the interactive
 // shell; the success report is eval'd by the script's shell.
-func Generate(cmd *cobra.Command, sp spec.Command, rawSpec string, out io.Writer) error {
+func Generate(cmd *cobra.Command, sp spec.Command, rawSpec, generateName string, out io.Writer) error {
 	dir := cmdutil.CompletionDir()
 
-	// name is what completion gets registered under. EnvGenerateName (from "generate
+	// name is what completion gets registered under. generateName (from "generate
 	// <script>") fills in an undeclared name:, but a declared one that disagrees is an error.
 	name := sp.Name
-	if requested := os.Getenv(cmdutil.EnvGenerateName); requested != "" {
-		if sp.Name != "" && sp.Name != requested {
-			return fmt.Errorf("generate: spec declares name: %q, but %q was invoked — these must match", sp.Name, requested)
+	if generateName != "" {
+		if sp.Name != "" && sp.Name != generateName {
+			return fmt.Errorf("generate: spec declares name: %q, but %q was invoked — these must match", sp.Name, generateName)
 		}
-		name = requested
+		name = generateName
+	}
+
+	// The wrapping script is only known when "compleo generate <script>" passed its path.
+	// A hand-run _COMPLEO_GENERATE_NAME trigger has no script to read a shebang from.
+	scriptShell, err := wrappingScriptShell()
+	if err != nil {
+		return fmt.Errorf("generate: %w", err)
+	}
+	if sp.ScriptShell != "" && scriptShell != "" && sp.ScriptShell != scriptShell {
+		return fmt.Errorf("generate: spec declares scriptShell: %q, but the script's shebang names %q", sp.ScriptShell, scriptShell)
 	}
 
 	// A spec whose own text doesn't declare name: gets it prepended, so the companion file is
 	// a complete, standalone spec — sp.Name alone can't tell us this (it may already be set
-	// via --name with rawSpec's own text still lacking one).
+	// via --name with rawSpec's own text still lacking one). scriptShell is the same kind of
+	// fill-in, from the shebang rather than from --name.
 	specFileText := rawSpec
+	if scriptShell != "" && sp.ScriptShell == "" {
+		specFileText = "scriptShell: '" + strings.ReplaceAll(scriptShell, "'", "''") + "'\n" + specFileText
+	}
 	if !declaredNamePattern.MatchString(rawSpec) {
-		specFileText = "name: '" + strings.ReplaceAll(name, "'", "''") + "'\n" + rawSpec
+		specFileText = "name: '" + strings.ReplaceAll(name, "'", "''") + "'\n" + specFileText
 	}
 
 	// A leading dot keeps this out of EmitActivate's "autoload -Uz dir/*" glob (zsh glob
@@ -64,6 +78,21 @@ func Generate(cmd *cobra.Command, sp spec.Command, rawSpec string, out io.Writer
 	}
 	// A missing $bin.* target fails at Tab time as a completion message, not a shell error.
 	return shells.GetEvalEmitter().EmitGenerated(out, name, missingMacroBins(sp))
+}
+
+// wrappingScriptShell reads the shebang of the script named by EnvScriptFile.
+// An empty path means no script was passed, and the result is empty.
+func wrappingScriptShell() (string, error) {
+	path := os.Getenv(cmdutil.EnvScriptFile)
+	if path == "" {
+		return "", nil
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close() //nolint:errcheck
+	return shells.ShebangShell(f)
 }
 
 // missingMacroBins returns binaries ActionMacro would exec for sp that are not on PATH.
@@ -114,7 +143,7 @@ func macroBin(expr, self string) string {
 }
 
 // GenerateFor runs script (a bare name resolved via $PATH, or a path) as a subprocess with
-// EnvGenerateName set, writing its output to out.
+// EnvGenerateName and EnvScriptFile set, writing its output to out.
 func GenerateFor(script string, out io.Writer) error {
 	path, err := exec.LookPath(script)
 	if err != nil {
@@ -128,7 +157,10 @@ func GenerateFor(script string, out io.Writer) error {
 	// one directly, without even consulting $PATH), but EnvGenerateName must be a bare
 	// name to match what the script's own "${0:t}" computes from its argv[0].
 	cmd := exec.Command(path)
-	cmd.Env = append(os.Environ(), cmdutil.EnvGenerateName+"="+filepath.Base(script))
+	cmd.Env = append(os.Environ(),
+		cmdutil.EnvGenerateName+"="+filepath.Base(script),
+		cmdutil.EnvScriptFile+"="+path,
+	)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = out
 	cmd.Stderr = os.Stderr

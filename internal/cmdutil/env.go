@@ -9,6 +9,9 @@ const (
 	// EnvGenerateName is the name a generated completion is registered under. Its presence
 	// also selects compleo's generate behavior beyond parsing "$@".
 	EnvGenerateName = "_COMPLEO_GENERATE_NAME"
+	// EnvScriptFile is the wrapping script generate reads a shebang from. Set by
+	// "compleo generate <script>"; absent for a hand-run _COMPLEO_GENERATE_NAME trigger.
+	EnvScriptFile = "_COMPLEO_SCRIPT_FILE"
 	// EnvSpecFile is the path to the spec file a completion is built from.
 	EnvSpecFile = "_COMPLEO_SPEC_FILE"
 	// EnvDebugLog is a file path compleo appends errors to. Must be a real file, not

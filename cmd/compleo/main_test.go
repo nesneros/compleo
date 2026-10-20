@@ -312,7 +312,7 @@ func TestRunWithActivatePrintsFpathWiring(t *testing.T) {
 	var stdout bytes.Buffer
 	err := run([]string{"activate"}, false, strings.NewReader(""), &stdout, "")
 	require.NoError(t, err)
-	assert.Contains(t, stdout.String(), "fpath+=("+zsh.Emitter{}.Quote(dir)+")")
+	assert.Contains(t, stdout.String(), "fpath+=("+zsh.Em.Quote(dir)+")")
 }
 
 func TestRunWithActivateWritesOwnCompletionFile(t *testing.T) {
@@ -372,7 +372,7 @@ func TestRunParseGenerateModeWritesWrappedScriptsCompletionFile(t *testing.T) {
 	content, err := os.ReadFile(filepath.Join(dir, "_greet"))
 	require.NoError(t, err)
 	assert.Contains(t, string(content), "#compdef greet")
-	assert.Contains(t, string(content), "local -x "+cmdutil.EnvSpecFile+"="+zsh.Emitter{}.Quote(filepath.Join(dir, ".greet.spec.yaml")))
+	assert.Contains(t, string(content), "local -x "+cmdutil.EnvSpecFile+"="+zsh.Em.Quote(filepath.Join(dir, ".greet.spec.yaml")))
 
 	specContent, err := os.ReadFile(filepath.Join(dir, ".greet.spec.yaml"))
 	require.NoError(t, err)

@@ -18,8 +18,8 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	shells.SetCompletionEmitter(zsh.Emitter{})
-	shells.SetEvalEmitter(zsh.Emitter{})
+	shells.SetCompletionEmitter(zsh.Em)
+	shells.SetEvalEmitter(zsh.Em)
 	os.Exit(m.Run())
 }
 
@@ -27,20 +27,19 @@ func TestMain(m *testing.M) {
 func TestGenerateInsertsNameWhenSpecDoesNotDeclareOne(t *testing.T) {
 	completionDir := t.TempDir()
 	t.Setenv(cmdutil.EnvCompletionDir, completionDir)
-	t.Setenv(cmdutil.EnvGenerateName, "real-name")
 
 	rawSpec := "flags:\n  --loud: shout\n"
 	cmd, sp, err := spec.ParseYAML(rawSpec, "")
 	require.NoError(t, err)
 	require.Empty(t, sp.Name)
 
-	require.NoError(t, Generate(cmd, sp, rawSpec, &bytes.Buffer{}))
+	require.NoError(t, Generate(cmd, sp, rawSpec, "real-name", &bytes.Buffer{}))
 
 	content, err := os.ReadFile(filepath.Join(completionDir, "_real-name"))
 	require.NoError(t, err)
 	assert.Contains(t, string(content), "#compdef real-name")
 	assert.Contains(t, string(content), "function _real-name_completion")
-	assert.Contains(t, string(content), "local -x "+cmdutil.EnvSpecFile+"="+zsh.Emitter{}.Quote(filepath.Join(completionDir, ".real-name.spec.yaml")))
+	assert.Contains(t, string(content), "local -x "+cmdutil.EnvSpecFile+"="+zsh.Em.Quote(filepath.Join(completionDir, ".real-name.spec.yaml")))
 
 	specContent, err := os.ReadFile(filepath.Join(completionDir, ".real-name.spec.yaml"))
 	require.NoError(t, err)
@@ -59,24 +58,76 @@ func TestGenerateInsertsNameSuppliedOnlyViaNameFlag(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "greet", sp.Name)
 
-	require.NoError(t, Generate(cmd, sp, rawSpec, &bytes.Buffer{}))
+	require.NoError(t, Generate(cmd, sp, rawSpec, "", &bytes.Buffer{}))
 
 	specContent, err := os.ReadFile(filepath.Join(completionDir, ".greet.spec.yaml"))
 	require.NoError(t, err)
 	assert.Equal(t, "name: 'greet'\n"+rawSpec, string(specContent))
 }
 
+func TestGenerateInsertsScriptShellFromShebang(t *testing.T) {
+	completionDir := t.TempDir()
+	t.Setenv(cmdutil.EnvCompletionDir, completionDir)
+	scriptPath := filepath.Join(t.TempDir(), "greet")
+	require.NoError(t, os.WriteFile(scriptPath, []byte("#!/usr/bin/env zsh\n"), 0o755))
+	t.Setenv(cmdutil.EnvScriptFile, scriptPath)
+
+	rawSpec := "name: greet\nflags:\n  --loud: shout\n"
+	cmd, sp, err := spec.ParseYAML(rawSpec, "")
+	require.NoError(t, err)
+
+	require.NoError(t, Generate(cmd, sp, rawSpec, "", &bytes.Buffer{}))
+
+	specContent, err := os.ReadFile(filepath.Join(completionDir, ".greet.spec.yaml"))
+	require.NoError(t, err)
+	assert.Equal(t, "scriptShell: 'zsh'\n"+rawSpec, string(specContent))
+
+	_, parsed, err := spec.ParseYAML(string(specContent), "")
+	require.NoError(t, err)
+	assert.Equal(t, "zsh", parsed.ScriptShell)
+}
+
+func TestGenerateFailsWhenScriptShellDisagreesWithShebang(t *testing.T) {
+	completionDir := t.TempDir()
+	t.Setenv(cmdutil.EnvCompletionDir, completionDir)
+	scriptPath := filepath.Join(t.TempDir(), "greet")
+	require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/zsh\n"), 0o755))
+	t.Setenv(cmdutil.EnvScriptFile, scriptPath)
+
+	rawSpec := "name: greet\nscriptShell: bash\n"
+	cmd, sp, err := spec.ParseYAML(rawSpec, "")
+	require.NoError(t, err)
+
+	err = Generate(cmd, sp, rawSpec, "", &bytes.Buffer{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `scriptShell: "bash"`)
+	assert.Contains(t, err.Error(), "zsh")
+
+	_, statErr := os.Stat(filepath.Join(completionDir, ".greet.spec.yaml"))
+	assert.True(t, os.IsNotExist(statErr))
+}
+
+func TestGenerateForPassesScriptFileToChild(t *testing.T) {
+	dir := t.TempDir()
+	scriptPath := filepath.Join(dir, "fake-wrapped")
+	require.NoError(t, os.WriteFile(scriptPath, fmt.Appendf(nil, "#!/bin/sh\n# calls compleo\necho \"script=$%s\"\n", cmdutil.EnvScriptFile), 0o755))
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	var stdout bytes.Buffer
+	require.NoError(t, GenerateFor("fake-wrapped", &stdout))
+	assert.Equal(t, "script="+scriptPath+"\n", stdout.String())
+}
+
 // A declared name: that disagrees with the real, invokable name is an error, not overridden.
 func TestGenerateFailsWhenSpecNameDisagreesWithInvokedName(t *testing.T) {
 	completionDir := t.TempDir()
 	t.Setenv(cmdutil.EnvCompletionDir, completionDir)
-	t.Setenv(cmdutil.EnvGenerateName, "real-name")
 
 	rawSpec := "name: wrong-name\nflags:\n  --loud: shout\n"
 	cmd, sp, err := spec.ParseYAML(rawSpec, "")
 	require.NoError(t, err)
 
-	err = Generate(cmd, sp, rawSpec, &bytes.Buffer{})
+	err = Generate(cmd, sp, rawSpec, "real-name", &bytes.Buffer{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `spec declares name: "wrong-name"`)
 	assert.Contains(t, err.Error(), `"real-name" was invoked`)
@@ -143,7 +194,7 @@ func TestGenerateWarnsWhenMacroBinaryIsNotOnPath(t *testing.T) {
 	require.NoError(t, err)
 
 	var out bytes.Buffer
-	require.NoError(t, Generate(cmd, sp, rawSpec, &out))
+	require.NoError(t, Generate(cmd, sp, rawSpec, "", &out))
 
 	_, statErr := os.Stat(filepath.Join(completionDir, "_demo"))
 	require.NoError(t, statErr)
@@ -169,7 +220,7 @@ func TestGenerateDoesNotWarnWhenMacroBinaryIsOnPath(t *testing.T) {
 	require.NoError(t, err)
 
 	var out bytes.Buffer
-	require.NoError(t, Generate(cmd, sp, rawSpec, &out))
+	require.NoError(t, Generate(cmd, sp, rawSpec, "", &out))
 
 	t.Setenv("PATH", path)
 	stderr := evalGenerated(t, out.String())
@@ -196,7 +247,7 @@ func TestGenerateDoesNotWarnForCoreOrOwnMacros(t *testing.T) {
 	require.NoError(t, err)
 
 	var out bytes.Buffer
-	require.NoError(t, Generate(cmd, sp, rawSpec, &out))
+	require.NoError(t, Generate(cmd, sp, rawSpec, "", &out))
 
 	t.Setenv("PATH", path)
 	stderr := evalGenerated(t, out.String())

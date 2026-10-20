@@ -1,28 +1,14 @@
 package zsh
 
 import (
-	"cmp"
 	"fmt"
 	"io"
-	"maps"
-	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/nesneros/compleo/internal/parse"
+	"github.com/nesneros/compleo/internal/shells"
 )
-
-// EmitHelp writes text as zsh that prints it and exits 0.
-func (e Emitter) EmitHelp(w io.Writer, text string) error {
-	_, err := fmt.Fprintf(w, "print -r -- %s\nexit 0\n", e.Quote(strings.TrimRight(text, "\n")))
-	return err
-}
-
-// EmitError writes zsh that prints "name: parseErr" to stderr and exits 2.
-func (e Emitter) EmitError(w io.Writer, name string, parseErr error) error {
-	_, err := fmt.Fprintf(w, "print -u2 -- %s\nexit 2\n", e.Quote(fmt.Sprintf("%s: %s", name, parseErr)))
-	return err
-}
 
 // EmitGenerated writes zsh that prints the hint for activating name's completion in the
 // current shell: autoloading "_<name>" and binding it via compdef. When missing is
@@ -34,15 +20,18 @@ func (e Emitter) EmitGenerated(w io.Writer, name string, missing []string) error
 			macros[i] = "$" + bin + ".*"
 		}
 		msg := "warning: not on PATH, so these completion macros will not work: " + strings.Join(macros, ", ")
-		if _, err := fmt.Fprintf(w, "print -u2 -- %s\n", e.Quote(msg)); err != nil {
+		if err := e.PrintStderr(w, msg); err != nil {
 			return err
 		}
 	}
-	msg := e.Quote(fmt.Sprintf(
+	msg := fmt.Sprintf(
 		"To activate completion for %s in this shell, run: autoload -Uz _%s && compdef _%s %s",
 		name, name, name, name,
-	))
-	_, err := fmt.Fprintf(w, "print -u2 -- %s\nexit 0\n", msg)
+	)
+	if err := e.PrintStderr(w, msg); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintf(w, "exit %d\n", 0)
 	return err
 }
 
@@ -86,7 +75,7 @@ func (Emitter) EmitResult(w io.Writer, result parse.Result) error {
 	write("typeset -A compleo=()")
 
 	var arrays []string
-	for _, name := range sortedKeys(result.Flags) {
+	for _, name := range shells.SortedKeys(result.Flags) {
 		fv := result.Flags[name]
 		if fv.Kind == parse.KindStrings {
 			arrays = append(arrays, arrayAssignment(name, fv.Strings))
@@ -95,7 +84,7 @@ func (Emitter) EmitResult(w io.Writer, result parse.Result) error {
 		write(scalarAssignment(name, flagScalar(fv)))
 	}
 
-	for _, name := range sortedKeys(result.Positionals) {
+	for _, name := range shells.SortedKeys(result.Positionals) {
 		pv := result.Positionals[name]
 		if pv.Variadic {
 			arrays = append(arrays, arrayAssignment(name, pv.Values))
@@ -131,7 +120,7 @@ func flagScalar(fv parse.FlagValue) string {
 
 // name stays unquoted: quoting a zsh assoc-array key makes the literal quote chars part of it.
 func scalarAssignment(name, value string) string {
-	return "compleo[" + name + "]=" + Emitter{}.Quote(value)
+	return "compleo[" + name + "]=" + Em.Quote(value)
 }
 
 // arrayAssignment declares and fills a dedicated array for a multi-valued flag or positional.
@@ -140,7 +129,7 @@ func arrayAssignment(name string, values []string) string {
 
 	quoted := make([]string, len(values))
 	for i, v := range values {
-		quoted[i] = Emitter{}.Quote(v)
+		quoted[i] = Em.Quote(v)
 	}
 
 	var b strings.Builder
@@ -166,9 +155,4 @@ func arrayVarName(name string) string {
 		}
 	}
 	return b.String()
-}
-
-// sortedKeys returns m's keys sorted, for deterministic output despite map iteration order.
-func sortedKeys[K cmp.Ordered, V any](m map[K]V) []K {
-	return slices.Sorted(maps.Keys(m))
 }

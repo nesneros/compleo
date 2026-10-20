@@ -24,8 +24,8 @@ var specYAML []byte
 
 func init() {
 	// Detection will replace these. Until then both shells are zsh.
-	shells.SetCompletionEmitter(zsh.Emitter{})
-	shells.SetEvalEmitter(zsh.Emitter{})
+	shells.SetCompletionEmitter(zsh.Em)
+	shells.SetEvalEmitter(zsh.Em)
 }
 
 func main() {
@@ -111,7 +111,7 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, generateName st
 	case "activate":
 		dir := cmdutil.CompletionDir()
 		em := shells.GetCompletionEmitter()
-		snippet, err := shells.Completion(ownCmd, "zsh")
+		snippet, err := shells.Completion(ownCmd, em.Name())
 		if err != nil {
 			return err
 		}
@@ -155,7 +155,7 @@ func runParse(args []string, rawSpec string, out io.Writer, name string, generat
 	cmd.SilenceUsage = true
 
 	if generateName != "" {
-		return generate.Generate(cmd, sp, rawSpec, out)
+		return generate.Generate(cmd, sp, rawSpec, generateName, out)
 	}
 	return runEmit(cmd, sp, args, out)
 }

@@ -13,13 +13,13 @@ import (
 // registering it under name. specFilePath is embedded into the snippet as EnvSpecFile.
 func (e Emitter) WrappedCompletion(cmd *cobra.Command, name string, specFilePath string) (string, error) {
 	renameCommand(cmd, name)
-	snippet, err := shells.Completion(cmd, "bash")
+	snippet, err := shells.Completion(cmd, e.Name())
 	if err != nil {
 		return "", err
 	}
 	anchor := "_" + name + "_completion() {\n"
 	if !strings.Contains(snippet, anchor) {
-		return "", fmt.Errorf("bash: generated snippet did not contain expected function definition %q (carapace's bash template may have changed)", anchor)
+		return "", fmt.Errorf("%s: generated snippet did not contain expected function definition %q (carapace's %s template may have changed)", e.Name(), anchor, e.Name())
 	}
 	inject := anchor + "  local -x " + cmdutil.EnvSpecFile + "=" + e.Quote(specFilePath) + "\n"
 	return strings.Replace(snippet, anchor, inject, 1), nil

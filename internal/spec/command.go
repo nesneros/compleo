@@ -33,6 +33,9 @@ type Command struct {
 	Examples      map[string]string `yaml:"examples,omitempty"`
 
 	Positionals []Positional `yaml:"positionals,omitempty"`
+
+	// ScriptShell is the wrapping script's shell, taken from its shebang. generate fills it in.
+	ScriptShell string `yaml:"scriptShell,omitempty"`
 }
 
 // All yields c and every command nested under it, depth-first in spec order.

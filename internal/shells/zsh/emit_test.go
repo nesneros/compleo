@@ -16,40 +16,38 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var em Emitter
-
 func emitResult(t *testing.T, result parse.Result) string {
 	t.Helper()
 	var buf bytes.Buffer
-	require.NoError(t, em.EmitResult(&buf, result))
+	require.NoError(t, Em.EmitResult(&buf, result))
 	return buf.String()
 }
 
 func emitHelp(t *testing.T, text string) string {
 	t.Helper()
 	var buf bytes.Buffer
-	require.NoError(t, em.EmitHelp(&buf, text))
+	require.NoError(t, Em.EmitHelp(&buf, text))
 	return buf.String()
 }
 
 func emitError(t *testing.T, name string, err error) string {
 	t.Helper()
 	var buf bytes.Buffer
-	require.NoError(t, em.EmitError(&buf, name, err))
+	require.NoError(t, Em.EmitError(&buf, name, err))
 	return buf.String()
 }
 
 func emitGenerated(t *testing.T, name string) string {
 	t.Helper()
 	var buf bytes.Buffer
-	require.NoError(t, em.EmitGenerated(&buf, name, nil))
+	require.NoError(t, Em.EmitGenerated(&buf, name, nil))
 	return buf.String()
 }
 
 func emitActivate(t *testing.T, dir string) string {
 	t.Helper()
 	var buf bytes.Buffer
-	require.NoError(t, em.EmitActivate(&buf, dir))
+	require.NoError(t, Em.EmitActivate(&buf, dir))
 	return buf.String()
 }
 
@@ -148,7 +146,7 @@ func TestEmitQuotesValuesWithSpecialCharacters(t *testing.T) {
 		"name": {Kind: parse.KindString, String: "it's $dangerous"},
 	}}
 
-	assert.Contains(t, emitResult(t, result), "compleo[name]="+em.Quote("it's $dangerous"))
+	assert.Contains(t, emitResult(t, result), "compleo[name]="+Em.Quote("it's $dangerous"))
 }
 
 func TestEmitDeclaresMainArrayEvenWhenEmpty(t *testing.T) {
@@ -288,7 +286,7 @@ func TestEmitGeneratedPrintsConfirmationToStderrAndExitsZero(t *testing.T) {
 
 func TestEmitGeneratedPrintsOneWarningForMissingMacros(t *testing.T) {
 	var buf bytes.Buffer
-	require.NoError(t, em.EmitGenerated(&buf, "greet", []string{"carapace", "missingb"}))
+	require.NoError(t, Em.EmitGenerated(&buf, "greet", []string{"carapace", "missingb"}))
 
 	cmd := exec.Command("zsh", "-fc", buf.String())
 	var stderr bytes.Buffer
@@ -307,7 +305,7 @@ func TestEmitGeneratedPrintsOneWarningForMissingMacros(t *testing.T) {
 func TestEmitGeneratedActivationHintActuallyWorksFromColdStart(t *testing.T) {
 	cmd, _, err := spec.ParseYAML("name: greet\nflags:\n  --loud: shout\n", "")
 	require.NoError(t, err)
-	content, err := em.WrappedCompletion(cmd, "greet", "name: greet\nflags:\n  --loud: shout\n")
+	content, err := Em.WrappedCompletion(cmd, "greet", "name: greet\nflags:\n  --loud: shout\n")
 	require.NoError(t, err)
 
 	fpathDir := t.TempDir()
@@ -325,7 +323,7 @@ compinit -u -d %[2]s
 %[3]s
 _greet
 print -r -- "${_comps[greet]}"
-`, em.Quote(fpathDir), em.Quote(filepath.Join(t.TempDir(), "zcompdump")), activate)
+`, Em.Quote(fpathDir), Em.Quote(filepath.Join(t.TempDir(), "zcompdump")), activate)
 
 	out, err := exec.Command("zsh", "-fc", script).Output()
 	require.NoError(t, err)
@@ -334,7 +332,7 @@ print -r -- "${_comps[greet]}"
 
 func TestEmitUpGeneratesReinvocationWithNameAndArgsFilledIn(t *testing.T) {
 	var buf bytes.Buffer
-	require.NoError(t, em.EmitUp(&buf, "flags:\n  --loud: shout\n"))
+	require.NoError(t, Em.EmitUp(&buf, "flags:\n  --loud: shout\n"))
 
 	snippet := buf.String()
 	assert.Contains(t, snippet, `compleo parse --name="${0:t}" -- "$@"`)
@@ -343,7 +341,7 @@ func TestEmitUpGeneratesReinvocationWithNameAndArgsFilledIn(t *testing.T) {
 
 func TestEmitUpIsSyntacticallyValidZsh(t *testing.T) {
 	var buf bytes.Buffer
-	require.NoError(t, em.EmitUp(&buf, "flags:\n  --loud: shout\n"))
+	require.NoError(t, Em.EmitUp(&buf, "flags:\n  --loud: shout\n"))
 
 	require.NoError(t, exec.Command("zsh", "-n", "-c", buf.String()).Run())
 }
@@ -354,7 +352,7 @@ func TestEmitUpIsSyntacticallyValidZsh(t *testing.T) {
 func TestEmitUpGeneratedCodeInvokesParseWithNameArgsAndSpec(t *testing.T) {
 	original := "description: it's $dangerous `here`\nflags:\n  --loud: shout\n"
 	var buf bytes.Buffer
-	require.NoError(t, em.EmitUp(&buf, original))
+	require.NoError(t, Em.EmitUp(&buf, original))
 
 	captureFile := filepath.Join(t.TempDir(), "captured")
 	script := fmt.Sprintf(`
@@ -363,7 +361,7 @@ compleo() {
   print -r -- "typeset -A compleo=()"
 }
 %s
-`, em.Quote(captureFile), buf.String())
+`, Em.Quote(captureFile), buf.String())
 
 	_, err := exec.Command("zsh", "-fc", script, "scriptname", "world", "--loud").Output()
 	require.NoError(t, err)
@@ -398,7 +396,7 @@ func TestEmitActivateCompleoFunctionWrapsTheRealBinary(t *testing.T) {
 path=(%[1]s $path)
 %[2]s
 compleo foo bar
-`, em.Quote(binDir), emitActivate(t, completionDir))
+`, Em.Quote(binDir), emitActivate(t, completionDir))
 
 	out, err := exec.Command("zsh", "-fc", script).Output()
 	require.NoError(t, err)
@@ -432,7 +430,7 @@ compinit -u -d %[1]s
 %[2]s
 print -r -- "compleo: ${_comps[compleo]:-<none>}"
 print -r -- "greet: ${_comps[greet]:-<none>}"
-`, em.Quote(filepath.Join(t.TempDir(), "zcompdump")), emitActivate(t, dir))
+`, Em.Quote(filepath.Join(t.TempDir(), "zcompdump")), emitActivate(t, dir))
 
 	out, err := exec.Command("zsh", "-fc", script).Output()
 	require.NoError(t, err)

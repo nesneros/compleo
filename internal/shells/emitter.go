@@ -1,7 +1,10 @@
 package shells
 
 import (
+	"cmp"
 	"io"
+	"maps"
+	"slices"
 
 	"github.com/nesneros/compleo/internal/parse"
 	"github.com/spf13/cobra"
@@ -22,6 +25,8 @@ type EvalEmitter interface {
 
 	// Quote returns s quoted for this shell.
 	Quote(s string) string
+	// Name returns this shell's name.
+	Name() string
 }
 
 // CompletionEmitter writes the interactive shell, where Tab is pressed.
@@ -33,6 +38,8 @@ type CompletionEmitter interface {
 
 	// Quote returns s quoted for this shell.
 	Quote(s string) string
+	// Name returns this shell's name.
+	Name() string
 }
 
 // Emitter is an EvalEmitter and a CompletionEmitter.
@@ -58,3 +65,8 @@ func SetEvalEmitter(e EvalEmitter) { evalEmitter = e }
 
 // GetEvalEmitter returns the emitter for code a wrapped script evals.
 func GetEvalEmitter() EvalEmitter { return evalEmitter }
+
+// SortedKeys returns m's keys sorted, for deterministic output despite map iteration order.
+func SortedKeys[K cmp.Ordered, V any](m map[K]V) []K {
+	return slices.Sorted(maps.Keys(m))
+}
