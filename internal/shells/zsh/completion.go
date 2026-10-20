@@ -4,31 +4,17 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/carapace-sh/carapace"
 	"github.com/nesneros/compleo/internal/cmdutil"
+	"github.com/nesneros/compleo/internal/shells"
 	"github.com/spf13/cobra"
 )
-
-// Completion generates the zsh completion function for cmd. Only for compleo's own CLI,
-// whose spec is embedded in the binary — use WrappedCompletion for a wrapped script's spec.
-func Completion(cmd *cobra.Command) (string, error) {
-	snippet, err := carapace.Gen(cmd).Snippet("zsh")
-	if err != nil {
-		return "", err
-	}
-	// carapace's snippet does not end with a newline.
-	if !strings.HasSuffix(snippet, "\n") {
-		snippet += "\n"
-	}
-	return snippet, nil
-}
 
 // WrappedCompletion generates the completion function for a wrapped script's cmd,
 // registering it under name (which may differ from cmd.Name()). specFilePath is embedded
 // into the snippet as EnvSpecFile.
-func WrappedCompletion(cmd *cobra.Command, name string, specFilePath string) (string, error) {
+func (e Emitter) WrappedCompletion(cmd *cobra.Command, name string, specFilePath string) (string, error) {
 	renameCommand(cmd, name)
-	snippet, err := Completion(cmd)
+	snippet, err := shells.Completion(cmd, "zsh")
 	if err != nil {
 		return "", err
 	}
@@ -36,7 +22,7 @@ func WrappedCompletion(cmd *cobra.Command, name string, specFilePath string) (st
 	if !strings.Contains(snippet, anchor) {
 		return "", fmt.Errorf("zsh: generated snippet did not contain expected function definition %q (carapace's zsh template may have changed)", anchor)
 	}
-	inject := anchor + "  local -x " + cmdutil.EnvSpecFile + "=" + Quote(specFilePath) + "\n"
+	inject := anchor + "  local -x " + cmdutil.EnvSpecFile + "=" + e.Quote(specFilePath) + "\n"
 	return strings.Replace(snippet, anchor, inject, 1), nil
 }
 

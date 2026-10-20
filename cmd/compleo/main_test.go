@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/nesneros/compleo/internal/cmdutil"
-	"github.com/nesneros/compleo/internal/zsh"
+	"github.com/nesneros/compleo/internal/shells/zsh"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -312,7 +312,7 @@ func TestRunWithActivatePrintsFpathWiring(t *testing.T) {
 	var stdout bytes.Buffer
 	err := run([]string{"activate"}, false, strings.NewReader(""), &stdout, "")
 	require.NoError(t, err)
-	assert.Contains(t, stdout.String(), "fpath+=("+zsh.Quote(dir)+")")
+	assert.Contains(t, stdout.String(), "fpath+=("+zsh.Emitter{}.Quote(dir)+")")
 }
 
 func TestRunWithActivateWritesOwnCompletionFile(t *testing.T) {
@@ -372,7 +372,7 @@ func TestRunParseGenerateModeWritesWrappedScriptsCompletionFile(t *testing.T) {
 	content, err := os.ReadFile(filepath.Join(dir, "_greet"))
 	require.NoError(t, err)
 	assert.Contains(t, string(content), "#compdef greet")
-	assert.Contains(t, string(content), "local -x "+cmdutil.EnvSpecFile+"="+zsh.Quote(filepath.Join(dir, ".greet.spec.yaml")))
+	assert.Contains(t, string(content), "local -x "+cmdutil.EnvSpecFile+"="+zsh.Emitter{}.Quote(filepath.Join(dir, ".greet.spec.yaml")))
 
 	specContent, err := os.ReadFile(filepath.Join(dir, ".greet.spec.yaml"))
 	require.NoError(t, err)
