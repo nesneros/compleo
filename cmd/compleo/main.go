@@ -14,6 +14,7 @@ import (
 	"github.com/nesneros/compleo/internal/generate"
 	"github.com/nesneros/compleo/internal/parse"
 	"github.com/nesneros/compleo/internal/shells"
+	_ "github.com/nesneros/compleo/internal/shells/bash" // registers the bash emitter
 	"github.com/nesneros/compleo/internal/shells/zsh"
 	"github.com/nesneros/compleo/internal/spec"
 	"github.com/spf13/cobra"
@@ -110,8 +111,18 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, generateName st
 	switch cmdName {
 	case "activate":
 		dir := cmdutil.CompletionDir()
-		em := shells.GetCompletionEmitter()
-		snippet, err := shells.Completion(ownCmd, em.Name())
+		shell, err := cmdutil.ParentProcessName()
+		if err != nil {
+			return err
+		}
+		if values := result.Positionals["shell"].Values; len(values) > 0 {
+			shell = values[0]
+		}
+		em, err := shells.SetCompletionEmitterNamed(shell)
+		if err != nil {
+			return err
+		}
+		snippet, err := shells.Completion(ownCmd, em)
 		if err != nil {
 			return err
 		}

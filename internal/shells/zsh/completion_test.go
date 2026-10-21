@@ -24,7 +24,7 @@ flags:
 `, "")
 	require.NoError(t, err)
 
-	snippet, err := shells.Completion(cmd, Em.Name())
+	snippet, err := shells.Completion(cmd, Emitter{})
 	require.NoError(t, err)
 
 	assert.Contains(t, snippet, "#compdef mytool")
@@ -47,12 +47,12 @@ commands:
 `
 	cmd1, _, err := spec.ParseYAML(yaml, "")
 	require.NoError(t, err)
-	snippet1, err := shells.Completion(cmd1, Em.Name())
+	snippet1, err := shells.Completion(cmd1, Emitter{})
 	require.NoError(t, err)
 
 	cmd2, _, err := spec.ParseYAML(yaml, "")
 	require.NoError(t, err)
-	snippet2, err := shells.Completion(cmd2, Em.Name())
+	snippet2, err := shells.Completion(cmd2, Emitter{})
 	require.NoError(t, err)
 
 	assert.Equal(t, snippet1, snippet2)

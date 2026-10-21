@@ -1,5 +1,10 @@
 package cmdutil
 
+import (
+	"fmt"
+	"os"
+)
+
 // Env var names compleo reads or sets. A leading "_" marks internal plumbing (compleo setting
 // something for compleo to read back, or a by-hand-triggerable mechanism) rather than a
 // durable user-facing setting — only EnvCompletionDir lacks one.
@@ -20,3 +25,8 @@ const (
 	// compleo starts, so /dev/stderr would resolve to that same /dev/null by inheritance.
 	EnvDebugLog = "_COMPLEO_DEBUG_LOG"
 )
+
+func Panic(msg string) {
+	fmt.Fprintln(os.Stderr, msg)
+	os.Exit(1)
+}

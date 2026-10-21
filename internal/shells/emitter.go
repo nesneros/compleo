@@ -2,10 +2,12 @@ package shells
 
 import (
 	"cmp"
+	"fmt"
 	"io"
 	"maps"
 	"slices"
 
+	"github.com/nesneros/compleo/internal/cmdutil"
 	"github.com/nesneros/compleo/internal/parse"
 	"github.com/spf13/cobra"
 )
@@ -49,10 +51,27 @@ type Emitter interface {
 	CompletionEmitter
 }
 
+func RegisterEmitter(e any) {
+	if ee, ok := e.(EvalEmitter); ok {
+		registeredEvalEmitters[ee.Name()] = ee
+	}
+	if ce, ok := e.(CompletionEmitter); ok {
+		registeredCompletionEmitters[ce.Name()] = ce
+	}
+}
+
 var (
+	registeredEvalEmitters       map[string]EvalEmitter
+	registeredCompletionEmitters map[string]CompletionEmitter
+
 	completionEmitter CompletionEmitter
 	evalEmitter       EvalEmitter
 )
+
+func init() {
+	registeredEvalEmitters = make(map[string]EvalEmitter)
+	registeredCompletionEmitters = make(map[string]CompletionEmitter)
+}
 
 // SetCompletionEmitter sets the interactive-shell emitter.
 func SetCompletionEmitter(e CompletionEmitter) { completionEmitter = e }
@@ -64,9 +83,48 @@ func GetCompletionEmitter() CompletionEmitter { return completionEmitter }
 func SetEvalEmitter(e EvalEmitter) { evalEmitter = e }
 
 // GetEvalEmitter returns the emitter for code a wrapped script evals.
-func GetEvalEmitter() EvalEmitter { return evalEmitter }
+func GetEvalEmitter() EvalEmitter {
+	return evalEmitter
+}
 
 // SortedKeys returns m's keys sorted, for deterministic output despite map iteration order.
 func SortedKeys[K cmp.Ordered, V any](m map[K]V) []K {
 	return slices.Sorted(maps.Keys(m))
+}
+
+func EvalEmitterForShell(shell string) EvalEmitter {
+	return registeredEvalEmitters[shell]
+}
+
+func SetCompletionEmitterNamed(shell string) (CompletionEmitter, error) {
+	emitter := registeredCompletionEmitters[shell]
+	if emitter == nil {
+		return nil, fmt.Errorf("unsupported shell: %s", shell)
+	}
+	completionEmitter = emitter
+	return emitter, nil
+}
+
+func SetEvalEmitterFromInteractiveShell() EvalEmitter {
+	shell, err := cmdutil.ParentProcessName()
+	if err != nil {
+		cmdutil.Panic(err.Error())
+	}
+	emitter := EvalEmitterForShell(shell)
+	if emitter == nil {
+		cmdutil.Panic(fmt.Sprintf("unsupported shell: %s", shell))
+	}
+	evalEmitter = emitter
+	return emitter
+}
+
+func ParentShellFallback(shell string) string {
+	if shell != "" {
+		return shell
+	}
+	shell, err := cmdutil.ParentProcessName()
+	if err != nil {
+		cmdutil.Panic(err.Error())
+	}
+	return shell
 }

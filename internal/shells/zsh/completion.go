@@ -14,7 +14,7 @@ import (
 // into the snippet as EnvSpecFile.
 func (e Emitter) WrappedCompletion(cmd *cobra.Command, name string, specFilePath string) (string, error) {
 	renameCommand(cmd, name)
-	snippet, err := shells.Completion(cmd, e.Name())
+	snippet, err := shells.Completion(cmd, e)
 	if err != nil {
 		return "", err
 	}

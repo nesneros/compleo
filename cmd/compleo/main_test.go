@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/nesneros/compleo/internal/cmdutil"
+	"github.com/nesneros/compleo/internal/shells/bash"
 	"github.com/nesneros/compleo/internal/shells/zsh"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -305,21 +306,51 @@ func TestRunParseWithInvalidSpecFails(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestRunWithActivatePrintsFpathWiring(t *testing.T) {
+func TestRunWithActivateExplicitZshPrintsFpathWiring(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv(cmdutil.EnvCompletionDir, dir)
 
 	var stdout bytes.Buffer
-	err := run([]string{"activate"}, false, strings.NewReader(""), &stdout, "")
+	err := run([]string{"activate", "zsh"}, false, strings.NewReader(""), &stdout, "")
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "fpath+=("+zsh.Em.Quote(dir)+")")
+}
+
+func TestRunWithActivateBashPrintsSourceLoop(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv(cmdutil.EnvCompletionDir, dir)
+
+	var stdout bytes.Buffer
+	err := run([]string{"activate", "bash"}, false, strings.NewReader(""), &stdout, "")
+	require.NoError(t, err)
+	assert.Contains(t, stdout.String(), "for f in "+bash.Em.Quote(dir)+"/*; do")
+	assert.NotContains(t, stdout.String(), "fpath+=")
+}
+
+func TestRunWithActivateBashWritesBashCompletion(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv(cmdutil.EnvCompletionDir, dir)
+
+	err := run([]string{"activate", "bash"}, false, strings.NewReader(""), &bytes.Buffer{}, "")
+	require.NoError(t, err)
+
+	content, err := os.ReadFile(filepath.Join(dir, "_compleo"))
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "complete")
+	assert.NotContains(t, string(content), "#compdef compleo")
+}
+
+func TestRunWithActivateRejectsUnknownShell(t *testing.T) {
+	err := run([]string{"activate", "nosuch"}, false, strings.NewReader(""), &bytes.Buffer{}, "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "nosuch")
 }
 
 func TestRunWithActivateWritesOwnCompletionFile(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv(cmdutil.EnvCompletionDir, dir)
 
-	err := run([]string{"activate"}, false, strings.NewReader(""), &bytes.Buffer{}, "")
+	err := run([]string{"activate", "zsh"}, false, strings.NewReader(""), &bytes.Buffer{}, "")
 	require.NoError(t, err)
 
 	content, err := os.ReadFile(filepath.Join(dir, "_compleo"))
@@ -331,12 +362,12 @@ func TestRunWithActivateTwiceDoesNotRewriteUnchangedFile(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv(cmdutil.EnvCompletionDir, dir)
 
-	require.NoError(t, run([]string{"activate"}, false, strings.NewReader(""), &bytes.Buffer{}, ""))
+	require.NoError(t, run([]string{"activate", "zsh"}, false, strings.NewReader(""), &bytes.Buffer{}, ""))
 	path := filepath.Join(dir, "_compleo")
 	before, err := os.Stat(path)
 	require.NoError(t, err)
 
-	require.NoError(t, run([]string{"activate"}, false, strings.NewReader(""), &bytes.Buffer{}, ""))
+	require.NoError(t, run([]string{"activate", "zsh"}, false, strings.NewReader(""), &bytes.Buffer{}, ""))
 	after, err := os.Stat(path)
 	require.NoError(t, err)
 

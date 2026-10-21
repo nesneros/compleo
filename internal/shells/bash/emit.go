@@ -137,3 +137,7 @@ func arrayVarName(name string) string {
 	}
 	return b.String()
 }
+
+func init() {
+	shells.RegisterEmitter(&Em)
+}
