@@ -118,6 +118,16 @@ func TestSeverityCountsOldBashAsWarningOnlyWhenRelevant(t *testing.T) {
 	assert.Equal(t, 1, warnings)
 }
 
+func TestSeverityCountsBashBelow43AsWarning(t *testing.T) {
+	tooOld := Report{Shell: okShell(), Carapace: CarapaceInfo{Found: true}, Bash: BashInfo{Relevant: true, Found: true, Major: 4, Minor: 2}}
+	warnings, _ := Severity(tooOld)
+	assert.Equal(t, 1, warnings)
+
+	ok := Report{Shell: okShell(), Carapace: CarapaceInfo{Found: true}, Bash: BashInfo{Relevant: true, Found: true, Major: 4, Minor: 3}}
+	warnings, _ = Severity(ok)
+	assert.Zero(t, warnings)
+}
+
 func TestFormatIncludesVersionHeaderWhenSet(t *testing.T) {
 	out := formatString(t, Report{CompleoVersion: "1.2.3", Shell: okShell(), Carapace: CarapaceInfo{Found: true}})
 	assert.Contains(t, out, "compleo 1.2.3\n")

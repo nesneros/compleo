@@ -55,10 +55,10 @@ type, just whatever's left over after flags. compleo adds a `positionals:` list 
 
 ```yaml
 positionals:
-  - name: name       # required: becomes a key in the emitted $compleo[...] / $compleo_... array
+  - name: name       # required: emitted as the scalar $compleo_name
     description: who to greet
     required: true   # missing => a parse error (see below)
-    variadic: false  # true => a real zsh array ($compleo_name), not a scalar; must be last
+    variadic: false  # true => the array $compleo_name, not a scalar; must be last
     type: string      # see Types below; defaults to string if omitted
     completion: ["$files"]  # optional: this positional's own completion action, see below
 ```

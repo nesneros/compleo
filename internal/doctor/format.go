@@ -177,8 +177,8 @@ func bashLines(b BashInfo) []line {
 		return []line{{levelOK, b.Path + " (version undetermined)"}}
 	}
 	lvl, note := levelOK, ""
-	if b.Major < 4 {
-		lvl, note = levelWarn, " — compleo's bash completion needs bash >=4 (declare -A, mapfile)"
+	if b.Major < 4 || (b.Major == 4 && b.Minor < 3) {
+		lvl, note = levelWarn, " — compleo's bash completion needs bash 4.3 (complete -o noquote)"
 	}
 	return []line{{lvl, fmt.Sprintf("%s (bash %d.%d)%s", b.Path, b.Major, b.Minor, note)}}
 }

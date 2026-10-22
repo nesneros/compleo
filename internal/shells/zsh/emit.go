@@ -68,10 +68,9 @@ func (e Emitter) EmitActivate(dir string) error {
 	return err
 }
 
-// EmitResult writes zsh that populates a "compleo" assoc array from result's scalar flag and
-// positional values. A repeatable flag or variadic positional instead gets its own zsh
-// array, written after all scalar assignments.
-func (e Emitter) EmitResult(result parse.Result) error {
+// EmitResult writes one <prefix>_<name> variable per flag and positional. A repeatable flag
+// or variadic positional is a real array, written after the scalars.
+func (e Emitter) EmitResult(result parse.Result, prefix string) error {
 	var writeErr error
 	write := func(s string) {
 		if writeErr != nil {
@@ -80,29 +79,27 @@ func (e Emitter) EmitResult(result parse.Result) error {
 		_, writeErr = fmt.Fprintln(e.Out, s)
 	}
 
-	write("typeset -A compleo=()")
-
 	var arrays []string
 	for _, name := range shells.SortedKeys(result.Flags) {
 		fv := result.Flags[name]
 		if fv.Kind == parse.KindStrings {
-			arrays = append(arrays, arrayAssignment(name, fv.Strings))
+			arrays = append(arrays, arrayAssignment(prefix, name, fv.Strings))
 			continue
 		}
-		write(scalarAssignment(name, flagScalar(fv)))
+		write(scalarAssignment(prefix, name, flagScalar(fv)))
 	}
 
 	for _, name := range shells.SortedKeys(result.Positionals) {
 		pv := result.Positionals[name]
 		if pv.Variadic {
-			arrays = append(arrays, arrayAssignment(name, pv.Values))
+			arrays = append(arrays, arrayAssignment(prefix, name, pv.Values))
 			continue
 		}
 		var value string
 		if len(pv.Values) > 0 {
 			value = pv.Values[0]
 		}
-		write(scalarAssignment(name, value))
+		write(scalarAssignment(prefix, name, value))
 	}
 
 	for _, line := range arrays {
@@ -111,7 +108,7 @@ func (e Emitter) EmitResult(result parse.Result) error {
 	return writeErr
 }
 
-// flagScalar renders a non-repeatable flag's value for "compleo".
+// flagScalar renders a non-repeatable flag's value.
 func flagScalar(fv parse.FlagValue) string {
 	switch fv.Kind {
 	case parse.KindBool:
@@ -126,41 +123,26 @@ func flagScalar(fv parse.FlagValue) string {
 	}
 }
 
-// name stays unquoted: quoting a zsh assoc-array key makes the literal quote chars part of it.
-func scalarAssignment(name, value string) string {
-	return "compleo[" + name + "]=" + Em.Quote(value)
+func scalarAssignment(prefix, name, value string) string {
+	return shells.VarName(prefix, name) + "=" + Em.Quote(value)
 }
 
-// arrayAssignment declares and fills a dedicated array for a multi-valued flag or positional.
-func arrayAssignment(name string, values []string) string {
-	varName := arrayVarName(name)
+// arrayAssignment declares and fills the array for a multi-valued flag or positional.
+func arrayAssignment(prefix, name string, values []string) string {
+	v := shells.VarName(prefix, name)
 
 	quoted := make([]string, len(values))
-	for i, v := range values {
-		quoted[i] = Em.Quote(v)
+	for i, value := range values {
+		quoted[i] = Em.Quote(value)
 	}
 
 	var b strings.Builder
 	b.WriteString("typeset -a ")
-	b.WriteString(varName)
+	b.WriteString(v)
 	b.WriteString("=()\n")
-	b.WriteString(varName)
+	b.WriteString(v)
 	b.WriteString("=(")
 	b.WriteString(strings.Join(quoted, " "))
 	b.WriteString(")")
-	return b.String()
-}
-
-// arrayVarName replaces non [A-Za-z0-9_] chars with "_": a hyphen breaks even referencing the var later.
-func arrayVarName(name string) string {
-	var b strings.Builder
-	b.WriteString("compleo_")
-	for _, r := range name {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' {
-			b.WriteRune(r)
-		} else {
-			b.WriteByte('_')
-		}
-	}
 	return b.String()
 }

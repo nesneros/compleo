@@ -220,7 +220,7 @@ func runEmit(cmd *cobra.Command, sp spec.Command, args []string, em shells.EvalE
 	case parseResult.HelpRequested:
 		return em.EmitHelp(helpBuf.String())
 	default:
-		return em.EmitResult(parseResult)
+		return em.EmitResult(parseResult, shells.ResultPrefix)
 	}
 }
 

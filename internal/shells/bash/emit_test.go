@@ -8,12 +8,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/nesneros/compleo/internal/cmdutil"
 	"github.com/nesneros/compleo/internal/parse"
+	"github.com/nesneros/compleo/internal/shells"
 	"github.com/nesneros/compleo/internal/spec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,7 +22,7 @@ import (
 func emitResult(t *testing.T, result parse.Result) string {
 	t.Helper()
 	var buf bytes.Buffer
-	require.NoError(t, New(&buf, io.Discard).EmitResult(result))
+	require.NoError(t, New(&buf, io.Discard).EmitResult(result, shells.ResultPrefix))
 	return buf.String()
 }
 
@@ -60,25 +60,27 @@ func bashCmd(script string, args ...string) *exec.Cmd {
 	return exec.Command("bash", argv...)
 }
 
-func bashMajor(t *testing.T) int {
-	t.Helper()
-	out, err := bashCmd(`printf '%s' "${BASH_VERSINFO[0]}"`).Output()
-	require.NoError(t, err)
-	n, err := strconv.Atoi(string(out))
-	require.NoError(t, err)
-	return n
-}
-
-func TestEmitResultDeclaresAssociativeArray(t *testing.T) {
+func TestEmitResultAssignsPrefixedVariables(t *testing.T) {
 	var buf bytes.Buffer
 	err := New(&buf, io.Discard).EmitResult(parse.Result{
 		Flags: map[string]parse.FlagValue{
 			"name": {Kind: parse.KindString, String: "Jan"},
 		},
-	})
+	}, shells.ResultPrefix)
 	require.NoError(t, err)
-	assert.Contains(t, buf.String(), "declare -A compleo")
-	assert.Contains(t, buf.String(), "compleo[name]='Jan'")
+	assert.NotContains(t, buf.String(), "declare -A")
+	assert.Contains(t, buf.String(), shells.VarName(shells.ResultPrefix, "name")+"='Jan'")
+}
+
+func TestEmitResultUsesTheGivenPrefix(t *testing.T) {
+	var buf bytes.Buffer
+	err := New(&buf, io.Discard).EmitResult(parse.Result{
+		Flags: map[string]parse.FlagValue{
+			"name": {Kind: parse.KindString, String: "Jan"},
+		},
+	}, "tool")
+	require.NoError(t, err)
+	assert.Contains(t, buf.String(), "tool_name='Jan'")
 }
 
 func TestWrappedCompletionInjectsSpecFile(t *testing.T) {
@@ -99,9 +101,6 @@ func TestEmitUpUsesBashBasename(t *testing.T) {
 }
 
 func TestEmitResultRunsUnderBash(t *testing.T) {
-	if bashMajor(t) < 4 {
-		t.Skip("declare -A needs bash 4")
-	}
 	snippet := emitResult(t, parse.Result{
 		Flags: map[string]parse.FlagValue{
 			"loud": {Kind: parse.KindBool, Bool: true},
@@ -112,12 +111,12 @@ func TestEmitResultRunsUnderBash(t *testing.T) {
 			"extra": {Values: []string{"one", "two"}, Variadic: true},
 		},
 	})
-	script := snippet + `
-printf '%s\n' "${compleo[loud]}"
-printf '%s\n' "${compleo[name]}"
-printf '%s\n' "${compleo_tag[*]}"
-printf '%s\n' "${compleo_extra[*]}"
-`
+	script := snippet + fmt.Sprintf(`
+printf '%%s\n' "${%s}"
+printf '%%s\n' "${%s}"
+printf '%%s\n' "${%s[*]}"
+printf '%%s\n' "${%s[*]}"
+`, shells.VarName(shells.ResultPrefix, "loud"), shells.VarName(shells.ResultPrefix, "name"), shells.VarName(shells.ResultPrefix, "tag"), shells.VarName(shells.ResultPrefix, "extra"))
 	out, err := bashCmd(script).Output()
 	require.NoError(t, err)
 	assert.Equal(t, "true\nworld\na b\none two\n", string(out))

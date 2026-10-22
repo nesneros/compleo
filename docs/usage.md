@@ -41,21 +41,20 @@ eval "$(compleo up < "${0:A:h}/greet.spec.yaml")"
 
 ## 2. Read the parsed values
 
-After the `eval`, values are in a `compleo` associative array, keyed by flag/positional name
-(the part after `--`/`-`, no dashes):
+After the `eval`, each flag and positional is its own variable, `compleo_<name>`:
 
 ```zsh
-greeting="Hello, ${compleo[name]}!"
-[[ $compleo[loud] == true ]] && greeting=${(U)greeting}
+greeting="Hello, ${compleo_name}!"
+[[ $compleo_loud == true ]] && greeting=${(U)greeting}
 ```
 
-- A plain flag or non-variadic positional is a scalar: `$compleo[name]`.
-- A repeatable flag (`--tag*=`) or a `variadic: true` positional instead gets its own real
-  zsh array, `$compleo_<name>` (not `$compleo[name]`) — assoc-array values can only be
-  scalars. Non-alphanumeric characters in the name (e.g. the `-` in `dry-run`) become `_` in
-  the array's variable name, since a literal `-` in a zsh variable name breaks referencing it.
+- A plain flag or non-variadic positional is a scalar: `$compleo_name`.
+- A repeatable flag (`--tag*=`) or a `variadic: true` positional is an array: `$compleo_tag`.
+  Characters outside `[A-Za-z0-9_]` (the `-` in `dry-run`, for example) become `_`, because a
+  hyphen cannot appear in a shell variable name. `--dry-run` and a positional named `dry_run`
+  would therefore be the same variable.
 - Booleans are always present as the literal string `"true"` or `"false"` — compare with
-  `==`, not by checking whether the key exists.
+  `==`, not by checking whether the variable exists.
 - A count flag (`-v` repeated) is a plain integer string.
 
 ## What the `eval` can do on its own
@@ -140,10 +139,10 @@ positionals:
 SPEC
 )"
 
-greeting="Hello, ${compleo[name]}!"
-[[ $compleo[loud] == true ]] && greeting=${(U)greeting}
+greeting="Hello, ${compleo_name}!"
+[[ $compleo_loud == true ]] && greeting=${(U)greeting}
 
-for ((i = 0; i < compleo[times]; i++)); do
+for ((i = 0; i < compleo_times; i++)); do
   print -r -- "$greeting"
 done
 ```

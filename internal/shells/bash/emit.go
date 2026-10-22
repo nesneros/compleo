@@ -64,9 +64,10 @@ func (e Emitter) EmitActivate(dir string) error {
 	return err
 }
 
-// EmitResult writes bash that fills a "compleo" associative array. declare -A needs bash 4;
-// macOS /bin/bash is 3.2 and cannot run this.
-func (e Emitter) EmitResult(result parse.Result) error {
+// EmitResult writes one <prefix>_<name> variable per flag and positional. A repeatable flag
+// or variadic positional is a real array, written after the scalars. Scalars are plain
+// assignments, so this runs on bash 3.2 (no declare -A).
+func (e Emitter) EmitResult(result parse.Result, prefix string) error {
 	var writeErr error
 	write := func(s string) {
 		if writeErr != nil {
@@ -75,29 +76,27 @@ func (e Emitter) EmitResult(result parse.Result) error {
 		_, writeErr = fmt.Fprintln(e.Out, s)
 	}
 
-	write("declare -A compleo")
-
 	var arrays []string
 	for _, name := range shells.SortedKeys(result.Flags) {
 		fv := result.Flags[name]
 		if fv.Kind == parse.KindStrings {
-			arrays = append(arrays, arrayAssignment(name, fv.Strings))
+			arrays = append(arrays, arrayAssignment(prefix, name, fv.Strings))
 			continue
 		}
-		write(scalarAssignment(name, flagScalar(fv)))
+		write(scalarAssignment(prefix, name, flagScalar(fv)))
 	}
 
 	for _, name := range shells.SortedKeys(result.Positionals) {
 		pv := result.Positionals[name]
 		if pv.Variadic {
-			arrays = append(arrays, arrayAssignment(name, pv.Values))
+			arrays = append(arrays, arrayAssignment(prefix, name, pv.Values))
 			continue
 		}
 		var value string
 		if len(pv.Values) > 0 {
 			value = pv.Values[0]
 		}
-		write(scalarAssignment(name, value))
+		write(scalarAssignment(prefix, name, value))
 	}
 
 	for _, line := range arrays {
@@ -120,28 +119,14 @@ func flagScalar(fv parse.FlagValue) string {
 	}
 }
 
-func scalarAssignment(name, value string) string {
-	return "compleo[" + name + "]=" + Em.Quote(value)
+func scalarAssignment(prefix, name, value string) string {
+	return shells.VarName(prefix, name) + "=" + Em.Quote(value)
 }
 
-func arrayAssignment(name string, values []string) string {
-	varName := arrayVarName(name)
+func arrayAssignment(prefix, name string, values []string) string {
 	quoted := make([]string, len(values))
 	for i, v := range values {
 		quoted[i] = Em.Quote(v)
 	}
-	return "declare -a " + varName + "=(" + strings.Join(quoted, " ") + ")"
-}
-
-func arrayVarName(name string) string {
-	var b strings.Builder
-	b.WriteString("compleo_")
-	for _, r := range name {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' {
-			b.WriteRune(r)
-		} else {
-			b.WriteByte('_')
-		}
-	}
-	return b.String()
+	return "declare -a " + shells.VarName(prefix, name) + "=(" + strings.Join(quoted, " ") + ")"
 }

@@ -44,6 +44,6 @@ SPEC
 )
 eval "$(compleo up <<<"$spec")"
 
-for key in "${(k)compleo[@]}"; do
-  [[ -n $compleo[$key] ]] && print -r -- "$key = $compleo[$key]"
+for var in ${(ok)parameters[(I)compleo_*]}; do
+  [[ -n ${(P)var} ]] && print -r -- "${var#compleo_} = ${(P)var}"
 done

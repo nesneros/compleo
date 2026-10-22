@@ -160,9 +160,9 @@ To create your own script with carapace macros:
    SPEC=$(cat "${0:h}/my_script.yaml")
    eval "$(compleo parse -- "$@" <<< "$SPEC")"
    
-   # Access parsed values via $compleo associative array
-   echo "Input file: $compleo[input]"
-   echo "Color: $compleo[color]"
+   # Access parsed values via $compleo_<name>
+   echo "Input file: $compleo_input"
+   echo "Color: $compleo_color"
    ```
 
 3. **Make it executable**:

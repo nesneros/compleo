@@ -7,6 +7,7 @@ import (
 	"maps"
 	"os"
 	"slices"
+	"strings"
 
 	"github.com/nesneros/compleo/internal/cmdutil"
 	"github.com/nesneros/compleo/internal/parse"
@@ -15,8 +16,8 @@ import (
 
 // EvalEmitter writes code a wrapped script evals, to the stream it was constructed with.
 type EvalEmitter interface {
-	// EmitResult writes the parsed flag and positional values.
-	EmitResult(result parse.Result) error
+	// EmitResult writes one <prefix>_<name> variable per flag and positional.
+	EmitResult(result parse.Result, prefix string) error
 	// EmitHelp writes text the script prints, then exits 0.
 	EmitHelp(text string) error
 	// EmitError writes the parse error to stderr and exits 2.
@@ -49,6 +50,26 @@ type CompletionEmitter interface {
 	Quote(s string) string
 	// Name returns this shell's name.
 	Name() string
+}
+
+// ResultPrefix is the variable prefix passed to EmitResult. It is the only place that
+// prefix is written.
+const ResultPrefix = "compleo"
+
+// VarName is prefix_<name>. Characters in name outside [A-Za-z0-9_] become "_", since a
+// hyphen cannot appear in a shell variable name.
+func VarName(prefix, name string) string {
+	var b strings.Builder
+	b.WriteString(prefix)
+	b.WriteByte('_')
+	for _, r := range name {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' {
+			b.WriteRune(r)
+		} else {
+			b.WriteByte('_')
+		}
+	}
+	return b.String()
 }
 
 // Emitter is an EvalEmitter and a CompletionEmitter.

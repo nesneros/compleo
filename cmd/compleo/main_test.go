@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/nesneros/compleo/internal/cmdutil"
+	"github.com/nesneros/compleo/internal/shells"
 	"github.com/nesneros/compleo/internal/shells/bash"
 	"github.com/nesneros/compleo/internal/shells/zsh"
 	"github.com/stretchr/testify/assert"
@@ -194,7 +195,7 @@ func TestRunParseWithoutDashWorksWhenNoCollision(t *testing.T) {
 	var stdout bytes.Buffer
 	err := run([]string{"parse", "--shell=zsh", "world"}, true, strings.NewReader("name: mytool\npositionals:\n  - name: who\n"), &stdout, &bytes.Buffer{}, "")
 	require.NoError(t, err)
-	assert.Contains(t, stdout.String(), "compleo[who]='world'")
+	assert.Contains(t, stdout.String(), shells.VarName(shells.ResultPrefix, "who")+"='world'")
 }
 
 // A flag compleo's own "parse" doesn't recognize errors regardless of "--" or position.

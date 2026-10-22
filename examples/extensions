@@ -36,10 +36,11 @@ SPEC
 
 print -r -- "--- flags ---"
 for key in mode retries port ratio enabled timeout config; do
-  print -r -- "$key = $compleo[$key]"
+  var=compleo_$key
+  print -r -- "$key = ${(P)var}"
 done
 
 print -r -- "--- positionals ---"
-print -r -- "input = $compleo[input]"
-print -r -- "priority = $compleo[priority]"
+print -r -- "input = $compleo_input"
+print -r -- "priority = $compleo_priority"
 print -r -- "extra = (${compleo_extra[*]})"

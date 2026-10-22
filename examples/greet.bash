@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Needs bash 4: compleo fills an associative array, and ${var^^} uppercases.
+# ${greeting^^} needs bash 4. The compleo_* variables themselves are plain assignments.
 #
 # Minimal example of a bash script using compleo for its own CLI parsing.
 #   mise run build && PATH="$PWD/bin:$PATH" examples/greet.bash world --times 2 --loud
@@ -16,9 +16,9 @@ positionals:
 SPEC
 )"
 
-greeting="Hello, ${compleo[name]}!"
-[[ ${compleo[loud]} == true ]] && greeting=${greeting^^}
+greeting="Hello, ${compleo_name}!"
+[[ ${compleo_loud} == true ]] && greeting=${greeting^^}
 
-for ((i = 0; i < compleo[times]; i++)); do
+for ((i = 0; i < compleo_times; i++)); do
   printf '%s\n' "$greeting"
 done

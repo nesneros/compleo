@@ -13,6 +13,7 @@ import (
 
 	"github.com/nesneros/compleo/internal/cmdutil"
 	"github.com/nesneros/compleo/internal/parse"
+	"github.com/nesneros/compleo/internal/shells"
 	"github.com/nesneros/compleo/internal/spec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,7 +22,7 @@ import (
 func emitResult(t *testing.T, result parse.Result) string {
 	t.Helper()
 	var buf bytes.Buffer
-	require.NoError(t, New(&buf, io.Discard).EmitResult(result))
+	require.NoError(t, New(&buf, io.Discard).EmitResult(result, shells.ResultPrefix))
 	return buf.String()
 }
 
@@ -53,12 +54,14 @@ func emitActivate(t *testing.T, dir string) string {
 	return buf.String()
 }
 
+func vn(name string) string { return shells.VarName(shells.ResultPrefix, name) }
+
 func TestEmitScalarStringFlag(t *testing.T) {
 	result := parse.Result{Flags: map[string]parse.FlagValue{
 		"name": {Kind: parse.KindString, Changed: true, String: "Jan"},
 	}}
 
-	assert.Contains(t, emitResult(t, result), "compleo[name]='Jan'")
+	assert.Contains(t, emitResult(t, result), vn("name")+"='Jan'")
 }
 
 func TestEmitBoolFlagTrue(t *testing.T) {
@@ -66,7 +69,7 @@ func TestEmitBoolFlagTrue(t *testing.T) {
 		"loud": {Kind: parse.KindBool, Bool: true},
 	}}
 
-	assert.Contains(t, emitResult(t, result), "compleo[loud]='true'")
+	assert.Contains(t, emitResult(t, result), vn("loud")+"='true'")
 }
 
 func TestEmitBoolFlagFalse(t *testing.T) {
@@ -74,7 +77,7 @@ func TestEmitBoolFlagFalse(t *testing.T) {
 		"loud": {Kind: parse.KindBool, Bool: false},
 	}}
 
-	assert.Contains(t, emitResult(t, result), "compleo[loud]='false'")
+	assert.Contains(t, emitResult(t, result), vn("loud")+"='false'")
 }
 
 func TestEmitCountFlag(t *testing.T) {
@@ -82,7 +85,7 @@ func TestEmitCountFlag(t *testing.T) {
 		"verbose": {Kind: parse.KindCount, Count: 3},
 	}}
 
-	assert.Contains(t, emitResult(t, result), "compleo[verbose]='3'")
+	assert.Contains(t, emitResult(t, result), vn("verbose")+"='3'")
 }
 
 func TestEmitRepeatableFlagAsSeparateArray(t *testing.T) {
@@ -91,9 +94,8 @@ func TestEmitRepeatableFlagAsSeparateArray(t *testing.T) {
 	}}
 
 	snippet := emitResult(t, result)
-	assert.Contains(t, snippet, "typeset -a compleo_tag=()")
-	assert.Contains(t, snippet, "compleo_tag=('a' 'b')")
-	assert.NotContains(t, snippet, "compleo[tag]")
+	assert.Contains(t, snippet, "typeset -a "+vn("tag")+"=()")
+	assert.Contains(t, snippet, vn("tag")+"=('a' 'b')")
 }
 
 func TestEmitRepeatableFlagNeverPassedIsEmptyArray(t *testing.T) {
@@ -102,8 +104,8 @@ func TestEmitRepeatableFlagNeverPassedIsEmptyArray(t *testing.T) {
 	}}
 
 	snippet := emitResult(t, result)
-	assert.Contains(t, snippet, "typeset -a compleo_tag=()")
-	assert.Contains(t, snippet, "compleo_tag=()")
+	assert.Contains(t, snippet, "typeset -a "+vn("tag")+"=()")
+	assert.Contains(t, snippet, vn("tag")+"=()")
 }
 
 func TestEmitScalarPositional(t *testing.T) {
@@ -111,7 +113,7 @@ func TestEmitScalarPositional(t *testing.T) {
 		"file": {Values: []string{"input.txt"}},
 	}}
 
-	assert.Contains(t, emitResult(t, result), "compleo[file]='input.txt'")
+	assert.Contains(t, emitResult(t, result), vn("file")+"='input.txt'")
 }
 
 func TestEmitOmittedOptionalPositionalIsEmptyString(t *testing.T) {
@@ -119,7 +121,7 @@ func TestEmitOmittedOptionalPositionalIsEmptyString(t *testing.T) {
 		"file": {},
 	}}
 
-	assert.Contains(t, emitResult(t, result), "compleo[file]=''")
+	assert.Contains(t, emitResult(t, result), vn("file")+"=''")
 }
 
 func TestEmitVariadicPositionalAsSeparateArray(t *testing.T) {
@@ -128,9 +130,8 @@ func TestEmitVariadicPositionalAsSeparateArray(t *testing.T) {
 	}}
 
 	snippet := emitResult(t, result)
-	assert.Contains(t, snippet, "typeset -a compleo_files=()")
-	assert.Contains(t, snippet, "compleo_files=('a.txt' 'b.txt')")
-	assert.NotContains(t, snippet, "compleo[files]")
+	assert.Contains(t, snippet, "typeset -a "+vn("files")+"=()")
+	assert.Contains(t, snippet, vn("files")+"=('a.txt' 'b.txt')")
 }
 
 func TestEmitSanitizesHyphenInArrayVarName(t *testing.T) {
@@ -139,8 +140,8 @@ func TestEmitSanitizesHyphenInArrayVarName(t *testing.T) {
 	}}
 
 	snippet := emitResult(t, result)
-	assert.Contains(t, snippet, "typeset -a compleo_dry_run_tag=()")
-	assert.Contains(t, snippet, "compleo_dry_run_tag=('x')")
+	assert.Contains(t, snippet, "typeset -a "+shells.ResultPrefix+"_dry_run_tag=()")
+	assert.Contains(t, snippet, shells.ResultPrefix+"_dry_run_tag=('x')")
 }
 
 func TestEmitQuotesValuesWithSpecialCharacters(t *testing.T) {
@@ -148,11 +149,20 @@ func TestEmitQuotesValuesWithSpecialCharacters(t *testing.T) {
 		"name": {Kind: parse.KindString, String: "it's $dangerous"},
 	}}
 
-	assert.Contains(t, emitResult(t, result), "compleo[name]="+Em.Quote("it's $dangerous"))
+	assert.Contains(t, emitResult(t, result), vn("name")+"="+Em.Quote("it's $dangerous"))
 }
 
-func TestEmitDeclaresMainArrayEvenWhenEmpty(t *testing.T) {
-	assert.Equal(t, "typeset -A compleo=()\n", emitResult(t, parse.Result{}))
+func TestEmitEmptyResultWritesNothing(t *testing.T) {
+	assert.Empty(t, emitResult(t, parse.Result{}))
+}
+
+func TestEmitResultUsesTheGivenPrefix(t *testing.T) {
+	result := parse.Result{Flags: map[string]parse.FlagValue{
+		"name": {Kind: parse.KindString, String: "Jan"},
+	}}
+	var buf bytes.Buffer
+	require.NoError(t, New(&buf, io.Discard).EmitResult(result, "tool"))
+	assert.Contains(t, buf.String(), "tool_name='Jan'")
 }
 
 // zshEval sources snippet then prints each expr, proving the emitted code is valid zsh.
@@ -196,11 +206,11 @@ positionals:
 	snippet := emitResult(t, result)
 
 	lines := zshEval(t, snippet,
-		`$compleo[loud]`,
-		`$compleo[times]`,
-		`$compleo[name]`,
-		`${compleo_tag[@]}`,
-		`${compleo_extra[@]}`,
+		"$"+vn("loud"),
+		"$"+vn("times"),
+		"$"+vn("name"),
+		"${"+vn("tag")+"[@]}",
+		"${"+vn("extra")+"[@]}",
 	)
 	assert.Equal(t, []string{
 		"true",
@@ -360,7 +370,7 @@ func TestEmitUpGeneratedCodeInvokesParseWithNameArgsAndSpec(t *testing.T) {
 	script := fmt.Sprintf(`
 compleo() {
   { print -r -- "ARGS:$*"; print -r -- "SPEC-START"; cat; print -rn -- "SPEC-END"; } > %s
-  print -r -- "typeset -A compleo=()"
+  :
 }
 %s
 `, Em.Quote(captureFile), buf.String())

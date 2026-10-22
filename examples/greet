@@ -16,9 +16,9 @@ positionals:
 SPEC
 )"
 
-greeting="Hello, ${compleo[name]}!"
-[[ $compleo[loud] == true ]] && greeting=${(U)greeting}
+greeting="Hello, ${compleo_name}!"
+[[ $compleo_loud == true ]] && greeting=${(U)greeting}
 
-for ((i = 0; i < compleo[times]; i++)); do
+for ((i = 0; i < compleo_times; i++)); do
   print -r -- "$greeting"
 done

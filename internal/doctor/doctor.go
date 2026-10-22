@@ -125,8 +125,8 @@ type CarapaceInfo struct {
 	VersionErr error
 }
 
-// BashInfo is only meaningful when Relevant: compleo's bash completion needs bash >=4
-// (declare -A, carapace's own mapfile use), while macOS still ships 3.2 as /bin/bash.
+// BashInfo is only meaningful when Relevant: compleo's bash completion needs bash 4.3
+// (complete -o noquote, plus carapace's mapfile). A script's own eval only needs bash 3.2.
 type BashInfo struct {
 	// Relevant is true when the completion-target shell is bash, or some generated
 	// completion's own script shebang is bash — i.e. this check matters here at all.
