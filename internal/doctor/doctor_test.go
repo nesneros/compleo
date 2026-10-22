@@ -226,10 +226,11 @@ func TestCollectReadsBashVersion(t *testing.T) {
 		}
 		return "", errors.New("not found")
 	}
-	d.RunCommand = func(path string, args ...string) (string, error) { return "3", nil }
+	d.RunCommand = func(path string, args ...string) (string, error) { return "3.2", nil }
 	r := Collect(d)
 	assert.True(t, r.Bash.Found)
 	assert.Equal(t, 3, r.Bash.Major)
+	assert.Equal(t, 2, r.Bash.Minor)
 }
 
 // fakeDirEntry is a minimal os.DirEntry for tests that only need Name().

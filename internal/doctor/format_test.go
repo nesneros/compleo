@@ -113,7 +113,7 @@ func TestSeverityCountsOldBashAsWarningOnlyWhenRelevant(t *testing.T) {
 	warnings, _ := Severity(notRelevant)
 	assert.Zero(t, warnings)
 
-	relevant := Report{Shell: okShell(), Carapace: CarapaceInfo{Found: true}, Bash: BashInfo{Relevant: true, Found: true, Major: 3}}
+	relevant := Report{Shell: okShell(), Carapace: CarapaceInfo{Found: true}, Bash: BashInfo{Relevant: true, Found: true, Major: 3, Minor: 2}}
 	warnings, _ = Severity(relevant)
 	assert.Equal(t, 1, warnings)
 }
@@ -144,8 +144,9 @@ func TestFormatOmitsBashSectionWhenNotRelevant(t *testing.T) {
 }
 
 func TestFormatIncludesBashSectionWhenRelevant(t *testing.T) {
-	out := formatString(t, Report{Shell: okShell(), Carapace: CarapaceInfo{Found: true}, Bash: BashInfo{Relevant: true, Found: true, Major: 5}})
+	out := formatString(t, Report{Shell: okShell(), Carapace: CarapaceInfo{Found: true}, Bash: BashInfo{Relevant: true, Found: true, Major: 5, Minor: 2}})
 	assert.Contains(t, out, "Bash\n")
+	assert.Contains(t, out, "(bash 5.2)")
 }
 
 func TestFormatEndsWithSummaryLine(t *testing.T) {

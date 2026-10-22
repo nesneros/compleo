@@ -180,7 +180,7 @@ func bashLines(b BashInfo) []line {
 	if b.Major < 4 {
 		lvl, note = levelWarn, " — compleo's bash completion needs bash >=4 (declare -A, mapfile)"
 	}
-	return []line{{lvl, fmt.Sprintf("%s (bash %d)%s", b.Path, b.Major, note)}}
+	return []line{{lvl, fmt.Sprintf("%s (bash %d.%d)%s", b.Path, b.Major, b.Minor, note)}}
 }
 
 func statusPrefix(l level) string {

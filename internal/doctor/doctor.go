@@ -133,8 +133,10 @@ type BashInfo struct {
 	Relevant bool
 	Found    bool
 	Path     string
-	// Major is 0 when bash was found but its version couldn't be determined.
+	// Major is 0 when bash was found but its version couldn't be read. Minor is the
+	// BASH_VERSINFO minor (0 is a real minor, as in bash 4.0).
 	Major int
+	Minor int
 }
 
 // Collect gathers a Report by querying d. It never panics, exits, or writes anything.
@@ -275,9 +277,14 @@ func collectBash(d Deps, s ShellInfo, completions []CompletionEntry) BashInfo {
 	}
 	b.Found = true
 	b.Path = path
-	if out, err := d.RunCommand(path, "-c", `printf '%s' "${BASH_VERSINFO[0]}"`); err == nil {
-		if n, err := strconv.Atoi(out); err == nil {
-			b.Major = n
+	if out, err := d.RunCommand(path, "-c", `printf '%s.%s' "${BASH_VERSINFO[0]}" "${BASH_VERSINFO[1]}"`); err == nil {
+		major, minor, ok := strings.Cut(out, ".")
+		if ok {
+			maj, err1 := strconv.Atoi(major)
+			min, err2 := strconv.Atoi(minor)
+			if err1 == nil && err2 == nil {
+				b.Major, b.Minor = maj, min
+			}
 		}
 	}
 	return b
