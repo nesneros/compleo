@@ -1,2 +1,2 @@
-// Package bash is a sketch of shells.Emitter. It is not installed.
+// Package bash implements shells.Emitter for bash scripts.
 package bash

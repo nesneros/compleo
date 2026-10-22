@@ -11,9 +11,18 @@ import (
 	"github.com/nesneros/compleo/internal/shells"
 )
 
-// EmitGenerated writes bash that prints an activation hint. When missing is non-empty,
-// it first prints one warning listing those $bin.* completion macros.
-func (e Emitter) EmitGenerated(w io.Writer, name string, missing []string) error {
+// ActivationHint is the instruction for activating name's completion in a bash shell right now.
+func (Emitter) ActivationHint(name string) string {
+	return fmt.Sprintf(
+		"To activate completion for %s in this shell, run: complete -o noquote -F _%s_completion %s",
+		name, name, name,
+	)
+}
+
+// EmitGenerated writes bash that prints hint (built by the completion-target shell's own
+// ActivationHint, which may differ from this shell). When missing is non-empty, it first
+// prints one warning listing those $bin.* completion macros.
+func (e Emitter) EmitGenerated(w io.Writer, hint string, missing []string) error {
 	if len(missing) > 0 {
 		macros := make([]string, len(missing))
 		for i, bin := range missing {
@@ -24,20 +33,17 @@ func (e Emitter) EmitGenerated(w io.Writer, name string, missing []string) error
 			return err
 		}
 	}
-	msg := fmt.Sprintf(
-		"To activate completion for %s in this shell, run: complete -o noquote -F _%s_completion %s",
-		name, name, name,
-	)
-	if err := e.PrintStderr(w, msg); err != nil {
+	if err := e.PrintStderr(w, hint); err != nil {
 		return err
 	}
 	_, err := fmt.Fprintf(w, "exit %d\n", 0)
 	return err
 }
 
-// EmitUp writes bash that invokes "compleo parse". ${0##*/} is bash for zsh's ${0:t}.
+// EmitUp writes bash that invokes "compleo parse" with "--shell=bash" (so the nested call
+// doesn't need to redetect it). ${0##*/} is bash for zsh's ${0:t}.
 func (e Emitter) EmitUp(w io.Writer, rawSpec string) error {
-	_, err := fmt.Fprintf(w, `eval "$(compleo parse --name="${0##*/}" -- "$@" <<<%s)"`+"\n", e.Quote(rawSpec))
+	_, err := fmt.Fprintf(w, `eval "$(compleo parse --shell=%s --name="${0##*/}" -- "$@" <<<%s)"`+"\n", e.Name(), e.Quote(rawSpec))
 	return err
 }
 

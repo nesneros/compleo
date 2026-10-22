@@ -15,18 +15,13 @@ import (
 	"github.com/nesneros/compleo/internal/parse"
 	"github.com/nesneros/compleo/internal/shells"
 	_ "github.com/nesneros/compleo/internal/shells/bash" // registers the bash emitter
-	"github.com/nesneros/compleo/internal/shells/zsh"
+	_ "github.com/nesneros/compleo/internal/shells/zsh"  // registers the zsh emitter
 	"github.com/nesneros/compleo/internal/spec"
 	"github.com/spf13/cobra"
 )
 
 //go:embed spec.yaml
 var specYAML []byte
-
-func init() {
-	// Detection will replace this. Until then the eval shell is zsh.
-	shells.SetEvalEmitter(zsh.Em)
-}
 
 func main() {
 	generateName := os.Getenv(cmdutil.EnvGenerateName)
@@ -133,14 +128,22 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, generateName st
 		}
 		return generate.GenerateFor(result.Positionals["script"].Values[0], shell, out)
 	case "parse":
+		em, err := resolveEvalEmitter(result.Flags["shell"])
+		if err != nil {
+			return shells.EmitUndetectedShellError(out, err.Error())
+		}
 		// A variadic positional with zero values binds to nil, not an empty slice; Parse panics on nil.
 		wrappedArgs := result.Positionals["args"].Values
 		if wrappedArgs == nil {
 			wrappedArgs = []string{}
 		}
-		return runParse(wrappedArgs, rawSpec, out, result.Flags["name"].String, generateName)
+		return runParse(wrappedArgs, rawSpec, out, result.Flags["name"].String, generateName, em)
 	case "up":
-		return shells.GetEvalEmitter().EmitUp(out, rawSpec)
+		em, err := resolveEvalEmitter(parse.FlagValue{})
+		if err != nil {
+			return shells.EmitUndetectedShellError(out, err.Error())
+		}
+		return em.EmitUp(out, rawSpec)
 	case "validate":
 		if _, _, err := spec.ParseYAML(rawSpec, ""); err != nil {
 			return fmt.Errorf("invalid spec: %w", err)
@@ -155,8 +158,9 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, generateName st
 }
 
 // runParse parses args against the spec in rawSpec, or, when generateName is non-empty,
-// writes a completion file for it instead. name is passed to spec.ParseYAML as the spec's name.
-func runParse(args []string, rawSpec string, out io.Writer, name string, generateName string) error {
+// writes a completion file for it instead. name is passed to spec.ParseYAML as the spec's
+// name; em is the already-resolved emitter for the wrapping script's own shell.
+func runParse(args []string, rawSpec string, out io.Writer, name string, generateName string, em shells.EvalEmitter) error {
 	cmd, sp, err := spec.ParseYAML(rawSpec, name)
 	if err != nil {
 		return fmt.Errorf("invalid spec: %w", err)
@@ -166,9 +170,9 @@ func runParse(args []string, rawSpec string, out io.Writer, name string, generat
 	cmd.SilenceUsage = true
 
 	if generateName != "" {
-		return generate.Generate(cmd, sp, rawSpec, generateName, out)
+		return generate.Generate(cmd, sp, rawSpec, generateName, em, out)
 	}
-	return runEmit(cmd, sp, args, out)
+	return runEmit(cmd, sp, args, em, out)
 }
 
 // runCarapace builds a cobra command tree from specYAML and executes args against it,
@@ -186,15 +190,14 @@ func runCarapace(specYAML string, args []string, out io.Writer) error {
 	return cmd.Execute()
 }
 
-// runEmit parses args against sp and writes the resulting zsh to out — or, for --help or a
-// bad arg, the equivalently-wrapped help/error text instead.
-func runEmit(cmd *cobra.Command, sp spec.Command, args []string, out io.Writer) error {
+// runEmit parses args against sp and writes the resulting shell code (via em) to out — or,
+// for --help or a bad arg, the equivalently-wrapped help/error text instead.
+func runEmit(cmd *cobra.Command, sp spec.Command, args []string, em shells.EvalEmitter, out io.Writer) error {
 	// cobra's help writes straight to stdout; buffer it so it can be re-wrapped instead of
 	// corrupting EmitResult's own output on the same stream.
 	var helpBuf bytes.Buffer
 	cmd.SetOut(&helpBuf)
 
-	em := shells.GetEvalEmitter()
 	parseResult, err := parse.Parse(cmd, sp, args)
 	switch {
 	// Encoded into the output, not a Go error: eval alone should stop the script on a bad
@@ -214,6 +217,18 @@ func shellFromCommandLine(parsedCmdLine parse.Result) (string, error) {
 		return parsedCmdLine.Flags["shell"].String, nil
 	}
 	return cmdutil.ParentProcessName()
+}
+
+// resolveEvalEmitter returns the EvalEmitter for the wrapping script's own shell: shellFlag
+// when given ("parse"'s own --shell), else the parent interpreter ("up" has no such flag, and
+// a direct "parse" call falls back the same way). A zero-value shellFlag (as "up" passes)
+// always falls through to detection.
+func resolveEvalEmitter(shellFlag parse.FlagValue) (shells.EvalEmitter, error) {
+	var shell string
+	if shellFlag.Changed {
+		shell = shellFlag.String
+	}
+	return shells.ResolveEvalEmitter(shell)
 }
 
 // compleoCmd builds compleo's own cobra command tree from its embedded spec.yaml. It panics

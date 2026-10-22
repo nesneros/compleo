@@ -17,9 +17,10 @@ commands:
         required: true
         completion: ["$compleo.scripts"]
   - name: parse
-    description: Parse the wrapped script's command line against the spec piped on stdin, printing zsh for the script to eval. Most scripts should use "up" instead; reach for this directly when you need control over the name or arguments passed.
+    description: Parse the wrapped script's command line against the spec piped on stdin, printing shell code for the script to eval. Most scripts should use "up" instead; reach for this directly when you need control over the name, shell, or arguments passed.
     flags:
       --name=: "The script's own name (e.g. \"${0:t}\"), shown in --help/error text and used for completion. Lets the spec's heredoc skip name: and stay quoted, so nothing needs escaping."
+      --shell=: {description: "The wrapping script's own shell (zsh or bash) — what the printed code must be valid for. Auto-detected from the parent interpreter when omitted.", type: {kind: enum, values: [zsh, bash]}}
     positionals:
       - name: args
         variadic: true

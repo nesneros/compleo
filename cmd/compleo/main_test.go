@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -95,7 +96,7 @@ flags:
   --version: mytool's own version flag, not compleo's
 `)
 	var stdout bytes.Buffer
-	err := run([]string{"parse", "--", "--version"}, true, specReader, &stdout, "")
+	err := run([]string{"parse", "--shell=zsh", "--", "--version"}, true, specReader, &stdout, "")
 	require.NoError(t, err)
 	assert.NotEqual(t, "dev\n", stdout.String())
 }
@@ -104,14 +105,14 @@ flags:
 // returned as a Go error: eval alone should stop the script, no caller exit-code check needed.
 func TestRunParseWithUnknownFlagEmitsSelfExitingError(t *testing.T) {
 	var stdout bytes.Buffer
-	err := run([]string{"parse", "--", "--bogus"}, true, strings.NewReader("name: mytool\n"), &stdout, "")
+	err := run([]string{"parse", "--shell=zsh", "--", "--bogus"}, true, strings.NewReader("name: mytool\n"), &stdout, "")
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "exit 2")
 }
 
 func TestRunParseErrorIncludesScriptName(t *testing.T) {
 	var stdout bytes.Buffer
-	err := run([]string{"parse", "--", "--bogus"}, true, strings.NewReader("name: greet\n"), &stdout, "")
+	err := run([]string{"parse", "--shell=zsh", "--", "--bogus"}, true, strings.NewReader("name: greet\n"), &stdout, "")
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "greet:")
 }
@@ -119,14 +120,14 @@ func TestRunParseErrorIncludesScriptName(t *testing.T) {
 // --name fills in a missing name: without needing an unquoted, escape-requiring heredoc.
 func TestRunParseNameFlagFillsInMissingSpecName(t *testing.T) {
 	var stdout bytes.Buffer
-	err := run([]string{"parse", "--name", "greet", "--", "--bogus"}, true, strings.NewReader("flags:\n  --loud: shout\n"), &stdout, "")
+	err := run([]string{"parse", "--name", "greet", "--shell=zsh", "--", "--bogus"}, true, strings.NewReader("flags:\n  --loud: shout\n"), &stdout, "")
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "greet:")
 }
 
 func TestRunParseNameFlagMatchingDeclaredNameSucceeds(t *testing.T) {
 	var stdout bytes.Buffer
-	err := run([]string{"parse", "--name", "greet", "--", "--bogus"}, true, strings.NewReader("name: greet\n"), &stdout, "")
+	err := run([]string{"parse", "--name", "greet", "--shell=zsh", "--", "--bogus"}, true, strings.NewReader("name: greet\n"), &stdout, "")
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "greet:")
 }
@@ -134,7 +135,7 @@ func TestRunParseNameFlagMatchingDeclaredNameSucceeds(t *testing.T) {
 // The matching logic itself is spec.ParseYAML's (internal/spec/parse_test.go); this just
 // confirms --name is wired through to it.
 func TestRunParseNameFlagMismatchWithDeclaredNameFails(t *testing.T) {
-	err := run([]string{"parse", "--name", "other-name", "--", "world"}, true, strings.NewReader("name: greet\n"), &bytes.Buffer{}, "")
+	err := run([]string{"parse", "--name", "other-name", "--shell=zsh", "--", "world"}, true, strings.NewReader("name: greet\n"), &bytes.Buffer{}, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `spec declares name: "greet"`)
 	assert.Contains(t, err.Error(), `"other-name" was given`)
@@ -150,7 +151,7 @@ flags:
 `)
 	var runErr error
 	stderr := captureRealStderr(t, func() {
-		runErr = run([]string{"parse", "--", "--times", "x"}, true, specReader, &bytes.Buffer{}, "")
+		runErr = run([]string{"parse", "--shell=zsh", "--", "--times", "x"}, true, specReader, &bytes.Buffer{}, "")
 	})
 
 	assert.NoError(t, runErr)
@@ -180,7 +181,7 @@ func TestRunWritesNothingToRealStderrOnSuccess(t *testing.T) {
 	var stdout bytes.Buffer
 
 	stderr := captureRealStderr(t, func() {
-		require.NoError(t, run([]string{"parse", "--", "--count", "3"}, true, specReader, &stdout, ""))
+		require.NoError(t, run([]string{"parse", "--shell=zsh", "--", "--count", "3"}, true, specReader, &stdout, ""))
 	})
 
 	assert.Empty(t, stderr)
@@ -191,7 +192,7 @@ func TestRunWritesNothingToRealStderrOnSuccess(t *testing.T) {
 // flag from one of compleo's own "parse" flags (--name). With no collision, it's optional.
 func TestRunParseWithoutDashWorksWhenNoCollision(t *testing.T) {
 	var stdout bytes.Buffer
-	err := run([]string{"parse", "world"}, true, strings.NewReader("name: mytool\npositionals:\n  - name: who\n"), &stdout, "")
+	err := run([]string{"parse", "--shell=zsh", "world"}, true, strings.NewReader("name: mytool\npositionals:\n  - name: who\n"), &stdout, "")
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "compleo[who]='world'")
 }
@@ -205,7 +206,7 @@ func TestRunParseUnrecognizedCompleoFlagFails(t *testing.T) {
 // Regression test: a wrapped script with zero of its own args binds the variadic "args"
 // positional to nil, not an empty slice, which used to panic in parse.Parse.
 func TestRunParseWithNoWrappedArgsDoesNotPanic(t *testing.T) {
-	err := run([]string{"parse"}, true, strings.NewReader("name: mytool\n"), &bytes.Buffer{}, "")
+	err := run([]string{"parse", "--shell=zsh"}, true, strings.NewReader("name: mytool\n"), &bytes.Buffer{}, "")
 	assert.NoError(t, err)
 }
 
@@ -219,11 +220,34 @@ func TestRunUpRequiresPipedStdin(t *testing.T) {
 	assert.Error(t, err)
 }
 
+// "up" has no --shell override (by design — only "parse" takes one; "up" always detects),
+// so this must actually run with a real zsh as its parent process to exercise detection at
+// all: re-execs this test binary via zsh command substitution, the same shape production
+// use has (eval "$(compleo up ...)" forks zsh straight into compleo).
 func TestRunUpEmitsReinvocationSnippet(t *testing.T) {
-	var stdout bytes.Buffer
-	err := run([]string{"up"}, true, strings.NewReader("flags:\n  --loud: shout\n"), &stdout, "")
+	if os.Getenv("COMPLEO_TEST_HELPER_UP") == "1" {
+		var stdout bytes.Buffer
+		err := run([]string{"up"}, true, strings.NewReader("flags:\n  --loud: shout\n"), &stdout, "")
+		require.NoError(t, err)
+		fmt.Print(stdout.String())
+		return
+	}
+
+	// Must be a real "$(...)" command substitution, not a bare "zsh -c cmd": the latter can
+	// exec-optimize a single trailing command, replacing the zsh process in place rather than
+	// forking it — so the child's parent would still be this go test binary, not zsh.
+	// Substitution always forks, since the parent shell has to stay alive to read the pipe.
+	script := `print -r -- "$(` + quoteForZsh(os.Args[0]) + ` -test.run='^TestRunUpEmitsReinvocationSnippet$')"`
+	cmd := exec.Command("zsh", "-fc", script)
+	cmd.Env = append(os.Environ(), "COMPLEO_TEST_HELPER_UP=1")
+	out, err := cmd.Output()
 	require.NoError(t, err)
-	assert.Contains(t, stdout.String(), `compleo parse --name="${0:t}" -- "$@"`)
+	assert.Contains(t, string(out), `compleo parse --shell=zsh --name="${0:t}" -- "$@"`)
+}
+
+// quoteForZsh single-quotes s for a literal zsh word (an embedded ' becomes '\”).
+func quoteForZsh(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 func TestRunParseEmitsZshScript(t *testing.T) {
@@ -234,7 +258,7 @@ flags:
 `)
 	var stdout bytes.Buffer
 
-	err := run([]string{"parse", "--", "--count", "3"}, true, specReader, &stdout, "")
+	err := run([]string{"parse", "--shell=zsh", "--", "--count", "3"}, true, specReader, &stdout, "")
 	require.NoError(t, err)
 
 	assert.NotEmpty(t, stdout.String())
@@ -249,7 +273,7 @@ flags:
 `)
 	var stdout bytes.Buffer
 
-	err := run([]string{"parse", "--", "--help"}, true, specReader, &stdout, "")
+	err := run([]string{"parse", "--shell=zsh", "--", "--help"}, true, specReader, &stdout, "")
 	require.NoError(t, err)
 
 	assert.Contains(t, stdout.String(), "A tool.")
@@ -260,7 +284,7 @@ flags:
 // applies it before building cmd, so cmd.Use already reflects it from the start.
 func TestRunParseNameFlagCorrectsUsageSynopsis(t *testing.T) {
 	var stdout bytes.Buffer
-	err := run([]string{"parse", "--name", "greet", "--", "--help"}, true, strings.NewReader("flags:\n  --loud: shout\n"), &stdout, "")
+	err := run([]string{"parse", "--name", "greet", "--shell=zsh", "--", "--help"}, true, strings.NewReader("flags:\n  --loud: shout\n"), &stdout, "")
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "Usage:\n  greet [flags]")
 }
@@ -276,7 +300,7 @@ flags:
 `)
 	var stdout bytes.Buffer
 
-	require.NoError(t, run([]string{"parse", "--", "--help"}, true, specReader, &stdout, ""))
+	require.NoError(t, run([]string{"parse", "--shell=zsh", "--", "--help"}, true, specReader, &stdout, ""))
 
 	cmd := exec.Command("zsh", "-fc", stdout.String())
 	out, err := cmd.Output()
@@ -288,7 +312,7 @@ flags:
 // an unreachable statement after the eval must not run, and the real exit code must be 2.
 func TestRunParseErrorOutputStopsScriptWhenEvaldUnderRealZsh(t *testing.T) {
 	var stdout bytes.Buffer
-	require.NoError(t, run([]string{"parse", "--", "--bogus"}, true, strings.NewReader("name: greet\n"), &stdout, ""))
+	require.NoError(t, run([]string{"parse", "--shell=zsh", "--", "--bogus"}, true, strings.NewReader("name: greet\n"), &stdout, ""))
 
 	script := `eval "$SNIPPET"` + "\n" + `print -r -- "unreachable"`
 	cmd := exec.Command("zsh", "-fc", script)
@@ -302,7 +326,7 @@ func TestRunParseErrorOutputStopsScriptWhenEvaldUnderRealZsh(t *testing.T) {
 }
 
 func TestRunParseWithInvalidSpecFails(t *testing.T) {
-	err := run([]string{"parse", "--"}, true, strings.NewReader("not: [valid"), &bytes.Buffer{}, "")
+	err := run([]string{"parse", "--shell=zsh", "--"}, true, strings.NewReader("not: [valid"), &bytes.Buffer{}, "")
 	assert.Error(t, err)
 }
 
@@ -400,7 +424,7 @@ func TestRunParseGenerateModeWritesWrappedScriptsCompletionFile(t *testing.T) {
 	t.Setenv(cmdutil.EnvCompletionDir, dir)
 	t.Setenv(cmdutil.EnvCompletionShell, "zsh")
 
-	err := run([]string{"parse"}, true, strings.NewReader("name: greet\nflags:\n  --loud: shout\n"), &bytes.Buffer{}, "greet")
+	err := run([]string{"parse", "--shell=zsh"}, true, strings.NewReader("name: greet\nflags:\n  --loud: shout\n"), &bytes.Buffer{}, "greet")
 	require.NoError(t, err)
 
 	content, err := os.ReadFile(filepath.Join(dir, "_greet"))
@@ -419,7 +443,7 @@ func TestRunParseGenerateModeReportsSuccessAsSelfExitingZsh(t *testing.T) {
 	t.Setenv(cmdutil.EnvCompletionShell, "zsh")
 
 	var stdout bytes.Buffer
-	err := run([]string{"parse"}, true, strings.NewReader("name: greet\n"), &stdout, "greet")
+	err := run([]string{"parse", "--shell=zsh"}, true, strings.NewReader("name: greet\n"), &stdout, "greet")
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "exit 0")
 	assert.Contains(t, stdout.String(), "To activate completion for greet in this shell, run:")
@@ -432,7 +456,7 @@ func TestRunParseGenerateModeDoesNotRequireWrappedArgs(t *testing.T) {
 
 	// Unlike a normal parse, generate mode doesn't parse "$@" at all, so a script run with
 	// _COMPLEO_GENERATE_NAME set (no args of its own) must not fail or need "--".
-	err := run([]string{"parse"}, true, strings.NewReader("name: greet\npositionals:\n  - name: who\n    required: true\n"), &bytes.Buffer{}, "greet")
+	err := run([]string{"parse", "--shell=zsh"}, true, strings.NewReader("name: greet\npositionals:\n  - name: who\n    required: true\n"), &bytes.Buffer{}, "greet")
 	assert.NoError(t, err)
 }
 

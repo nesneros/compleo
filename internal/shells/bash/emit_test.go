@@ -42,7 +42,7 @@ func emitError(t *testing.T, name string, err error) string {
 func emitGenerated(t *testing.T, name string) string {
 	t.Helper()
 	var buf bytes.Buffer
-	require.NoError(t, Em.EmitGenerated(&buf, name, nil))
+	require.NoError(t, Em.EmitGenerated(&buf, Em.ActivationHint(name), nil))
 	return buf.String()
 }
 
@@ -188,7 +188,7 @@ func TestEmitGeneratedPrintsConfirmationToStderrAndExitsZero(t *testing.T) {
 
 func TestEmitGeneratedPrintsOneWarningForMissingMacros(t *testing.T) {
 	var buf bytes.Buffer
-	require.NoError(t, Em.EmitGenerated(&buf, "greet", []string{"carapace", "missingb"}))
+	require.NoError(t, Em.EmitGenerated(&buf, Em.ActivationHint("greet"), []string{"carapace", "missingb"}))
 
 	cmd := bashCmd(buf.String())
 	var stderr bytes.Buffer
@@ -243,7 +243,7 @@ compleo() {
 	captured, err := os.ReadFile(captureFile)
 	require.NoError(t, err)
 	got := string(captured)
-	assert.Contains(t, got, "ARGS:parse --name=scriptname -- world --loud")
+	assert.Contains(t, got, "ARGS:parse --shell=bash --name=scriptname -- world --loud")
 	assert.Contains(t, got, "SPEC-START\n"+original+"\nSPEC-END")
 }
 

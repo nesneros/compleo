@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/nesneros/compleo/internal/cmdutil"
-	"github.com/nesneros/compleo/internal/shells"
 	"github.com/nesneros/compleo/internal/shells/zsh"
 	"github.com/nesneros/compleo/internal/spec"
 	"github.com/stretchr/testify/assert"
@@ -19,7 +18,6 @@ import (
 
 func TestMain(m *testing.M) {
 	os.Setenv(cmdutil.EnvCompletionShell, "zsh")
-	shells.SetEvalEmitter(zsh.Em)
 	os.Exit(m.Run())
 }
 
@@ -33,7 +31,7 @@ func TestGenerateInsertsNameWhenSpecDoesNotDeclareOne(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, sp.Name)
 
-	require.NoError(t, Generate(cmd, sp, rawSpec, "real-name", &bytes.Buffer{}))
+	require.NoError(t, Generate(cmd, sp, rawSpec, "real-name", zsh.Em, &bytes.Buffer{}))
 
 	content, err := os.ReadFile(filepath.Join(completionDir, "_real-name"))
 	require.NoError(t, err)
@@ -58,7 +56,7 @@ func TestGenerateInsertsNameSuppliedOnlyViaNameFlag(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "greet", sp.Name)
 
-	require.NoError(t, Generate(cmd, sp, rawSpec, "", &bytes.Buffer{}))
+	require.NoError(t, Generate(cmd, sp, rawSpec, "", zsh.Em, &bytes.Buffer{}))
 
 	specContent, err := os.ReadFile(filepath.Join(completionDir, ".greet.spec.yaml"))
 	require.NoError(t, err)
@@ -76,7 +74,7 @@ func TestGenerateInsertsScriptShellFromShebang(t *testing.T) {
 	cmd, sp, err := spec.ParseYAML(rawSpec, "")
 	require.NoError(t, err)
 
-	require.NoError(t, Generate(cmd, sp, rawSpec, "", &bytes.Buffer{}))
+	require.NoError(t, Generate(cmd, sp, rawSpec, "", zsh.Em, &bytes.Buffer{}))
 
 	specContent, err := os.ReadFile(filepath.Join(completionDir, ".greet.spec.yaml"))
 	require.NoError(t, err)
@@ -98,7 +96,7 @@ func TestGenerateFailsWhenScriptShellDisagreesWithShebang(t *testing.T) {
 	cmd, sp, err := spec.ParseYAML(rawSpec, "")
 	require.NoError(t, err)
 
-	err = Generate(cmd, sp, rawSpec, "", &bytes.Buffer{})
+	err = Generate(cmd, sp, rawSpec, "", zsh.Em, &bytes.Buffer{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `scriptShell: "bash"`)
 	assert.Contains(t, err.Error(), "zsh")
@@ -127,7 +125,7 @@ func TestGenerateFailsWhenSpecNameDisagreesWithInvokedName(t *testing.T) {
 	cmd, sp, err := spec.ParseYAML(rawSpec, "")
 	require.NoError(t, err)
 
-	err = Generate(cmd, sp, rawSpec, "real-name", &bytes.Buffer{})
+	err = Generate(cmd, sp, rawSpec, "real-name", zsh.Em, &bytes.Buffer{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `spec declares name: "wrong-name"`)
 	assert.Contains(t, err.Error(), `"real-name" was invoked`)
@@ -205,7 +203,7 @@ func TestGenerateWarnsWhenMacroBinaryIsNotOnPath(t *testing.T) {
 	require.NoError(t, err)
 
 	var out bytes.Buffer
-	require.NoError(t, Generate(cmd, sp, rawSpec, "", &out))
+	require.NoError(t, Generate(cmd, sp, rawSpec, "", zsh.Em, &out))
 
 	_, statErr := os.Stat(filepath.Join(completionDir, "_demo"))
 	require.NoError(t, statErr)
@@ -231,7 +229,7 @@ func TestGenerateDoesNotWarnWhenMacroBinaryIsOnPath(t *testing.T) {
 	require.NoError(t, err)
 
 	var out bytes.Buffer
-	require.NoError(t, Generate(cmd, sp, rawSpec, "", &out))
+	require.NoError(t, Generate(cmd, sp, rawSpec, "", zsh.Em, &out))
 
 	t.Setenv("PATH", path)
 	stderr := evalGenerated(t, out.String())
@@ -258,7 +256,7 @@ func TestGenerateDoesNotWarnForCoreOrOwnMacros(t *testing.T) {
 	require.NoError(t, err)
 
 	var out bytes.Buffer
-	require.NoError(t, Generate(cmd, sp, rawSpec, "", &out))
+	require.NoError(t, Generate(cmd, sp, rawSpec, "", zsh.Em, &out))
 
 	t.Setenv("PATH", path)
 	stderr := evalGenerated(t, out.String())
