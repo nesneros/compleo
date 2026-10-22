@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"os"
 	"slices"
 
 	"github.com/nesneros/compleo/internal/cmdutil"
@@ -64,8 +65,7 @@ var (
 	registeredEvalEmitters       map[string]EvalEmitter
 	registeredCompletionEmitters map[string]CompletionEmitter
 
-	completionEmitter CompletionEmitter
-	evalEmitter       EvalEmitter
+	evalEmitter EvalEmitter
 )
 
 func init() {
@@ -73,11 +73,23 @@ func init() {
 	registeredCompletionEmitters = make(map[string]CompletionEmitter)
 }
 
-// SetCompletionEmitter sets the interactive-shell emitter.
-func SetCompletionEmitter(e CompletionEmitter) { completionEmitter = e }
+func CompletionEmitterForShell(shell string) (CompletionEmitter, error) {
+	emitter := registeredCompletionEmitters[shell]
+	if emitter == nil {
+		return nil, fmt.Errorf("unsupported shell: %q", shell)
+	}
+	return emitter, nil
+}
 
-// GetCompletionEmitter returns the interactive-shell emitter.
-func GetCompletionEmitter() CompletionEmitter { return completionEmitter }
+// GetCompletionEmitter returns the interactive-shell emitter named by EnvCompletionShell.
+func GetCompletionEmitter() CompletionEmitter {
+	shell := os.Getenv(cmdutil.EnvCompletionShell)
+	emitter, err := CompletionEmitterForShell(shell)
+	if err != nil {
+		cmdutil.Panic(fmt.Sprintf("Is compleo activated in the current shell? [%s]", err.Error()))
+	}
+	return emitter
+}
 
 // SetEvalEmitter sets the emitter for code a wrapped script evals.
 func SetEvalEmitter(e EvalEmitter) { evalEmitter = e }
@@ -94,15 +106,6 @@ func SortedKeys[K cmp.Ordered, V any](m map[K]V) []K {
 
 func EvalEmitterForShell(shell string) EvalEmitter {
 	return registeredEvalEmitters[shell]
-}
-
-func SetCompletionEmitterNamed(shell string) (CompletionEmitter, error) {
-	emitter := registeredCompletionEmitters[shell]
-	if emitter == nil {
-		return nil, fmt.Errorf("unsupported shell: %s", shell)
-	}
-	completionEmitter = emitter
-	return emitter, nil
 }
 
 func SetEvalEmitterFromInteractiveShell() EvalEmitter {

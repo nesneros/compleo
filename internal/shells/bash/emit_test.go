@@ -247,6 +247,10 @@ compleo() {
 	assert.Contains(t, got, "SPEC-START\n"+original+"\nSPEC-END")
 }
 
+func TestEmitActivateExportsCompletionShell(t *testing.T) {
+	assert.Contains(t, emitActivate(t, "/some/dir"), "export "+cmdutil.EnvCompletionShell+"="+Em.Quote(Em.Name()))
+}
+
 func TestEmitActivateSourcesCompletionFiles(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "greet"), []byte("printf '%s\\n' sourced\n"), 0o644))

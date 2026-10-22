@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nesneros/compleo/internal/cmdutil"
 	"github.com/nesneros/compleo/internal/parse"
 	"github.com/nesneros/compleo/internal/spec"
 	"github.com/stretchr/testify/assert"
@@ -377,6 +378,10 @@ compleo() {
 
 func TestEmitActivatePrintsFpathWiring(t *testing.T) {
 	assert.Contains(t, emitActivate(t, "/some/dir"), "fpath+=('/some/dir')")
+}
+
+func TestEmitActivateExportsCompletionShell(t *testing.T) {
+	assert.Contains(t, emitActivate(t, "/some/dir"), "export "+cmdutil.EnvCompletionShell+"="+Em.Quote(Em.Name()))
 }
 
 func TestEmitActivateDefinesCompleoFunction(t *testing.T) {

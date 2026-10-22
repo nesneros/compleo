@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/nesneros/compleo/internal/cmdutil"
 	"github.com/nesneros/compleo/internal/parse"
 	"github.com/nesneros/compleo/internal/shells"
 )
@@ -42,9 +43,11 @@ func (e Emitter) EmitUp(w io.Writer, rawSpec string) error {
 	return err
 }
 
-// activateTemplate defines a "compleo" shell function wrapping the real binary, adds dir to
-// fpath, and autoloads and binds (via compdef, if available) every completion file in dir.
-const activateTemplate = `compleo() {
+// activateTemplate exports the interactive shell, defines a "compleo" shell function wrapping
+// the real binary, adds dir to fpath, and autoloads and binds (via compdef, if available)
+// every completion file in dir.
+const activateTemplate = `export %[2]s=%[3]s
+compleo() {
   command compleo "$@"
 }
 fpath+=(%[1]s)
@@ -54,9 +57,10 @@ if (( $+functions[compdef] )); then
 fi
 `
 
-// EmitActivate writes zsh that wires the completions directory dir into the current shell.
+// EmitActivate writes zsh that wires the completions directory dir into the current shell
+// and records that shell for later completion.
 func (e Emitter) EmitActivate(w io.Writer, dir string) error {
-	_, err := fmt.Fprintf(w, activateTemplate, e.Quote(dir))
+	_, err := fmt.Fprintf(w, activateTemplate, e.Quote(dir), cmdutil.EnvCompletionShell, e.Quote(e.Name()))
 	return err
 }
 

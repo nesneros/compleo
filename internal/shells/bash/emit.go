@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/nesneros/compleo/internal/cmdutil"
 	"github.com/nesneros/compleo/internal/parse"
 	"github.com/nesneros/compleo/internal/shells"
 )
@@ -40,9 +41,10 @@ func (e Emitter) EmitUp(w io.Writer, rawSpec string) error {
 	return err
 }
 
-// activateTemplate defines a compleo function and sources every completion file in dir.
-// Carapace's bash snippet registers itself with `complete` when sourced.
-const activateTemplate = `compleo() {
+// activateTemplate exports the interactive shell, defines a compleo function, and sources
+// every completion file in dir. Carapace's bash snippet registers itself with `complete` when sourced.
+const activateTemplate = `export %[2]s=%[3]s
+compleo() {
   command compleo "$@"
 }
 for f in %[1]s/*; do
@@ -50,9 +52,10 @@ for f in %[1]s/*; do
 done
 `
 
-// EmitActivate writes bash that sources the completion files in dir.
+// EmitActivate writes bash that sources the completion files in dir and records that shell
+// for later completion.
 func (e Emitter) EmitActivate(w io.Writer, dir string) error {
-	_, err := fmt.Fprintf(w, activateTemplate, e.Quote(dir))
+	_, err := fmt.Fprintf(w, activateTemplate, e.Quote(dir), cmdutil.EnvCompletionShell, e.Quote(e.Name()))
 	return err
 }
 

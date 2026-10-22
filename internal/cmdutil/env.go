@@ -17,6 +17,10 @@ const (
 	// EnvScriptFile is the wrapping script generate reads a shebang from. Set by
 	// "compleo generate <script>"; absent for a hand-run _COMPLEO_GENERATE_NAME trigger.
 	EnvScriptFile = "_COMPLEO_SCRIPT_FILE"
+	// EnvCompletionShell is the interactive shell completions target. activate exports it
+	// into that shell; generate reads it so a child whose parent is some other shell
+	// (the wrapping script, go test) still knows where completion should work.
+	EnvCompletionShell = "_COMPLEO_COMPLETION_SHELL"
 	// EnvSpecFile is the path to the spec file a completion is built from.
 	EnvSpecFile = "_COMPLEO_SPEC_FILE"
 	// EnvDebugLog is a file path compleo appends errors to. Must be a real file, not

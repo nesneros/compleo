@@ -19,7 +19,7 @@ func CompletionDir() string {
 	if dataHome == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			panic(fmt.Errorf("determining completion directory: %w", err))
+			Panic(fmt.Sprintf("determining completion directory: %s", err))
 		}
 		dataHome = filepath.Join(home, ".local", "share")
 	}

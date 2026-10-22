@@ -24,8 +24,7 @@ import (
 var specYAML []byte
 
 func init() {
-	// Detection will replace these. Until then both shells are zsh.
-	shells.SetCompletionEmitter(zsh.Em)
+	// Detection will replace this. Until then the eval shell is zsh.
 	shells.SetEvalEmitter(zsh.Em)
 }
 
@@ -111,14 +110,11 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, generateName st
 	switch cmdName {
 	case "activate":
 		dir := cmdutil.CompletionDir()
-		shell, err := cmdutil.ParentProcessName()
+		shell, err := shellFromCommandLine(result)
 		if err != nil {
 			return err
 		}
-		if values := result.Positionals["shell"].Values; len(values) > 0 {
-			shell = values[0]
-		}
-		em, err := shells.SetCompletionEmitterNamed(shell)
+		em, err := shells.CompletionEmitterForShell(shell)
 		if err != nil {
 			return err
 		}
@@ -131,7 +127,11 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, generateName st
 		}
 		return em.EmitActivate(out, dir)
 	case "generate":
-		return generate.GenerateFor(result.Positionals["script"].Values[0], out)
+		shell, err := shellFromCommandLine(result)
+		if err != nil {
+			return err
+		}
+		return generate.GenerateFor(result.Positionals["script"].Values[0], shell, out)
 	case "parse":
 		// A variadic positional with zero values binds to nil, not an empty slice; Parse panics on nil.
 		wrappedArgs := result.Positionals["args"].Values
@@ -206,6 +206,14 @@ func runEmit(cmd *cobra.Command, sp spec.Command, args []string, out io.Writer) 
 	default:
 		return em.EmitResult(out, parseResult)
 	}
+}
+
+// shellFromCommandLine returns --shell when it was passed, otherwise the parent process name.
+func shellFromCommandLine(parsedCmdLine parse.Result) (string, error) {
+	if parsedCmdLine.Flags["shell"].Changed {
+		return parsedCmdLine.Flags["shell"].String, nil
+	}
+	return cmdutil.ParentProcessName()
 }
 
 // compleoCmd builds compleo's own cobra command tree from its embedded spec.yaml. It panics

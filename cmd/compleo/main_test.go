@@ -311,9 +311,10 @@ func TestRunWithActivateExplicitZshPrintsFpathWiring(t *testing.T) {
 	t.Setenv(cmdutil.EnvCompletionDir, dir)
 
 	var stdout bytes.Buffer
-	err := run([]string{"activate", "zsh"}, false, strings.NewReader(""), &stdout, "")
+	err := run([]string{"activate", "--shell=zsh"}, false, strings.NewReader(""), &stdout, "")
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "fpath+=("+zsh.Em.Quote(dir)+")")
+	assert.Contains(t, stdout.String(), "export "+cmdutil.EnvCompletionShell+"="+zsh.Em.Quote("zsh"))
 }
 
 func TestRunWithActivateBashPrintsSourceLoop(t *testing.T) {
@@ -321,9 +322,10 @@ func TestRunWithActivateBashPrintsSourceLoop(t *testing.T) {
 	t.Setenv(cmdutil.EnvCompletionDir, dir)
 
 	var stdout bytes.Buffer
-	err := run([]string{"activate", "bash"}, false, strings.NewReader(""), &stdout, "")
+	err := run([]string{"activate", "--shell=bash"}, false, strings.NewReader(""), &stdout, "")
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "for f in "+bash.Em.Quote(dir)+"/*; do")
+	assert.Contains(t, stdout.String(), "export "+cmdutil.EnvCompletionShell+"="+bash.Em.Quote("bash"))
 	assert.NotContains(t, stdout.String(), "fpath+=")
 }
 
@@ -331,7 +333,7 @@ func TestRunWithActivateBashWritesBashCompletion(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv(cmdutil.EnvCompletionDir, dir)
 
-	err := run([]string{"activate", "bash"}, false, strings.NewReader(""), &bytes.Buffer{}, "")
+	err := run([]string{"activate", "--shell=bash"}, false, strings.NewReader(""), &bytes.Buffer{}, "")
 	require.NoError(t, err)
 
 	content, err := os.ReadFile(filepath.Join(dir, "_compleo"))
@@ -341,7 +343,7 @@ func TestRunWithActivateBashWritesBashCompletion(t *testing.T) {
 }
 
 func TestRunWithActivateRejectsUnknownShell(t *testing.T) {
-	err := run([]string{"activate", "nosuch"}, false, strings.NewReader(""), &bytes.Buffer{}, "")
+	err := run([]string{"activate", "--shell=nosuch"}, false, strings.NewReader(""), &bytes.Buffer{}, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "nosuch")
 }
@@ -350,7 +352,7 @@ func TestRunWithActivateWritesOwnCompletionFile(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv(cmdutil.EnvCompletionDir, dir)
 
-	err := run([]string{"activate", "zsh"}, false, strings.NewReader(""), &bytes.Buffer{}, "")
+	err := run([]string{"activate", "--shell=zsh"}, false, strings.NewReader(""), &bytes.Buffer{}, "")
 	require.NoError(t, err)
 
 	content, err := os.ReadFile(filepath.Join(dir, "_compleo"))
@@ -362,12 +364,12 @@ func TestRunWithActivateTwiceDoesNotRewriteUnchangedFile(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv(cmdutil.EnvCompletionDir, dir)
 
-	require.NoError(t, run([]string{"activate", "zsh"}, false, strings.NewReader(""), &bytes.Buffer{}, ""))
+	require.NoError(t, run([]string{"activate", "--shell=zsh"}, false, strings.NewReader(""), &bytes.Buffer{}, ""))
 	path := filepath.Join(dir, "_compleo")
 	before, err := os.Stat(path)
 	require.NoError(t, err)
 
-	require.NoError(t, run([]string{"activate", "zsh"}, false, strings.NewReader(""), &bytes.Buffer{}, ""))
+	require.NoError(t, run([]string{"activate", "--shell=zsh"}, false, strings.NewReader(""), &bytes.Buffer{}, ""))
 	after, err := os.Stat(path)
 	require.NoError(t, err)
 
@@ -396,6 +398,7 @@ func TestWriteCompletionFileSkipsRewriteWhenUnchanged(t *testing.T) {
 func TestRunParseGenerateModeWritesWrappedScriptsCompletionFile(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv(cmdutil.EnvCompletionDir, dir)
+	t.Setenv(cmdutil.EnvCompletionShell, "zsh")
 
 	err := run([]string{"parse"}, true, strings.NewReader("name: greet\nflags:\n  --loud: shout\n"), &bytes.Buffer{}, "greet")
 	require.NoError(t, err)
@@ -413,6 +416,7 @@ func TestRunParseGenerateModeWritesWrappedScriptsCompletionFile(t *testing.T) {
 func TestRunParseGenerateModeReportsSuccessAsSelfExitingZsh(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv(cmdutil.EnvCompletionDir, dir)
+	t.Setenv(cmdutil.EnvCompletionShell, "zsh")
 
 	var stdout bytes.Buffer
 	err := run([]string{"parse"}, true, strings.NewReader("name: greet\n"), &stdout, "greet")
@@ -424,6 +428,7 @@ func TestRunParseGenerateModeReportsSuccessAsSelfExitingZsh(t *testing.T) {
 func TestRunParseGenerateModeDoesNotRequireWrappedArgs(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv(cmdutil.EnvCompletionDir, dir)
+	t.Setenv(cmdutil.EnvCompletionShell, "zsh")
 
 	// Unlike a normal parse, generate mode doesn't parse "$@" at all, so a script run with
 	// _COMPLEO_GENERATE_NAME set (no args of its own) must not fail or need "--".

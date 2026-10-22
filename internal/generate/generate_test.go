@@ -18,7 +18,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	shells.SetCompletionEmitter(zsh.Em)
+	os.Setenv(cmdutil.EnvCompletionShell, "zsh")
 	shells.SetEvalEmitter(zsh.Em)
 	os.Exit(m.Run())
 }
@@ -114,7 +114,7 @@ func TestGenerateForPassesScriptFileToChild(t *testing.T) {
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	var stdout bytes.Buffer
-	require.NoError(t, GenerateFor("fake-wrapped", &stdout))
+	require.NoError(t, GenerateFor("fake-wrapped", "", &stdout))
 	assert.Equal(t, "script="+scriptPath+"\n", stdout.String())
 }
 
@@ -140,6 +140,17 @@ func TestGenerateFailsWhenSpecNameDisagreesWithInvokedName(t *testing.T) {
 
 // Checks GenerateFor's own wiring (PATH resolution, env var, stdout passthrough), not
 // the full parse/generate pipeline.
+func TestGenerateForPassesCompletionShell(t *testing.T) {
+	dir := t.TempDir()
+	scriptPath := filepath.Join(dir, "fake-wrapped")
+	require.NoError(t, os.WriteFile(scriptPath, fmt.Appendf(nil, "#!/bin/sh\n# calls compleo\necho \"shell=$%s\"\n", cmdutil.EnvCompletionShell), 0o755))
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	var stdout bytes.Buffer
+	require.NoError(t, GenerateFor("fake-wrapped", "bash", &stdout))
+	assert.Equal(t, "shell=bash\n", stdout.String())
+}
+
 func TestGenerateForSetsGenerateNameEnvVarOnTheResolvedExecutable(t *testing.T) {
 	dir := t.TempDir()
 	scriptPath := filepath.Join(dir, "fake-wrapped")
@@ -147,7 +158,7 @@ func TestGenerateForSetsGenerateNameEnvVarOnTheResolvedExecutable(t *testing.T) 
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	var stdout bytes.Buffer
-	err := GenerateFor("fake-wrapped", &stdout)
+	err := GenerateFor("fake-wrapped", "", &stdout)
 	require.NoError(t, err)
 	assert.Equal(t, "name=fake-wrapped\n", stdout.String())
 }
@@ -162,13 +173,13 @@ func TestGenerateForPathArgumentUsesBasenameNotFullPath(t *testing.T) {
 	t.Setenv("PATH", "") // scriptPath is given as a path below; $PATH must not matter at all.
 
 	var stdout bytes.Buffer
-	err := GenerateFor(scriptPath, &stdout)
+	err := GenerateFor(scriptPath, "", &stdout)
 	require.NoError(t, err)
 	assert.Equal(t, "name=fake-wrapped\n", stdout.String())
 }
 
 func TestGenerateForFailsForUnknownExecutable(t *testing.T) {
-	err := GenerateFor("definitely-not-a-real-command-xyz", &bytes.Buffer{})
+	err := GenerateFor("definitely-not-a-real-command-xyz", "", &bytes.Buffer{})
 	assert.Error(t, err)
 }
 
@@ -272,6 +283,6 @@ func TestGenerateForRefusesExecutableThatIsNotCompleoWrapped(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "not-wrapped"), []byte("#!/bin/sh\necho hi\n"), 0o755))
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	err := GenerateFor("not-wrapped", &bytes.Buffer{})
+	err := GenerateFor("not-wrapped", "", &bytes.Buffer{})
 	assert.Error(t, err)
 }

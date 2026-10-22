@@ -143,8 +143,9 @@ func macroBin(expr, self string) string {
 }
 
 // GenerateFor runs script (a bare name resolved via $PATH, or a path) as a subprocess with
-// EnvGenerateName and EnvScriptFile set, writing its output to out.
-func GenerateFor(script string, out io.Writer) error {
+// EnvGenerateName and EnvScriptFile set, writing its output to out. shell is the
+// interactive shell the completion targets; empty leaves EnvCompletionShell unset.
+func GenerateFor(script, shell string, out io.Writer) error {
 	path, err := exec.LookPath(script)
 	if err != nil {
 		return fmt.Errorf("generate: %w", err)
@@ -156,11 +157,15 @@ func GenerateFor(script string, out io.Writer) error {
 	// filepath.Base(script), not script itself: script may be a path (exec.LookPath resolves
 	// one directly, without even consulting $PATH), but EnvGenerateName must be a bare
 	// name to match what the script's own "${0:t}" computes from its argv[0].
+	env := []string{
+		cmdutil.EnvGenerateName + "=" + filepath.Base(script),
+		cmdutil.EnvScriptFile + "=" + path,
+	}
+	if shell != "" {
+		env = append(env, cmdutil.EnvCompletionShell+"="+shell)
+	}
 	cmd := exec.Command(path)
-	cmd.Env = append(os.Environ(),
-		cmdutil.EnvGenerateName+"="+filepath.Base(script),
-		cmdutil.EnvScriptFile+"="+path,
-	)
+	cmd.Env = append(os.Environ(), env...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = out
 	cmd.Stderr = os.Stderr
