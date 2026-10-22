@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/nesneros/compleo/internal/cmdutil"
+	"github.com/nesneros/compleo/internal/doctor"
 	"github.com/nesneros/compleo/internal/generate"
 	"github.com/nesneros/compleo/internal/parse"
 	"github.com/nesneros/compleo/internal/shells"
@@ -150,6 +151,15 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, errOut io.Write
 			return fmt.Errorf("invalid spec: %w", err)
 		}
 		fmt.Fprintln(out, "ok")
+	case "doctor":
+		report := doctor.Collect(doctor.DefaultDeps())
+		report.CompleoVersion = versionString()
+		if err := doctor.Format(out, report); err != nil {
+			return err
+		}
+		if _, errs := doctor.Severity(report); errs > 0 {
+			return fmt.Errorf("doctor found %d error(s)", errs)
+		}
 	case "version":
 		fmt.Fprintln(out, versionString())
 	default:

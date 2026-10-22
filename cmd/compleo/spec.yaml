@@ -28,5 +28,7 @@ commands:
     description: Wire compleo into a script from the spec piped on stdin — the simplest way to integrate compleo, e.g. eval "$(compleo up <<SPEC ... SPEC)". Use "parse" directly if you need finer control over the invocation.
   - name: validate
     description: Validate the spec piped on stdin and exit.
+  - name: doctor
+    description: Show compleo's environment - activation, env vars, generated completions, and the external carapace binary - and flag anything that looks broken.
   - name: version
     description: Print compleo's version and exit.

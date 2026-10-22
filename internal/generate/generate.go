@@ -79,10 +79,14 @@ func Generate(cmd *cobra.Command, sp spec.Command, rawSpec, generateName string,
 	if err := cmdutil.WriteCompletionFile(dir, fileName, snippet); err != nil {
 		return err
 	}
+	self := "compleo"
+	if exe, err := os.Executable(); err == nil {
+		self = filepath.Base(exe)
+	}
 	// The hint text is completion-target-shell-specific (may differ from em's own shell);
 	// only the print/exit wrapper around it is in em's.
 	// A missing $bin.* target fails at Tab time as a completion message, not a shell error.
-	return em.EmitGenerated(completionEm.ActivationHint(name), missingMacroBins(sp))
+	return em.EmitGenerated(completionEm.ActivationHint(name), MissingMacroBins(sp, self))
 }
 
 // wrappingScriptShell reads the shebang of the script named by EnvScriptFile.
@@ -100,13 +104,10 @@ func wrappingScriptShell() (string, error) {
 	return shells.ShebangShell(f)
 }
 
-// missingMacroBins returns binaries ActionMacro would exec for sp that are not on PATH.
-// Macros namespaced to this process are dispatched in-process, so they are not included.
-func missingMacroBins(sp spec.Command) []string {
-	self := "compleo"
-	if exe, err := os.Executable(); err == nil {
-		self = filepath.Base(exe)
-	}
+// MissingMacroBins returns binaries ActionMacro would exec for sp that are not on PATH, for
+// self (the running binary's basename, which dispatches its own $self.* macros in-process
+// rather than exec'ing them — see macroBin).
+func MissingMacroBins(sp spec.Command, self string) []string {
 	var missing []string
 	for _, bin := range slices.Sorted(maps.Keys(externalMacros(sp, self))) {
 		if _, err := exec.LookPath(bin); err != nil {

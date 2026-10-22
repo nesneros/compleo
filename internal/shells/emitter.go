@@ -105,6 +105,11 @@ func GetCompletionEmitter(out, err io.Writer) CompletionEmitter {
 	return emitter
 }
 
+// RegisteredNames returns the names of every registered shell, sorted.
+func RegisteredNames() []string {
+	return SortedKeys(registeredFactories)
+}
+
 // SortedKeys returns m's keys sorted, for deterministic output despite map iteration order.
 func SortedKeys[K cmp.Ordered, V any](m map[K]V) []K {
 	return slices.Sorted(maps.Keys(m))
