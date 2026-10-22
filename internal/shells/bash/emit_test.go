@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,35 +22,35 @@ import (
 func emitResult(t *testing.T, result parse.Result) string {
 	t.Helper()
 	var buf bytes.Buffer
-	require.NoError(t, Em.EmitResult(&buf, result))
+	require.NoError(t, New(&buf, io.Discard).EmitResult(result))
 	return buf.String()
 }
 
 func emitHelp(t *testing.T, text string) string {
 	t.Helper()
 	var buf bytes.Buffer
-	require.NoError(t, Em.EmitHelp(&buf, text))
+	require.NoError(t, New(&buf, io.Discard).EmitHelp(text))
 	return buf.String()
 }
 
 func emitError(t *testing.T, name string, err error) string {
 	t.Helper()
 	var buf bytes.Buffer
-	require.NoError(t, Em.EmitError(&buf, name, err))
+	require.NoError(t, New(&buf, io.Discard).EmitError(name, err))
 	return buf.String()
 }
 
 func emitGenerated(t *testing.T, name string) string {
 	t.Helper()
 	var buf bytes.Buffer
-	require.NoError(t, Em.EmitGenerated(&buf, Em.ActivationHint(name), nil))
+	require.NoError(t, New(&buf, io.Discard).EmitGenerated(Em.ActivationHint(name), nil))
 	return buf.String()
 }
 
 func emitActivate(t *testing.T, dir string) string {
 	t.Helper()
 	var buf bytes.Buffer
-	require.NoError(t, Em.EmitActivate(&buf, dir))
+	require.NoError(t, New(&buf, io.Discard).EmitActivate(dir))
 	return buf.String()
 }
 
@@ -70,7 +71,7 @@ func bashMajor(t *testing.T) int {
 
 func TestEmitResultDeclaresAssociativeArray(t *testing.T) {
 	var buf bytes.Buffer
-	err := Em.EmitResult(&buf, parse.Result{
+	err := New(&buf, io.Discard).EmitResult(parse.Result{
 		Flags: map[string]parse.FlagValue{
 			"name": {Kind: parse.KindString, String: "Jan"},
 		},
@@ -93,7 +94,7 @@ func TestWrappedCompletionInjectsSpecFile(t *testing.T) {
 
 func TestEmitUpUsesBashBasename(t *testing.T) {
 	var buf bytes.Buffer
-	require.NoError(t, Em.EmitUp(&buf, "name: greet\n"))
+	require.NoError(t, New(&buf, io.Discard).EmitUp("name: greet\n"))
 	assert.Contains(t, buf.String(), `${0##*/}`)
 }
 
@@ -188,7 +189,7 @@ func TestEmitGeneratedPrintsConfirmationToStderrAndExitsZero(t *testing.T) {
 
 func TestEmitGeneratedPrintsOneWarningForMissingMacros(t *testing.T) {
 	var buf bytes.Buffer
-	require.NoError(t, Em.EmitGenerated(&buf, Em.ActivationHint("greet"), []string{"carapace", "missingb"}))
+	require.NoError(t, New(&buf, io.Discard).EmitGenerated(Em.ActivationHint("greet"), []string{"carapace", "missingb"}))
 
 	cmd := bashCmd(buf.String())
 	var stderr bytes.Buffer
@@ -219,14 +220,14 @@ complete -p greet
 
 func TestEmitUpIsSyntacticallyValidBash(t *testing.T) {
 	var buf bytes.Buffer
-	require.NoError(t, Em.EmitUp(&buf, "flags:\n  --loud: shout\n"))
+	require.NoError(t, New(&buf, io.Discard).EmitUp("flags:\n  --loud: shout\n"))
 	require.NoError(t, bashCmd("set -n; "+buf.String()).Run())
 }
 
 func TestEmitUpGeneratedCodeInvokesParseWithNameArgsAndSpec(t *testing.T) {
 	original := "description: it's $dangerous `here`\nflags:\n  --loud: shout\n"
 	var buf bytes.Buffer
-	require.NoError(t, Em.EmitUp(&buf, original))
+	require.NoError(t, New(&buf, io.Discard).EmitUp(original))
 
 	captureFile := filepath.Join(t.TempDir(), "captured")
 	script := fmt.Sprintf(`

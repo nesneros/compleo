@@ -24,8 +24,10 @@ var declaredNamePattern = regexp.MustCompile(`(?m)^name:`)
 
 // Generate writes a completion file for sp's command tree, with rawSpec embedded as its
 // companion spec file, to the completion directory. The snippet is for the interactive
-// shell; the success report (via em) is eval'd by the script's own shell.
-func Generate(cmd *cobra.Command, sp spec.Command, rawSpec, generateName string, em shells.EvalEmitter, out io.Writer) error {
+// shell; the success report (via em, already bound to the script's own shell's stream) is
+// eval'd by the script's own shell. out/errOut are only used to construct the completion-
+// target emitter (shells.GetCompletionEmitter) for its ActivationHint/WrappedCompletion.
+func Generate(cmd *cobra.Command, sp spec.Command, rawSpec, generateName string, em shells.EvalEmitter, out, errOut io.Writer) error {
 	dir := cmdutil.CompletionDir()
 
 	// name is what completion gets registered under. generateName (from "generate
@@ -68,7 +70,7 @@ func Generate(cmd *cobra.Command, sp spec.Command, rawSpec, generateName string,
 		return err
 	}
 
-	completionEm := shells.GetCompletionEmitter()
+	completionEm := shells.GetCompletionEmitter(out, errOut)
 	snippet, err := completionEm.WrappedCompletion(cmd, name, filepath.Join(dir, specFileName))
 	if err != nil {
 		return err
@@ -80,7 +82,7 @@ func Generate(cmd *cobra.Command, sp spec.Command, rawSpec, generateName string,
 	// The hint text is completion-target-shell-specific (may differ from em's own shell);
 	// only the print/exit wrapper around it is in em's.
 	// A missing $bin.* target fails at Tab time as a completion message, not a shell error.
-	return em.EmitGenerated(out, completionEm.ActivationHint(name), missingMacroBins(sp))
+	return em.EmitGenerated(completionEm.ActivationHint(name), missingMacroBins(sp))
 }
 
 // wrappingScriptShell reads the shebang of the script named by EnvScriptFile.

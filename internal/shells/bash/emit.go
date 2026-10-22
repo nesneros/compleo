@@ -2,7 +2,6 @@ package bash
 
 import (
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 
@@ -22,28 +21,28 @@ func (Emitter) ActivationHint(name string) string {
 // EmitGenerated writes bash that prints hint (built by the completion-target shell's own
 // ActivationHint, which may differ from this shell). When missing is non-empty, it first
 // prints one warning listing those $bin.* completion macros.
-func (e Emitter) EmitGenerated(w io.Writer, hint string, missing []string) error {
+func (e Emitter) EmitGenerated(hint string, missing []string) error {
 	if len(missing) > 0 {
 		macros := make([]string, len(missing))
 		for i, bin := range missing {
 			macros[i] = "$" + bin + ".*"
 		}
 		msg := "warning: not on PATH, so these completion macros will not work: " + strings.Join(macros, ", ")
-		if err := e.PrintStderr(w, msg); err != nil {
+		if err := e.PrintStderr(msg); err != nil {
 			return err
 		}
 	}
-	if err := e.PrintStderr(w, hint); err != nil {
+	if err := e.PrintStderr(hint); err != nil {
 		return err
 	}
-	_, err := fmt.Fprintf(w, "exit %d\n", 0)
+	_, err := fmt.Fprintf(e.Out, "exit %d\n", 0)
 	return err
 }
 
 // EmitUp writes bash that invokes "compleo parse" with "--shell=bash" (so the nested call
 // doesn't need to redetect it). ${0##*/} is bash for zsh's ${0:t}.
-func (e Emitter) EmitUp(w io.Writer, rawSpec string) error {
-	_, err := fmt.Fprintf(w, `eval "$(compleo parse --shell=%s --name="${0##*/}" -- "$@" <<<%s)"`+"\n", e.Name(), e.Quote(rawSpec))
+func (e Emitter) EmitUp(rawSpec string) error {
+	_, err := fmt.Fprintf(e.Out, `eval "$(compleo parse --shell=%s --name="${0##*/}" -- "$@" <<<%s)"`+"\n", e.Name(), e.Quote(rawSpec))
 	return err
 }
 
@@ -60,20 +59,20 @@ done
 
 // EmitActivate writes bash that sources the completion files in dir and records that shell
 // for later completion.
-func (e Emitter) EmitActivate(w io.Writer, dir string) error {
-	_, err := fmt.Fprintf(w, activateTemplate, e.Quote(dir), cmdutil.EnvCompletionShell, e.Quote(e.Name()))
+func (e Emitter) EmitActivate(dir string) error {
+	_, err := fmt.Fprintf(e.Out, activateTemplate, e.Quote(dir), cmdutil.EnvCompletionShell, e.Quote(e.Name()))
 	return err
 }
 
 // EmitResult writes bash that fills a "compleo" associative array. declare -A needs bash 4;
 // macOS /bin/bash is 3.2 and cannot run this.
-func (Emitter) EmitResult(w io.Writer, result parse.Result) error {
+func (e Emitter) EmitResult(result parse.Result) error {
 	var writeErr error
 	write := func(s string) {
 		if writeErr != nil {
 			return
 		}
-		_, writeErr = fmt.Fprintln(w, s)
+		_, writeErr = fmt.Fprintln(e.Out, s)
 	}
 
 	write("declare -A compleo")
@@ -145,8 +144,4 @@ func arrayVarName(name string) string {
 		}
 	}
 	return b.String()
-}
-
-func init() {
-	shells.RegisterEmitter(&Em)
 }

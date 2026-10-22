@@ -25,7 +25,7 @@ var specYAML []byte
 
 func main() {
 	generateName := os.Getenv(cmdutil.EnvGenerateName)
-	if err := run(os.Args[1:], isPiped(os.Stdin), os.Stdin, os.Stdout, generateName); err != nil {
+	if err := run(os.Args[1:], isPiped(os.Stdin), os.Stdin, os.Stdout, os.Stderr, generateName); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		logDebug(os.Args[1:], err)
 		os.Exit(1)
@@ -58,8 +58,9 @@ func isPiped(f *os.File) bool {
 }
 
 // run parses args as a compleo invocation and dispatches to the matching subcommand,
-// writing its output to out.
-func run(args []string, piped bool, in io.Reader, out io.Writer, generateName string) error {
+// writing its output to out (what gets eval'd) and errOut (the real stderr, for a method
+// that needs to bypass eval — see posix.Emitter's own doc comment; unused by any current one).
+func run(args []string, piped bool, in io.Reader, out io.Writer, errOut io.Writer, generateName string) error {
 	if args == nil {
 		panic("run: args must not be nil (use an empty slice for 'no arguments')")
 	}
@@ -109,7 +110,7 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, generateName st
 		if err != nil {
 			return err
 		}
-		em, err := shells.CompletionEmitterForShell(shell)
+		em, err := shells.CompletionEmitterForShell(shell, out, errOut)
 		if err != nil {
 			return err
 		}
@@ -120,7 +121,7 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, generateName st
 		if err := cmdutil.WriteCompletionFile(dir, "_"+ownSpec.Name, snippet); err != nil {
 			return err
 		}
-		return em.EmitActivate(out, dir)
+		return em.EmitActivate(dir)
 	case "generate":
 		shell, err := shellFromCommandLine(result)
 		if err != nil {
@@ -128,22 +129,22 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, generateName st
 		}
 		return generate.GenerateFor(result.Positionals["script"].Values[0], shell, out)
 	case "parse":
-		em, err := resolveEvalEmitter(result.Flags["shell"])
+		em, err := resolveEvalEmitter(result.Flags["shell"], out, errOut)
 		if err != nil {
-			return shells.EmitUndetectedShellError(out, err.Error())
+			return shells.EmitUndetectedShellError(out, errOut, err.Error())
 		}
 		// A variadic positional with zero values binds to nil, not an empty slice; Parse panics on nil.
 		wrappedArgs := result.Positionals["args"].Values
 		if wrappedArgs == nil {
 			wrappedArgs = []string{}
 		}
-		return runParse(wrappedArgs, rawSpec, out, result.Flags["name"].String, generateName, em)
+		return runParse(wrappedArgs, rawSpec, out, errOut, result.Flags["name"].String, generateName, em)
 	case "up":
-		em, err := resolveEvalEmitter(parse.FlagValue{})
+		em, err := resolveEvalEmitter(parse.FlagValue{}, out, errOut)
 		if err != nil {
-			return shells.EmitUndetectedShellError(out, err.Error())
+			return shells.EmitUndetectedShellError(out, errOut, err.Error())
 		}
-		return em.EmitUp(out, rawSpec)
+		return em.EmitUp(rawSpec)
 	case "validate":
 		if _, _, err := spec.ParseYAML(rawSpec, ""); err != nil {
 			return fmt.Errorf("invalid spec: %w", err)
@@ -159,8 +160,10 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, generateName st
 
 // runParse parses args against the spec in rawSpec, or, when generateName is non-empty,
 // writes a completion file for it instead. name is passed to spec.ParseYAML as the spec's
-// name; em is the already-resolved emitter for the wrapping script's own shell.
-func runParse(args []string, rawSpec string, out io.Writer, name string, generateName string, em shells.EvalEmitter) error {
+// name; em is the already-resolved emitter for the wrapping script's own shell, bound to its
+// own output. out/errOut are only still needed here for generate.Generate's own use (building
+// the completion-target emitter), not for em's output.
+func runParse(args []string, rawSpec string, out, errOut io.Writer, name string, generateName string, em shells.EvalEmitter) error {
 	cmd, sp, err := spec.ParseYAML(rawSpec, name)
 	if err != nil {
 		return fmt.Errorf("invalid spec: %w", err)
@@ -170,9 +173,9 @@ func runParse(args []string, rawSpec string, out io.Writer, name string, generat
 	cmd.SilenceUsage = true
 
 	if generateName != "" {
-		return generate.Generate(cmd, sp, rawSpec, generateName, em, out)
+		return generate.Generate(cmd, sp, rawSpec, generateName, em, out, errOut)
 	}
-	return runEmit(cmd, sp, args, em, out)
+	return runEmit(cmd, sp, args, em)
 }
 
 // runCarapace builds a cobra command tree from specYAML and executes args against it,
@@ -190,9 +193,9 @@ func runCarapace(specYAML string, args []string, out io.Writer) error {
 	return cmd.Execute()
 }
 
-// runEmit parses args against sp and writes the resulting shell code (via em) to out — or,
-// for --help or a bad arg, the equivalently-wrapped help/error text instead.
-func runEmit(cmd *cobra.Command, sp spec.Command, args []string, em shells.EvalEmitter, out io.Writer) error {
+// runEmit parses args against sp and writes the resulting shell code (via em, bound to its
+// own output) — or, for --help or a bad arg, the equivalently-wrapped help/error text instead.
+func runEmit(cmd *cobra.Command, sp spec.Command, args []string, em shells.EvalEmitter) error {
 	// cobra's help writes straight to stdout; buffer it so it can be re-wrapped instead of
 	// corrupting EmitResult's own output on the same stream.
 	var helpBuf bytes.Buffer
@@ -203,11 +206,11 @@ func runEmit(cmd *cobra.Command, sp spec.Command, args []string, em shells.EvalE
 	// Encoded into the output, not a Go error: eval alone should stop the script on a bad
 	// arg, no caller-side exit-code check needed.
 	case err != nil:
-		return em.EmitError(out, sp.Name, err)
+		return em.EmitError(sp.Name, err)
 	case parseResult.HelpRequested:
-		return em.EmitHelp(out, helpBuf.String())
+		return em.EmitHelp(helpBuf.String())
 	default:
-		return em.EmitResult(out, parseResult)
+		return em.EmitResult(parseResult)
 	}
 }
 
@@ -219,16 +222,16 @@ func shellFromCommandLine(parsedCmdLine parse.Result) (string, error) {
 	return cmdutil.ParentProcessName()
 }
 
-// resolveEvalEmitter returns the EvalEmitter for the wrapping script's own shell: shellFlag
-// when given ("parse"'s own --shell), else the parent interpreter ("up" has no such flag, and
-// a direct "parse" call falls back the same way). A zero-value shellFlag (as "up" passes)
-// always falls through to detection.
-func resolveEvalEmitter(shellFlag parse.FlagValue) (shells.EvalEmitter, error) {
+// resolveEvalEmitter returns the EvalEmitter for the wrapping script's own shell, bound to
+// out/errOut: shellFlag when given ("parse"'s own --shell), else the parent interpreter ("up"
+// has no such flag, and a direct "parse" call falls back the same way). A zero-value
+// shellFlag (as "up" passes) always falls through to detection.
+func resolveEvalEmitter(shellFlag parse.FlagValue, out, errOut io.Writer) (shells.EvalEmitter, error) {
 	var shell string
 	if shellFlag.Changed {
 		shell = shellFlag.String
 	}
-	return shells.ResolveEvalEmitter(shell)
+	return shells.ResolveEvalEmitter(shell, out, errOut)
 }
 
 // compleoCmd builds compleo's own cobra command tree from its embedded spec.yaml. It panics

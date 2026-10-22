@@ -1,6 +1,7 @@
 package shells_test
 
 import (
+	"io"
 	"os"
 	"os/exec"
 	"testing"
@@ -16,14 +17,14 @@ import (
 func TestGetCompletionEmitterReadsEnv(t *testing.T) {
 	t.Setenv(cmdutil.EnvCompletionShell, "bash")
 
-	em := shells.GetCompletionEmitter()
+	em := shells.GetCompletionEmitter(io.Discard, io.Discard)
 	assert.Equal(t, "bash", em.Name())
 }
 
 func TestGetCompletionEmitterRequiresEnv(t *testing.T) {
 	if os.Getenv("COMPLEO_GET_COMPLETION_EMITTER_EXIT") == "unset" {
 		t.Setenv(cmdutil.EnvCompletionShell, "")
-		shells.GetCompletionEmitter()
+		shells.GetCompletionEmitter(io.Discard, io.Discard)
 		return
 	}
 
@@ -39,7 +40,7 @@ func TestGetCompletionEmitterRequiresEnv(t *testing.T) {
 func TestGetCompletionEmitterRejectsUnknownShell(t *testing.T) {
 	if os.Getenv("COMPLEO_GET_COMPLETION_EMITTER_EXIT") == "unknown" {
 		t.Setenv(cmdutil.EnvCompletionShell, "nosuch")
-		shells.GetCompletionEmitter()
+		shells.GetCompletionEmitter(io.Discard, io.Discard)
 		return
 	}
 
