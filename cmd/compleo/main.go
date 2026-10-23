@@ -230,7 +230,11 @@ func runEmit(cmd *cobra.Command, sp spec.Command, args []string, em shells.EvalE
 	case parseResult.HelpRequested:
 		return em.EmitHelp(helpBuf.String())
 	default:
-		return em.EmitResult(parseResult, shells.ResultPrefix)
+		prefix := sp.Prefix
+		if prefix == "" {
+			prefix = "compleo_" // a spec's own prefix: (spec.Command.Prefix) overrides this
+		}
+		return em.EmitResult(parseResult, prefix)
 	}
 }
 

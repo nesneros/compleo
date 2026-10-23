@@ -45,3 +45,26 @@ func TestParseYAMLRejectsUnknownTopLevelKey(t *testing.T) {
 	_, _, err := ParseYAML("name: greet\nflagtypes:\n  times: int\n", "")
 	assert.Error(t, err)
 }
+
+func TestParseYAMLLeavesPrefixEmptyWhenNotDeclared(t *testing.T) {
+	_, sp, err := ParseYAML("name: greet\n", "")
+	require.NoError(t, err)
+	assert.Empty(t, sp.Prefix)
+}
+
+func TestParseYAMLAcceptsDeclaredPrefix(t *testing.T) {
+	_, sp, err := ParseYAML("name: greet\nprefix: tool\n", "")
+	require.NoError(t, err)
+	assert.Equal(t, "tool", sp.Prefix)
+}
+
+func TestParseYAMLRejectsPrefixWithIllegalCharacters(t *testing.T) {
+	_, _, err := ParseYAML("name: greet\nprefix: my-tool\n", "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `prefix "my-tool"`)
+}
+
+func TestParseYAMLRejectsPrefixStartingWithDigit(t *testing.T) {
+	_, _, err := ParseYAML("name: greet\nprefix: 1tool\n", "")
+	assert.Error(t, err)
+}

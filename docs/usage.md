@@ -48,6 +48,10 @@ greeting="Hello, ${compleo_name}!"
 [[ $compleo_loud == true ]] && greeting=${(U)greeting}
 ```
 
+- The `compleo_` prefix is the default; a spec's own `prefix:` changes it (see
+  [spec.md](spec.md#prefix)) — e.g. `prefix: greet_` emits `$greet_name` instead. The
+  separator is part of the prefix itself, so `prefix: greet` (no trailing `_`) emits
+  `$greetname`.
 - A plain flag or non-variadic positional is a scalar: `$compleo_name`.
 - A repeatable flag (`--tag*=`) or a `variadic: true` positional is an array: `$compleo_tag`.
   Characters outside `[A-Za-z0-9_]` (the `-` in `dry-run`, for example) become `_`, because a

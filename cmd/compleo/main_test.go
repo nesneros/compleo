@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/nesneros/compleo/internal/cmdutil"
-	"github.com/nesneros/compleo/internal/shells"
 	"github.com/nesneros/compleo/internal/shells/bash"
 	"github.com/nesneros/compleo/internal/shells/zsh"
 	"github.com/stretchr/testify/assert"
@@ -195,7 +194,27 @@ func TestRunParseWithoutDashWorksWhenNoCollision(t *testing.T) {
 	var stdout bytes.Buffer
 	err := run([]string{"parse", "--shell=zsh", "world"}, true, strings.NewReader("name: mytool\npositionals:\n  - name: who\n"), &stdout, &bytes.Buffer{}, "")
 	require.NoError(t, err)
-	assert.Contains(t, stdout.String(), shells.VarName(shells.ResultPrefix, "who")+"='world'")
+	assert.Contains(t, stdout.String(), "compleo_who='world'")
+}
+
+// A spec's own prefix: overrides the default "compleo_" for every emitted variable.
+func TestRunParseUsesSpecDeclaredPrefix(t *testing.T) {
+	var stdout bytes.Buffer
+	err := run([]string{"parse", "--shell=zsh", "world"}, true,
+		strings.NewReader("name: mytool\nprefix: tool_\npositionals:\n  - name: who\n"), &stdout, &bytes.Buffer{}, "")
+	require.NoError(t, err)
+	assert.Contains(t, stdout.String(), "tool_who='world'")
+	assert.NotContains(t, stdout.String(), "compleo_who='world'")
+}
+
+// The separator (if any) between prefix and name is entirely up to what the spec's own
+// prefix: string contains — compleo never inserts one.
+func TestRunParseSpecDeclaredPrefixWithNoSeparatorJoinsDirectly(t *testing.T) {
+	var stdout bytes.Buffer
+	err := run([]string{"parse", "--shell=zsh", "world"}, true,
+		strings.NewReader("name: mytool\nprefix: tool\npositionals:\n  - name: who\n"), &stdout, &bytes.Buffer{}, "")
+	require.NoError(t, err)
+	assert.Contains(t, stdout.String(), "toolwho='world'")
 }
 
 // A flag compleo's own "parse" doesn't recognize errors regardless of "--" or position.

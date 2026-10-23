@@ -1,12 +1,12 @@
 # Spec file format
 
 A compleo spec is a [carapace-spec](https://carapace-sh.github.io/carapace-spec/) YAML
-document — the same format carapace-bin's completers use — with three additions:
-`positionals:`, a `type:` key, and a `completion:` key co-located on a flag's (or positional's)
-own definition, instead of plain carapace-spec's separate, name/index-keyed top-level
-`completion:` section. Everything else (`name`, `description`, `flags`, `persistentflags`,
-`commands`, `aliases`, `group`, `hidden`, ...) is plain carapace-spec; see its docs for the full
-field reference. A command's top-level `completion:` section (`positionalany`/`dash`/`dashany`
+document — the same format carapace-bin's completers use — with four additions:
+`positionals:`, a `type:` key, a `completion:` key co-located on a flag's (or positional's)
+own definition instead of plain carapace-spec's separate, name/index-keyed top-level
+`completion:` section, and a root-level `prefix:`. Everything else (`name`, `description`,
+`flags`, `persistentflags`, `commands`, `aliases`, `group`, `hidden`, ...) is plain
+carapace-spec; see its docs for the full field reference. A command's top-level `completion:` section (`positionalany`/`dash`/`dashany`
 in plain carapace-spec) is gone entirely — compleo found no realistic case for declaring it by
 hand once completion lives on a flag's/positional's own definition instead; see below.
 
@@ -189,6 +189,23 @@ bounded range that doesn't need the separately-installed `carapace` binary (see
 `examples/carapace_bin_macros`), so unlike `enum`'s free literal-values completion, deriving one
 here would trade a dependency-free feature for one with a hidden runtime dependency; declare
 `completion:` yourself if you want it.
+
+### `prefix:`
+
+Each flag and positional is emitted as a shell variable, `<prefix><name>` — see
+[usage.md](usage.md#2-read-the-parsed-values). The prefix defaults to `compleo_`; declare your
+own at the root of the spec to change it. It's used exactly as written, with no separator
+added — include your own `_` if you want one:
+
+```yaml
+name: greet
+prefix: greet_  # emits $greet_name instead of $compleo_name
+```
+
+Omitting the trailing `_` (`prefix: greet`) joins directly onto the name instead: `$greetname`.
+
+Must match `^[A-Za-z_][A-Za-z0-9_]*$` — a bad one is rejected at spec-parse time rather than
+silently producing unusable shell variables.
 
 ## Full example
 

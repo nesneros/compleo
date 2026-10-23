@@ -34,6 +34,12 @@ type Command struct {
 
 	Positionals []Positional `yaml:"positionals,omitempty"`
 
+	// Prefix is the EmitResult variable prefix ("" means the caller's own default — main.go's
+	// runEmit falls back to "compleo_"), used verbatim: it carries its own separator, if any
+	// (e.g. "greet_"; "greet" joins directly onto the name with none). Only meaningful on the
+	// root command — a subcommand's own Prefix, if any, is never read.
+	Prefix string `yaml:"prefix,omitempty"`
+
 	// ScriptShell is the wrapping script's shell, taken from its shebang. generate fills it in.
 	ScriptShell string `yaml:"scriptShell,omitempty"`
 }

@@ -68,8 +68,9 @@ func (e Emitter) EmitActivate(dir string) error {
 	return err
 }
 
-// EmitResult writes one <prefix>_<name> variable per flag and positional. A repeatable flag
-// or variadic positional is a real array, written after the scalars.
+// EmitResult writes one <prefix><name> variable per flag and positional (prefix carries its
+// own separator, if any — see shells.VarName). A repeatable flag or variadic positional is a
+// real array, written after the scalars.
 func (e Emitter) EmitResult(result parse.Result, prefix string) error {
 	var writeErr error
 	write := func(s string) {

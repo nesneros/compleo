@@ -22,7 +22,7 @@ import (
 func emitResult(t *testing.T, result parse.Result) string {
 	t.Helper()
 	var buf bytes.Buffer
-	require.NoError(t, New(&buf, io.Discard).EmitResult(result, shells.ResultPrefix))
+	require.NoError(t, New(&buf, io.Discard).EmitResult(result, "compleo_"))
 	return buf.String()
 }
 
@@ -54,14 +54,14 @@ func emitActivate(t *testing.T, dir string) string {
 	return buf.String()
 }
 
-func vn(name string) string { return shells.VarName(shells.ResultPrefix, name) }
+func vn(name string) string { return shells.VarName("compleo_", name) }
 
 func TestEmitScalarStringFlag(t *testing.T) {
 	result := parse.Result{Flags: map[string]parse.FlagValue{
-		"name": {Kind: parse.KindString, Changed: true, String: "Jan"},
+		"name": {Kind: parse.KindString, Changed: true, String: "world"},
 	}}
 
-	assert.Contains(t, emitResult(t, result), vn("name")+"='Jan'")
+	assert.Contains(t, emitResult(t, result), vn("name")+"='world'")
 }
 
 func TestEmitBoolFlagTrue(t *testing.T) {
@@ -140,8 +140,8 @@ func TestEmitSanitizesHyphenInArrayVarName(t *testing.T) {
 	}}
 
 	snippet := emitResult(t, result)
-	assert.Contains(t, snippet, "typeset -a "+shells.ResultPrefix+"_dry_run_tag=()")
-	assert.Contains(t, snippet, shells.ResultPrefix+"_dry_run_tag=('x')")
+	assert.Contains(t, snippet, "typeset -a compleo_dry_run_tag=()")
+	assert.Contains(t, snippet, "compleo_dry_run_tag=('x')")
 }
 
 func TestEmitQuotesValuesWithSpecialCharacters(t *testing.T) {
@@ -158,11 +158,22 @@ func TestEmitEmptyResultWritesNothing(t *testing.T) {
 
 func TestEmitResultUsesTheGivenPrefix(t *testing.T) {
 	result := parse.Result{Flags: map[string]parse.FlagValue{
-		"name": {Kind: parse.KindString, String: "Jan"},
+		"name": {Kind: parse.KindString, String: "world"},
+	}}
+	var buf bytes.Buffer
+	require.NoError(t, New(&buf, io.Discard).EmitResult(result, "tool_"))
+	assert.Contains(t, buf.String(), "tool_name='world'")
+}
+
+// A prefix with no trailing separator joins straight onto the name — the caller's choice,
+// not something EmitResult imposes.
+func TestEmitResultPrefixWithNoSeparatorJoinsDirectly(t *testing.T) {
+	result := parse.Result{Flags: map[string]parse.FlagValue{
+		"name": {Kind: parse.KindString, String: "world"},
 	}}
 	var buf bytes.Buffer
 	require.NoError(t, New(&buf, io.Discard).EmitResult(result, "tool"))
-	assert.Contains(t, buf.String(), "tool_name='Jan'")
+	assert.Contains(t, buf.String(), "toolname='world'")
 }
 
 // zshEval sources snippet then prints each expr, proving the emitted code is valid zsh.

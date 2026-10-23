@@ -16,7 +16,7 @@ import (
 
 // EvalEmitter writes code a wrapped script evals, to the stream it was constructed with.
 type EvalEmitter interface {
-	// EmitResult writes one <prefix>_<name> variable per flag and positional.
+	// EmitResult writes one <prefix><name> variable per flag and positional (see VarName).
 	EmitResult(result parse.Result, prefix string) error
 	// EmitHelp writes text the script prints, then exits 0.
 	EmitHelp(text string) error
@@ -52,16 +52,12 @@ type CompletionEmitter interface {
 	Name() string
 }
 
-// ResultPrefix is the variable prefix passed to EmitResult. It is the only place that
-// prefix is written.
-const ResultPrefix = "compleo"
-
-// VarName is prefix_<name>. Characters in name outside [A-Za-z0-9_] become "_", since a
-// hyphen cannot appear in a shell variable name.
+// VarName is prefix+name, with characters in name outside [A-Za-z0-9_] replaced by "_" (a
+// hyphen cannot appear in a shell variable name). prefix is used verbatim — any separator is
+// the caller's own choice, not added here.
 func VarName(prefix, name string) string {
 	var b strings.Builder
 	b.WriteString(prefix)
-	b.WriteByte('_')
 	for _, r := range name {
 		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' {
 			b.WriteRune(r)

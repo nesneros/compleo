@@ -13,7 +13,6 @@ import (
 
 	"github.com/nesneros/compleo/internal/cmdutil"
 	"github.com/nesneros/compleo/internal/parse"
-	"github.com/nesneros/compleo/internal/shells"
 	"github.com/nesneros/compleo/internal/spec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,7 +21,7 @@ import (
 func emitResult(t *testing.T, result parse.Result) string {
 	t.Helper()
 	var buf bytes.Buffer
-	require.NoError(t, New(&buf, io.Discard).EmitResult(result, shells.ResultPrefix))
+	require.NoError(t, New(&buf, io.Discard).EmitResult(result, "compleo_"))
 	return buf.String()
 }
 
@@ -64,23 +63,36 @@ func TestEmitResultAssignsPrefixedVariables(t *testing.T) {
 	var buf bytes.Buffer
 	err := New(&buf, io.Discard).EmitResult(parse.Result{
 		Flags: map[string]parse.FlagValue{
-			"name": {Kind: parse.KindString, String: "Jan"},
+			"name": {Kind: parse.KindString, String: "world"},
 		},
-	}, shells.ResultPrefix)
+	}, "compleo_")
 	require.NoError(t, err)
 	assert.NotContains(t, buf.String(), "declare -A")
-	assert.Contains(t, buf.String(), shells.VarName(shells.ResultPrefix, "name")+"='Jan'")
+	assert.Contains(t, buf.String(), "compleo_name='world'")
 }
 
 func TestEmitResultUsesTheGivenPrefix(t *testing.T) {
 	var buf bytes.Buffer
 	err := New(&buf, io.Discard).EmitResult(parse.Result{
 		Flags: map[string]parse.FlagValue{
-			"name": {Kind: parse.KindString, String: "Jan"},
+			"name": {Kind: parse.KindString, String: "world"},
+		},
+	}, "tool_")
+	require.NoError(t, err)
+	assert.Contains(t, buf.String(), "tool_name='world'")
+}
+
+// A prefix with no trailing separator joins straight onto the name — the caller's choice,
+// not something EmitResult imposes.
+func TestEmitResultPrefixWithNoSeparatorJoinsDirectly(t *testing.T) {
+	var buf bytes.Buffer
+	err := New(&buf, io.Discard).EmitResult(parse.Result{
+		Flags: map[string]parse.FlagValue{
+			"name": {Kind: parse.KindString, String: "world"},
 		},
 	}, "tool")
 	require.NoError(t, err)
-	assert.Contains(t, buf.String(), "tool_name='Jan'")
+	assert.Contains(t, buf.String(), "toolname='world'")
 }
 
 func TestWrappedCompletionInjectsSpecFile(t *testing.T) {
@@ -116,7 +128,7 @@ printf '%%s\n' "${%s}"
 printf '%%s\n' "${%s}"
 printf '%%s\n' "${%s[*]}"
 printf '%%s\n' "${%s[*]}"
-`, shells.VarName(shells.ResultPrefix, "loud"), shells.VarName(shells.ResultPrefix, "name"), shells.VarName(shells.ResultPrefix, "tag"), shells.VarName(shells.ResultPrefix, "extra"))
+`, "compleo_loud", "compleo_name", "compleo_tag", "compleo_extra")
 	out, err := bashCmd(script).Output()
 	require.NoError(t, err)
 	assert.Equal(t, "true\nworld\na b\none two\n", string(out))
