@@ -26,13 +26,15 @@ checksum:
 changelog:
   disable: true
 
-brews:
+homebrew_casks:
   - repository:
       owner: nesneros
       name: homebrew-tap
-    directory: Formula
     description: "Compleo CLI"
     homepage: "https://github.com/nesneros/compleo"
-        
-    test: |
-      system "#{bin}/compleo", "version"
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/compleo"]
+          end
