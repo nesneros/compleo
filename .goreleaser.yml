@@ -25,3 +25,14 @@ checksum:
 
 changelog:
   disable: true
+
+brews:
+  - repository:
+      owner: nesneros
+      name: homebrew-tap
+    directory: Formula
+    description: "Compleo CLI"
+    homepage: "https://github.com/nesneros/compleo"
+        
+    test: |
+      system "#{bin}/compleo", "version"

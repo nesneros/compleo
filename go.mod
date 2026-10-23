@@ -1,6 +1,6 @@
 module github.com/nesneros/compleo
 
-go 1.27.1
+go 1.27.2
 
 require (
 	github.com/carapace-sh/carapace v1.16.3
