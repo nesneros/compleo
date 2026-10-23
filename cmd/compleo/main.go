@@ -15,8 +15,8 @@ import (
 	"github.com/nesneros/compleo/internal/generate"
 	"github.com/nesneros/compleo/internal/parse"
 	"github.com/nesneros/compleo/internal/shells"
-	_ "github.com/nesneros/compleo/internal/shells/bash" // registers the bash emitter
-	_ "github.com/nesneros/compleo/internal/shells/zsh"  // registers the zsh emitter
+	"github.com/nesneros/compleo/internal/shells/bash"  // also used directly: activate's bash-version guard
+	_ "github.com/nesneros/compleo/internal/shells/zsh" // registers the zsh emitter
 	"github.com/nesneros/compleo/internal/spec"
 	"github.com/spf13/cobra"
 )
@@ -110,6 +110,16 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, errOut io.Write
 		shell, err := shellFromCommandLine(result)
 		if err != nil {
 			return err
+		}
+		// Only when auto-detected: the parent process is genuinely that running bash. An
+		// explicit --shell=bash may be generating for a shell other than the one compleo is
+		// actually running under, so there's no real bash process here to check.
+		if shell == "bash" && !result.Flags["shell"].Changed {
+			if exe, exeErr := cmdutil.ParentProcessExe(); exeErr == nil {
+				if err := checkBashVersion(exe, bash.DetectVersion); err != nil {
+					return err
+				}
+			}
 		}
 		em, err := shells.CompletionEmitterForShell(shell, out, errOut)
 		if err != nil {
@@ -222,6 +232,20 @@ func runEmit(cmd *cobra.Command, sp spec.Command, args []string, em shells.EvalE
 	default:
 		return em.EmitResult(parseResult, shells.ResultPrefix)
 	}
+}
+
+// checkBashVersion fails activate when exe (the actual bash about to eval its output, not just
+// whatever "bash" resolves to on $PATH) is older than bash.MinMajor.MinMinor — compleo's
+// generated completion needs it (negative array subscripts) and a silently-broken activation
+// would otherwise just look like Tab doing nothing. A version that can't be determined doesn't
+// block activation; detectVersion is injected so this is testable without a real bash binary.
+func checkBashVersion(exe string, detectVersion func(string) (int, int, error)) error {
+	major, minor, err := detectVersion(exe)
+	if err != nil || bash.VersionSupported(major, minor) {
+		return nil
+	}
+	return fmt.Errorf("bash %d.%d is too old for compleo's completion (needs >=%d.%d): %s",
+		major, minor, bash.MinMajor, bash.MinMinor, exe)
 }
 
 // shellFromCommandLine returns --shell when it was passed, otherwise the parent process name.

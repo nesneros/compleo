@@ -12,13 +12,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/nesneros/compleo/internal/cmdutil"
 	"github.com/nesneros/compleo/internal/generate"
 	"github.com/nesneros/compleo/internal/shells"
+	"github.com/nesneros/compleo/internal/shells/bash"
 	"github.com/nesneros/compleo/internal/spec"
 )
 
@@ -277,14 +277,9 @@ func collectBash(d Deps, s ShellInfo, completions []CompletionEntry) BashInfo {
 	}
 	b.Found = true
 	b.Path = path
-	if out, err := d.RunCommand(path, "-c", `printf '%s.%s' "${BASH_VERSINFO[0]}" "${BASH_VERSINFO[1]}"`); err == nil {
-		major, minor, ok := strings.Cut(out, ".")
-		if ok {
-			maj, err1 := strconv.Atoi(major)
-			min, err2 := strconv.Atoi(minor)
-			if err1 == nil && err2 == nil {
-				b.Major, b.Minor = maj, min
-			}
+	if out, err := d.RunCommand(path, "-c", bash.VersionCommand); err == nil {
+		if maj, min, err := bash.ParseVersion(out); err == nil {
+			b.Major, b.Minor = maj, min
 		}
 	}
 	return b

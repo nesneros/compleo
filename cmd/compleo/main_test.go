@@ -367,6 +367,66 @@ func TestRunWithActivateBashWritesBashCompletion(t *testing.T) {
 	assert.NotContains(t, string(content), "#compdef compleo")
 }
 
+func TestCheckBashVersionFailsOnTooOldBash(t *testing.T) {
+	err := checkBashVersion("/bin/bash", func(string) (int, int, error) { return 3, 2, nil })
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "3.2")
+	assert.Contains(t, err.Error(), "/bin/bash")
+}
+
+func TestCheckBashVersionSucceedsOnSupportedBash(t *testing.T) {
+	assert.NoError(t, checkBashVersion("/usr/bin/bash", func(string) (int, int, error) { return 5, 1, nil }))
+}
+
+func TestCheckBashVersionAtExactMinimumSucceeds(t *testing.T) {
+	err := checkBashVersion("/usr/bin/bash", func(string) (int, int, error) { return bash.MinMajor, bash.MinMinor, nil })
+	assert.NoError(t, err)
+}
+
+func TestCheckBashVersionIgnoresDetectionFailure(t *testing.T) {
+	err := checkBashVersion("/usr/bin/bash", func(string) (int, int, error) { return 0, 0, errors.New("boom") })
+	assert.NoError(t, err)
+}
+
+// activate's bash-version guard only applies when the shell is auto-detected from the parent
+// process, not forced via --shell, so this has to actually run with a real bash as its parent to
+// exercise it at all: re-execs this test binary via bash command substitution (must fork, not
+// exec-replace — same reasoning as TestRunUpEmitsReinvocationSnippet's zsh equivalent). The
+// assertion adapts to whatever bash is actually installed, rather than assuming a version, so it
+// doesn't depend on what happens to be on $PATH where the test runs.
+func TestRunActivateBashVersionGuardMatchesRealBash(t *testing.T) {
+	if os.Getenv("COMPLEO_TEST_HELPER_ACTIVATE") == "1" {
+		dir := t.TempDir()
+		t.Setenv(cmdutil.EnvCompletionDir, dir)
+		err := run([]string{"activate"}, false, strings.NewReader(""), &bytes.Buffer{}, &bytes.Buffer{}, "")
+		if err != nil {
+			fmt.Print("ERROR:" + err.Error())
+		} else {
+			fmt.Print("OK")
+		}
+		return
+	}
+
+	bashPath, lookErr := exec.LookPath("bash")
+	if lookErr != nil {
+		t.Skip("no bash on $PATH")
+	}
+	major, minor, verErr := bash.DetectVersion(bashPath)
+	require.NoError(t, verErr)
+
+	script := `echo "$(` + quoteForZsh(os.Args[0]) + ` -test.run='^TestRunActivateBashVersionGuardMatchesRealBash$')"`
+	cmd := exec.Command("bash", "-c", script)
+	cmd.Env = append(os.Environ(), "COMPLEO_TEST_HELPER_ACTIVATE=1")
+	out, err := cmd.Output()
+	require.NoError(t, err, "helper output: %s", out)
+
+	if bash.VersionSupported(major, minor) {
+		assert.Equal(t, "OK", strings.TrimSpace(string(out)))
+	} else {
+		assert.Contains(t, string(out), "too old")
+	}
+}
+
 func TestRunWithActivateRejectsUnknownShell(t *testing.T) {
 	err := run([]string{"activate", "--shell=nosuch"}, false, strings.NewReader(""), &bytes.Buffer{}, &bytes.Buffer{}, "")
 	require.Error(t, err)

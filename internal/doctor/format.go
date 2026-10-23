@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/nesneros/compleo/internal/shells/bash"
 )
 
 // level is a finding's severity. Values are ordered low to high, so a line's severity can only
@@ -177,8 +179,9 @@ func bashLines(b BashInfo) []line {
 		return []line{{levelOK, b.Path + " (version undetermined)"}}
 	}
 	lvl, note := levelOK, ""
-	if b.Major < 4 || (b.Major == 4 && b.Minor < 3) {
-		lvl, note = levelWarn, " — compleo's bash completion needs bash 4.3 (complete -o noquote)"
+	if !bash.VersionSupported(b.Major, b.Minor) {
+		lvl, note = levelWarn, fmt.Sprintf(
+			" — compleo's bash completion needs bash >=%d.%d (negative array subscripts)", bash.MinMajor, bash.MinMinor)
 	}
 	return []line{{lvl, fmt.Sprintf("%s (bash %d.%d)%s", b.Path, b.Major, b.Minor, note)}}
 }

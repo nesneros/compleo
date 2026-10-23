@@ -9,6 +9,19 @@ import (
 	"github.com/shirou/gopsutil/v3/process"
 )
 
+// parentProcess looks up the process that started this one, shared by every function below.
+func parentProcess() (*process.Process, error) {
+	self, err := process.NewProcess(int32(os.Getpid()))
+	if err != nil {
+		return nil, fmt.Errorf("looking up current process: %w", err)
+	}
+	parent, err := self.Parent()
+	if err != nil {
+		return nil, fmt.Errorf("looking up parent process: %w", err)
+	}
+	return parent, nil
+}
+
 // ParentProcessName reports the name of the process that started this one. For compleo, that
 // process is almost always a shell: eval "$(compleo ...)" runs compleo as a direct child of the
 // invoking shell, since command substitution forks the shell and execs compleo straight into
@@ -16,13 +29,9 @@ import (
 // do anything with it — callers decide what a given name means, including rejecting one they
 // don't recognize.
 func ParentProcessName() (string, error) {
-	self, err := process.NewProcess(int32(os.Getpid()))
+	parent, err := parentProcess()
 	if err != nil {
-		return "", fmt.Errorf("looking up current process: %w", err)
-	}
-	parent, err := self.Parent()
-	if err != nil {
-		return "", fmt.Errorf("looking up parent process: %w", err)
+		return "", err
 	}
 	name, err := parent.Name()
 	if err != nil {
@@ -30,6 +39,21 @@ func ParentProcessName() (string, error) {
 	}
 	// A truncated comm falls back to argv[0], where a login shell keeps its leading "-".
 	return strings.TrimPrefix(name, "-"), nil
+}
+
+// ParentProcessExe reports the full path to the executable backing the parent process — e.g.
+// for checking that exact binary's version, rather than whatever same-named binary happens to
+// resolve first on $PATH.
+func ParentProcessExe() (string, error) {
+	parent, err := parentProcess()
+	if err != nil {
+		return "", err
+	}
+	exe, err := parent.Exe()
+	if err != nil {
+		return "", fmt.Errorf("reading parent process executable: %w", err)
+	}
+	return exe, nil
 }
 
 // ParentInterpreter reports the name of the executable actually running the parent process,
@@ -41,13 +65,9 @@ func ParentProcessName() (string, error) {
 // resolves to the actual loaded binary (the interpreter), sidestepping that. Darwin has no
 // such quirk, but Exe() reports the same answer there too.
 func ParentInterpreter() (string, error) {
-	self, err := process.NewProcess(int32(os.Getpid()))
+	parent, err := parentProcess()
 	if err != nil {
-		return "", fmt.Errorf("looking up current process: %w", err)
-	}
-	parent, err := self.Parent()
-	if err != nil {
-		return "", fmt.Errorf("looking up parent process: %w", err)
+		return "", err
 	}
 	if exe, err := parent.Exe(); err == nil && exe != "" {
 		return filepath.Base(exe), nil
