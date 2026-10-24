@@ -168,24 +168,29 @@ func Collect(d Deps) Report {
 
 func collectShell(d Deps) ShellInfo {
 	var s ShellInfo
-	registered := make(map[string]bool)
-	for _, n := range shells.RegisteredNames() {
-		registered[n] = true
+	registeredCompletion := make(map[string]bool)
+	for _, n := range shells.RegisteredCompletionShells() {
+		registeredCompletion[n] = true
+	}
+	registeredEval := make(map[string]bool)
+	for _, n := range shells.RegisteredEvalShells() {
+		registeredEval[n] = true
 	}
 
 	s.Interactive, s.InteractiveErr = d.ParentProcessName()
-	s.InteractiveRegistered = s.InteractiveErr == nil && registered[s.Interactive]
+	s.InteractiveRegistered = s.InteractiveErr == nil && registeredCompletion[s.Interactive]
 
 	s.Interpreter, s.InterpreterErr = d.ParentInterpreter()
-	s.InterpreterRegistered = s.InterpreterErr == nil && registered[s.Interpreter]
+	s.InterpreterRegistered = s.InterpreterErr == nil && registeredEval[s.Interpreter]
 
 	s.CompletionShellEnv = d.Getenv(cmdutil.EnvCompletionShell)
 	return s
 }
 
-// collectCompletions pairs up completion files ("_name") and companion spec files
-// (".name.spec.yaml") in dir by name. "_compleo" (compleo's own completion) is excluded: it has
-// no companion spec file by design, so it would otherwise always show as mispaired.
+// collectCompletions pairs up completion files ("_name" or "name.fish") and companion spec
+// files (".name.spec.yaml") in dir by name. "_compleo" and "compleo.fish" (compleo's own
+// completion) are excluded: they have no companion spec file by design, so they would
+// otherwise always show as mispaired.
 func collectCompletions(d Deps, dir string, entries []os.DirEntry) []CompletionEntry {
 	hasCompletion := make(map[string]bool)
 	hasSpec := make(map[string]bool)
@@ -195,6 +200,12 @@ func collectCompletions(d Deps, dir string, entries []os.DirEntry) []CompletionE
 		case strings.HasPrefix(n, "_"):
 			name := strings.TrimPrefix(n, "_")
 			if name == "compleo" {
+				continue
+			}
+			hasCompletion[name] = true
+		case strings.HasSuffix(n, ".fish"):
+			name := strings.TrimSuffix(n, ".fish")
+			if name == "" || name == "compleo" {
 				continue
 			}
 			hasCompletion[name] = true

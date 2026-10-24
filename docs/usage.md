@@ -106,8 +106,15 @@ free (`compinit` scans `$fpath` at startup); to activate it in your *current* sh
 the command tells you exactly how:
 
 ```
-To activate completion for greet in this shell, run: autoload -Uz _greet && compdef _greet greet
+Run this command to activate the new completion:
+autoload -Uz _greet && compdef _greet greet
 ```
+
+Fish is a completion shell only. A wrapped script is still zsh or bash. From a fish session,
+`compleo activate` (or `compleo activate --shell=fish`) prepends the completions directory
+to `$fish_complete_path` and writes `compleo.fish`. Put that in `config.fish`.
+`compleo generate --shell=fish greet` writes `greet.fish` into the same directory. `parse`
+and `up` do not accept `--shell=fish`.
 
 If Tab-completion for a wrapped script never seems to do anything (no error, no candidates),
 the most likely causes are: `compleo generate <script>` was never run (or run before the most

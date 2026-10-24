@@ -38,7 +38,7 @@ func TestSeverityCountsShellDetectionErrorAsError(t *testing.T) {
 }
 
 func TestSeverityCountsUnregisteredShellAsWarning(t *testing.T) {
-	r := Report{Shell: ShellInfo{Interactive: "fish", Interpreter: "fish", CompletionShellEnv: "fish"}, Carapace: CarapaceInfo{Found: true}}
+	r := Report{Shell: ShellInfo{Interactive: "tcsh", Interpreter: "tcsh", CompletionShellEnv: "tcsh"}, Carapace: CarapaceInfo{Found: true}}
 	warnings, _ := Severity(r)
 	assert.Equal(t, 2, warnings)
 }

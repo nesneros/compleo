@@ -130,6 +130,30 @@ func TestCollectPairsCompletionAndSpecFiles(t *testing.T) {
 	assert.Empty(t, orphan.ScriptPath)
 }
 
+func TestCollectPairsFishCompletionFile(t *testing.T) {
+	d := stubDeps()
+	d.ReadDir = func(string) ([]os.DirEntry, error) {
+		return []os.DirEntry{
+			fakeDirEntry{"greet.fish"},
+			fakeDirEntry{".greet.spec.yaml"},
+			fakeDirEntry{"compleo.fish"},
+		}, nil
+	}
+	d.ReadFile = func(path string) ([]byte, error) {
+		if path == "/some/dir/.greet.spec.yaml" {
+			return []byte("name: greet\n"), nil
+		}
+		return nil, errors.New("not found")
+	}
+	d.CompletionDir = func() string { return "/some/dir" }
+
+	r := Collect(d)
+	require.Len(t, r.Completions, 1)
+	assert.Equal(t, "greet", r.Completions[0].Name)
+	assert.True(t, r.Completions[0].HasCompletionFile)
+	assert.True(t, r.Completions[0].HasSpecFile)
+}
+
 func TestCollectDetectsSpecThatNoLongerParses(t *testing.T) {
 	d := stubDeps()
 	d.ReadDir = func(string) ([]os.DirEntry, error) {

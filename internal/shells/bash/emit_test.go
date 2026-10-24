@@ -13,6 +13,7 @@ import (
 
 	"github.com/nesneros/compleo/internal/cmdutil"
 	"github.com/nesneros/compleo/internal/parse"
+	"github.com/nesneros/compleo/internal/shells"
 	"github.com/nesneros/compleo/internal/spec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -193,7 +194,7 @@ func TestEmitGeneratedPrintsConfirmationToStderrAndExitsZero(t *testing.T) {
 	out, err := cmd.Output()
 	require.NoError(t, err)
 	assert.Empty(t, out)
-	assert.Contains(t, stderr.String(), "To activate completion for greet in this shell, run:")
+	assert.Contains(t, stderr.String(), shells.ActivationDescription)
 	assert.Contains(t, stderr.String(), "complete -o noquote -F _greet_completion greet")
 	assert.NotContains(t, stderr.String(), "warning:")
 }
@@ -210,7 +211,7 @@ func TestEmitGeneratedPrintsOneWarningForMissingMacros(t *testing.T) {
 	assert.Empty(t, out)
 	assert.Equal(t, 1, strings.Count(stderr.String(), "warning:"))
 	assert.Contains(t, stderr.String(), "warning: not on PATH, so these completion macros will not work: $carapace.*, $missingb.*")
-	assert.Contains(t, stderr.String(), "To activate completion for greet in this shell, run:")
+	assert.Contains(t, stderr.String(), "complete -o noquote -F _greet_completion greet")
 }
 
 func TestEmitGeneratedActivationHintRunsUnderBash(t *testing.T) {
@@ -265,7 +266,7 @@ func TestEmitActivateExportsCompletionShell(t *testing.T) {
 
 func TestEmitActivateSourcesCompletionFiles(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "greet"), []byte("printf '%s\\n' sourced\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "_greet"), []byte("printf '%s\\n' sourced\n"), 0o644))
 
 	out, err := bashCmd(emitActivate(t, dir)).Output()
 	require.NoError(t, err)

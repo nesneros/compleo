@@ -41,16 +41,21 @@ type CompletionEmitter interface {
 	WrappedCompletion(cmd *cobra.Command, name string, specFilePath string) (string, error)
 	// EmitActivate wires the completions directory into the current shell.
 	EmitActivate(dir string) error
-	// ActivationHint is the human-readable instruction for activating name's completion in
-	// this shell right now (e.g. zsh's "autoload -Uz _name && compdef ..."), for EmitGenerated
-	// to report — in the script's own shell's syntax, which may differ from this one.
+	// ActivationHint is the command that activates name's completion in this shell right now
+	// (e.g. zsh's "autoload -Uz _name && compdef ..."), for EmitGenerated to report.
 	ActivationHint(name string) string
+	// CompletionFileName is the snippet's base name in the completion directory.
+	// zsh and bash use "_<name>" (an autoload/source target); fish uses "<name>.fish".
+	CompletionFileName(name string) string
 
 	// Quote returns s quoted for this shell.
 	Quote(s string) string
 	// Name returns this shell's name.
 	Name() string
 }
+
+// ActivationDescription is the line EmitGenerated prints before ActivationHint's command.
+const ActivationDescription = "Run this command to activate the new completion:"
 
 // VarName is prefix+name, with characters in name outside [A-Za-z0-9_] replaced by "_" (a
 // hyphen cannot appear in a shell variable name). prefix is used verbatim — any separator is
@@ -75,27 +80,41 @@ type Emitter interface {
 	CompletionEmitter
 }
 
-// EmitterFactory constructs an Emitter bound to out (what every Emit* method writes the
-// shell code to be eval'd to) and err (the real stderr, for a method that needs to bypass
-// eval — see posix.Emitter's own doc comment; unused by any current method).
+// EmitterFactory constructs an Emitter bound to out (what every Emit* method writes the shell
+// code to be eval'd to) and err (the real stderr, for a method that needs to bypass eval —
+// see posix.Emitter's own doc comment; unused by any current method).
 type EmitterFactory func(out, err io.Writer) Emitter
 
-var registeredFactories map[string]EmitterFactory
+// CompletionEmitterFactory constructs a CompletionEmitter. A shell that only completes (fish)
+// registers one of these and is absent from the eval registry.
+type CompletionEmitterFactory func(out, err io.Writer) CompletionEmitter
+
+var (
+	evalFactories       map[string]EmitterFactory
+	completionFactories map[string]CompletionEmitterFactory
+)
 
 func init() {
-	registeredFactories = make(map[string]EmitterFactory)
+	evalFactories = make(map[string]EmitterFactory)
+	completionFactories = make(map[string]CompletionEmitterFactory)
 }
 
-// RegisterEmitterFactory registers factory under name (what Name() returns on the Emitter it
-// constructs), for later lookup by EvalEmitterForShell/CompletionEmitterForShell.
+// RegisterEmitterFactory registers factory under name for both eval and completion.
 func RegisterEmitterFactory(name string, factory EmitterFactory) {
-	registeredFactories[name] = factory
+	evalFactories[name] = factory
+	completionFactories[name] = func(out, err io.Writer) CompletionEmitter { return factory(out, err) }
+}
+
+// RegisterCompletionEmitterFactory registers factory under name for completion only.
+// EvalEmitterForShell does not see it.
+func RegisterCompletionEmitterFactory(name string, factory CompletionEmitterFactory) {
+	completionFactories[name] = factory
 }
 
 // EvalEmitterForShell constructs the registered Emitter for shell, bound to out/err, or
 // returns nil if no shell by that name is registered.
 func EvalEmitterForShell(shell string, out, err io.Writer) EvalEmitter {
-	factory := registeredFactories[shell]
+	factory := evalFactories[shell]
 	if factory == nil {
 		return nil
 	}
@@ -104,7 +123,7 @@ func EvalEmitterForShell(shell string, out, err io.Writer) EvalEmitter {
 
 // CompletionEmitterForShell constructs the registered Emitter for shell, bound to out/err.
 func CompletionEmitterForShell(shell string, out, err io.Writer) (CompletionEmitter, error) {
-	factory := registeredFactories[shell]
+	factory := completionFactories[shell]
 	if factory == nil {
 		return nil, fmt.Errorf("unsupported shell: %q", shell)
 	}
@@ -122,9 +141,14 @@ func GetCompletionEmitter(out, err io.Writer) CompletionEmitter {
 	return emitter
 }
 
-// RegisteredNames returns the names of every registered shell, sorted.
-func RegisteredNames() []string {
-	return SortedKeys(registeredFactories)
+// RegisteredEvalShells returns the names of shells that can eval a wrapped script, sorted.
+func RegisteredEvalShells() []string {
+	return SortedKeys(evalFactories)
+}
+
+// RegisteredCompletionShells returns the names of shells compleo can install completion for, sorted.
+func RegisteredCompletionShells() []string {
+	return SortedKeys(completionFactories)
 }
 
 // SortedKeys returns m's keys sorted, for deterministic output despite map iteration order.

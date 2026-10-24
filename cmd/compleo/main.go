@@ -15,8 +15,9 @@ import (
 	"github.com/nesneros/compleo/internal/generate"
 	"github.com/nesneros/compleo/internal/parse"
 	"github.com/nesneros/compleo/internal/shells"
-	"github.com/nesneros/compleo/internal/shells/bash"  // also used directly: activate's bash-version guard
-	_ "github.com/nesneros/compleo/internal/shells/zsh" // registers the zsh emitter
+	"github.com/nesneros/compleo/internal/shells/bash"   // also used directly: activate's bash-version guard
+	_ "github.com/nesneros/compleo/internal/shells/fish" // registers fish as a completion shell
+	_ "github.com/nesneros/compleo/internal/shells/zsh"  // registers the zsh emitter
 	"github.com/nesneros/compleo/internal/spec"
 	"github.com/spf13/cobra"
 )
@@ -129,7 +130,7 @@ func run(args []string, piped bool, in io.Reader, out io.Writer, errOut io.Write
 		if err != nil {
 			return err
 		}
-		if err := cmdutil.WriteCompletionFile(dir, "_"+ownSpec.Name, snippet); err != nil {
+		if err := cmdutil.WriteCompletionFile(dir, em.CompletionFileName(ownSpec.Name), snippet); err != nil {
 			return err
 		}
 		return em.EmitActivate(dir)

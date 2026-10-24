@@ -219,7 +219,7 @@ func TestGenerateWarnsWhenMacroBinaryIsNotOnPath(t *testing.T) {
 	assert.Equal(t, 1, strings.Count(stderr, "warning:"))
 	assert.Contains(t, stderr, "warning: not on PATH, so these completion macros will not work: $missinga.*, $missingb.*")
 	assert.NotContains(t, stderr, "$files")
-	assert.Contains(t, stderr, "To activate completion for demo in this shell, run:")
+	assert.Contains(t, stderr, "autoload -Uz _demo && compdef _demo demo")
 }
 
 func TestGenerateDoesNotWarnWhenMacroBinaryIsOnPath(t *testing.T) {
@@ -240,7 +240,7 @@ func TestGenerateDoesNotWarnWhenMacroBinaryIsOnPath(t *testing.T) {
 	t.Setenv("PATH", path)
 	stderr := evalGenerated(t, out.String())
 	assert.NotContains(t, stderr, "warning:")
-	assert.Contains(t, stderr, "To activate completion for demo in this shell, run:")
+	assert.Contains(t, stderr, "autoload -Uz _demo && compdef _demo demo")
 }
 
 func TestGenerateDoesNotWarnForCoreOrOwnMacros(t *testing.T) {

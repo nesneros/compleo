@@ -302,7 +302,7 @@ func TestEmitGeneratedPrintsConfirmationToStderrAndExitsZero(t *testing.T) {
 	out, err := cmd.Output()
 	require.NoError(t, err)
 	assert.Empty(t, out)
-	assert.Contains(t, stderr.String(), "To activate completion for greet in this shell, run:")
+	assert.Contains(t, stderr.String(), shells.ActivationDescription)
 	assert.Contains(t, stderr.String(), "autoload -Uz _greet && compdef _greet greet")
 	assert.NotContains(t, stderr.String(), "warning:")
 }
@@ -319,7 +319,7 @@ func TestEmitGeneratedPrintsOneWarningForMissingMacros(t *testing.T) {
 	assert.Empty(t, out)
 	assert.Equal(t, 1, strings.Count(stderr.String(), "warning:"))
 	assert.Contains(t, stderr.String(), "warning: not on PATH, so these completion macros will not work: $carapace.*, $missingb.*")
-	assert.Contains(t, stderr.String(), "To activate completion for greet in this shell, run:")
+	assert.Contains(t, stderr.String(), "autoload -Uz _greet && compdef _greet greet")
 }
 
 // Uses real generated content and calls the autoloaded name, not just checking

@@ -62,9 +62,8 @@ func Generate(cmd *cobra.Command, sp spec.Command, rawSpec, generateName string,
 		specFileText = "name: '" + strings.ReplaceAll(name, "'", "''") + "'\n" + specFileText
 	}
 
-	// A leading dot keeps this out of EmitActivate's "autoload -Uz dir/*" glob (zsh glob
-	// doesn't match dotfiles by default) — it's data for compleo to read, not a completion
-	// function for zsh to autoload.
+	// A leading dot keeps this out of zsh/bash activate globs ("dir/_*"), which also skip
+	// fish's "<name>.fish" files. It's data for compleo to read, not a completion function.
 	specFileName := "." + name + ".spec.yaml"
 	if err := cmdutil.WriteCompletionFile(dir, specFileName, specFileText); err != nil {
 		return err
@@ -75,7 +74,7 @@ func Generate(cmd *cobra.Command, sp spec.Command, rawSpec, generateName string,
 	if err != nil {
 		return err
 	}
-	fileName := "_" + name
+	fileName := completionEm.CompletionFileName(name)
 	if err := cmdutil.WriteCompletionFile(dir, fileName, snippet); err != nil {
 		return err
 	}

@@ -13,6 +13,7 @@ import (
 
 	"github.com/nesneros/compleo/internal/cmdutil"
 	"github.com/nesneros/compleo/internal/shells/bash"
+	"github.com/nesneros/compleo/internal/shells/fish"
 	"github.com/nesneros/compleo/internal/shells/zsh"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -368,9 +369,26 @@ func TestRunWithActivateBashPrintsSourceLoop(t *testing.T) {
 	var stdout bytes.Buffer
 	err := run([]string{"activate", "--shell=bash"}, false, strings.NewReader(""), &stdout, &bytes.Buffer{}, "")
 	require.NoError(t, err)
-	assert.Contains(t, stdout.String(), "for f in "+bash.Em.Quote(dir)+"/*; do")
+	assert.Contains(t, stdout.String(), "for f in "+bash.Em.Quote(dir)+"/_*; do")
 	assert.Contains(t, stdout.String(), "export "+cmdutil.EnvCompletionShell+"="+bash.Em.Quote("bash"))
 	assert.NotContains(t, stdout.String(), "fpath+=")
+}
+
+func TestRunWithActivateFishWritesFishCompletion(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv(cmdutil.EnvCompletionDir, dir)
+
+	var stdout bytes.Buffer
+	err := run([]string{"activate", "--shell=fish"}, false, strings.NewReader(""), &stdout, &bytes.Buffer{}, "")
+	require.NoError(t, err)
+	assert.Contains(t, stdout.String(), "fish_complete_path")
+	assert.Contains(t, stdout.String(), "set -gx "+cmdutil.EnvCompletionShell+" "+fish.Em.Quote("fish"))
+
+	content, err := os.ReadFile(filepath.Join(dir, "compleo.fish"))
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "complete -c 'compleo'")
+	_, err = os.Stat(filepath.Join(dir, "_compleo"))
+	assert.True(t, os.IsNotExist(err))
 }
 
 func TestRunWithActivateBashWritesBashCompletion(t *testing.T) {
@@ -526,7 +544,7 @@ func TestRunParseGenerateModeReportsSuccessAsSelfExitingZsh(t *testing.T) {
 	err := run([]string{"parse", "--shell=zsh"}, true, strings.NewReader("name: greet\n"), &stdout, &bytes.Buffer{}, "greet")
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "exit 0")
-	assert.Contains(t, stdout.String(), "To activate completion for greet in this shell, run:")
+	assert.Contains(t, stdout.String(), "autoload -Uz _greet && compdef _greet greet")
 }
 
 func TestRunParseGenerateModeDoesNotRequireWrappedArgs(t *testing.T) {

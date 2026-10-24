@@ -65,7 +65,7 @@ func shellLines(s ShellInfo) []line {
 	} else {
 		lvl, note := levelOK, ""
 		if !s.InteractiveRegistered {
-			lvl, note = levelWarn, " (not a shell compleo has an emitter for)"
+			lvl, note = levelWarn, " (not a shell compleo installs completion for)"
 		}
 		ls = append(ls, line{lvl, fmt.Sprintf(
 			"interactive shell (ParentProcessName):  %s%s", s.Interactive, note)})
@@ -77,7 +77,7 @@ func shellLines(s ShellInfo) []line {
 	} else {
 		lvl, note := levelOK, ""
 		if !s.InterpreterRegistered {
-			lvl, note = levelWarn, " (not a shell compleo has an emitter for)"
+			lvl, note = levelWarn, " (not a shell compleo can eval a script for)"
 		}
 		ls = append(ls, line{lvl, fmt.Sprintf(
 			"script interpreter (ParentInterpreter): %s%s", s.Interpreter, note)})

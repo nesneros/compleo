@@ -24,6 +24,10 @@ type Emitter struct {
 // Name returns this shell's name.
 func (e Emitter) Name() string { return e.Shell }
 
+// CompletionFileName is the file zsh and bash load. A leading "_" keeps it off the names
+// fish uses ("<name>.fish"), so one directory can hold both.
+func (Emitter) CompletionFileName(name string) string { return "_" + name }
+
 // EmitHelp prints text to stdout and exits 0.
 func (e Emitter) EmitHelp(text string) error {
 	if err := e.print(e.StdoutFormat, strings.TrimRight(text, "\n")); err != nil {

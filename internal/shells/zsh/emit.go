@@ -10,18 +10,14 @@ import (
 	"github.com/nesneros/compleo/internal/shells"
 )
 
-// ActivationHint is the instruction for activating name's completion in a zsh shell right
-// now: autoloading "_<name>" and binding it via compdef.
+// ActivationHint is the command that activates name's completion in this zsh session.
 func (Emitter) ActivationHint(name string) string {
-	return fmt.Sprintf(
-		"To activate completion for %s in this shell, run: autoload -Uz _%s && compdef _%s %s",
-		name, name, name, name,
-	)
+	return fmt.Sprintf("autoload -Uz _%s && compdef _%s %s", name, name, name)
 }
 
-// EmitGenerated writes zsh that prints hint (built by the completion-target shell's own
-// ActivationHint, which may differ from this shell). When missing is non-empty, it first
-// prints one warning listing those $bin.* completion macros.
+// EmitGenerated writes zsh that prints the activation description and hint (hint is built by
+// the completion-target shell's own ActivationHint, which may differ from this shell). When
+// missing is non-empty, it first prints one warning listing those $bin.* completion macros.
 func (e Emitter) EmitGenerated(hint string, missing []string) error {
 	if len(missing) > 0 {
 		macros := make([]string, len(missing))
@@ -32,6 +28,9 @@ func (e Emitter) EmitGenerated(hint string, missing []string) error {
 		if err := e.PrintStderr(msg); err != nil {
 			return err
 		}
+	}
+	if err := e.PrintStderr(shells.ActivationDescription); err != nil {
+		return err
 	}
 	if err := e.PrintStderr(hint); err != nil {
 		return err
@@ -49,15 +48,16 @@ func (e Emitter) EmitUp(rawSpec string) error {
 
 // activateTemplate exports the interactive shell, defines a "compleo" shell function wrapping
 // the real binary, adds dir to fpath, and autoloads and binds (via compdef, if available)
-// every completion file in dir.
+// every "_*" file in dir. The underscore keeps "<name>.fish" files (fish completions in the
+// same directory) out of the glob.
 const activateTemplate = `export %[2]s=%[3]s
 compleo() {
   command compleo "$@"
 }
 fpath+=(%[1]s)
-autoload -Uz %[1]s/*
+autoload -Uz %[1]s/_*
 if (( $+functions[compdef] )); then
-  for f (%[1]s/*) compdef ${f:t} ${f:t:s/_//}
+  for f (%[1]s/_*) compdef ${f:t} ${f:t:s/_//}
 fi
 `
 

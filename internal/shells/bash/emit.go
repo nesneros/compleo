@@ -10,17 +10,14 @@ import (
 	"github.com/nesneros/compleo/internal/shells"
 )
 
-// ActivationHint is the instruction for activating name's completion in a bash shell right now.
+// ActivationHint is the command that activates name's completion in this bash session.
 func (Emitter) ActivationHint(name string) string {
-	return fmt.Sprintf(
-		"To activate completion for %s in this shell, run: complete -o noquote -F _%s_completion %s",
-		name, name, name,
-	)
+	return fmt.Sprintf("complete -o noquote -F _%s_completion %s", name, name)
 }
 
-// EmitGenerated writes bash that prints hint (built by the completion-target shell's own
-// ActivationHint, which may differ from this shell). When missing is non-empty, it first
-// prints one warning listing those $bin.* completion macros.
+// EmitGenerated writes bash that prints the activation description and hint (hint is built by
+// the completion-target shell's own ActivationHint, which may differ from this shell). When
+// missing is non-empty, it first prints one warning listing those $bin.* completion macros.
 func (e Emitter) EmitGenerated(hint string, missing []string) error {
 	if len(missing) > 0 {
 		macros := make([]string, len(missing))
@@ -31,6 +28,9 @@ func (e Emitter) EmitGenerated(hint string, missing []string) error {
 		if err := e.PrintStderr(msg); err != nil {
 			return err
 		}
+	}
+	if err := e.PrintStderr(shells.ActivationDescription); err != nil {
+		return err
 	}
 	if err := e.PrintStderr(hint); err != nil {
 		return err
@@ -47,12 +47,13 @@ func (e Emitter) EmitUp(rawSpec string) error {
 }
 
 // activateTemplate exports the interactive shell, defines a compleo function, and sources
-// every completion file in dir. Carapace's bash snippet registers itself with `complete` when sourced.
+// every "_*" file in dir. The underscore keeps "<name>.fish" files out of the glob.
+// Carapace's bash snippet registers itself with `complete` when sourced.
 const activateTemplate = `export %[2]s=%[3]s
 compleo() {
   command compleo "$@"
 }
-for f in %[1]s/*; do
+for f in %[1]s/_*; do
   [ -f "$f" ] && . "$f"
 done
 `

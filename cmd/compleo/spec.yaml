@@ -6,11 +6,11 @@ commands:
   - name: activate
     description: Enable Tab-completion for compleo-wrapped scripts in this shell. Add to .zshrc before compinit runs, e.g. eval "$(compleo activate)".
     flags:
-      --shell=: {description: "Shell to install completion for (zsh or bash). Auto-detected from the parent process when omitted.", type: {kind: enum, values: [zsh, bash]}}
+      --shell=: {description: "Shell to install completion for (zsh, bash, or fish). Auto-detected from the parent process when omitted.", type: {kind: enum, values: [zsh, bash, fish]}}
   - name: generate
     description: Generate Tab-completion for a compleo-wrapped script. Run once after writing or editing the script.
     flags:
-      --shell=: {description: "Shell to generate completion for (zsh or bash). Auto-detected from the parent process when omitted.", type: {kind: enum, values: [zsh, bash]}}
+      --shell=: {description: "Shell to generate completion for (zsh, bash, or fish). Auto-detected from the parent process when omitted.", type: {kind: enum, values: [zsh, bash, fish]}}
     positionals:
       - name: script
         description: The script to generate completion for — a bare name resolved via $PATH, or a full path to the script.
