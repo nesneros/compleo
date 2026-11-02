@@ -1,11 +1,11 @@
-github.com/carapace-sh/carapace v1.16.3 h1:oM8SUvbavyEaE0Lnvurs6ty4ENB+9rWP4lo4prxXBJM=
-github.com/carapace-sh/carapace v1.16.3/go.mod h1:5MUSHyLN9GGb5/NY/j9VI68/TcZV4ApRCAHGg4WeU0s=
+github.com/carapace-sh/carapace v1.17.1 h1:dxaYVu/Yj5E/scX9W/IyyOKiHik1YlT3JSaj7vg7nAc=
+github.com/carapace-sh/carapace v1.17.1/go.mod h1:rOjoKzSmmMcqhlCoFVv/bepMc3Z1+bHKfcOz2u31Qo4=
 github.com/carapace-sh/carapace-pflag v1.3.0 h1:RT1xJ+2p4c2WqYXPZZA7zu2jIi6Vt+pmalZf75yFzBM=
 github.com/carapace-sh/carapace-pflag v1.3.0/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
-github.com/carapace-sh/carapace-shlex v1.1.1 h1:ccmNeetAYZOk4IcV36youFDsXusT9uCNW2Njkw+QS+Q=
-github.com/carapace-sh/carapace-shlex v1.1.1/go.mod h1:lJ4ZsdxytE0wHJ8Ta9S7Qq0XpjgjU0mdfCqiI2FHx7M=
-github.com/carapace-sh/carapace-spec v1.9.0 h1:x/ufsyREoW2zxuMFdnGh/j1aJW9ywoGnRc4qJXhffaU=
-github.com/carapace-sh/carapace-spec v1.9.0/go.mod h1:IdOQmzDeIl5bWEZJLpM9Feix8xS078VZu0W2r99eTlI=
+github.com/carapace-sh/carapace-shlex/v2 v2.1.2 h1:TZBiAqg/85LGoM7flkVXVn49/qlAXhrtLmrbYKuEoOg=
+github.com/carapace-sh/carapace-shlex/v2 v2.1.2/go.mod h1:07CXBqTrzzdZRgkFRpnDQ9zvIcGbKppjmaxNLyP+zgY=
+github.com/carapace-sh/carapace-spec v1.10.1 h1:439XX/RXKK1DhVSMnWPm/1wUk+5WEE0gx21xRXMBScw=
+github.com/carapace-sh/carapace-spec v1.10.1/go.mod h1:K1SQSBUmsnsvSfzWuH6B+UmPehB9+2IWlG63rX7hbsM=
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
 github.com/go-ole/go-ole v1.2.6/go.mod h1:pprOEPIfldk/42T2oK7lQ4v4JSDwmV0As9GaiUsvbm0=
 github.com/go-ole/go-ole v1.3.0 h1:Dt6ye7+vXGIKZ7Xtk4s6/xVdGDQynvom7xCFEdWr6uE=
