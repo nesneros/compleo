@@ -63,7 +63,7 @@ func Generate(cmd *cobra.Command, sp spec.Command, rawSpec, generateName string,
 	}
 
 	// A leading dot keeps this out of zsh/bash activate globs ("dir/_*"), which also skip
-	// fish's "<name>.fish" files. It's data for compleo to read, not a completion function.
+	// fish's "<name>.fish" and nu's "<name>.nu". It's data for compleo to read, not a completion function.
 	specFileName := "." + name + ".spec.yaml"
 	if err := cmdutil.WriteCompletionFile(dir, specFileName, specFileText); err != nil {
 		return err

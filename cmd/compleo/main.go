@@ -17,6 +17,7 @@ import (
 	"github.com/nesneros/compleo/internal/shells"
 	"github.com/nesneros/compleo/internal/shells/bash"   // also used directly: activate's bash-version guard
 	_ "github.com/nesneros/compleo/internal/shells/fish" // registers fish as a completion shell
+	_ "github.com/nesneros/compleo/internal/shells/nu"   // registers nu as a completion shell
 	_ "github.com/nesneros/compleo/internal/shells/zsh"  // registers the zsh emitter
 	"github.com/nesneros/compleo/internal/spec"
 	"github.com/spf13/cobra"

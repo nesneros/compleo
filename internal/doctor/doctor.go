@@ -187,10 +187,10 @@ func collectShell(d Deps) ShellInfo {
 	return s
 }
 
-// collectCompletions pairs up completion files ("_name" or "name.fish") and companion spec
-// files (".name.spec.yaml") in dir by name. "_compleo" and "compleo.fish" (compleo's own
-// completion) are excluded: they have no companion spec file by design, so they would
-// otherwise always show as mispaired.
+// collectCompletions pairs up completion files ("_name", "name.fish", or "name.nu") and
+// companion spec files (".name.spec.yaml") in dir by name. "_compleo", "compleo.fish", and
+// "compleo.nu" (compleo's own completion) are excluded: they have no companion spec file by
+// design, so they would otherwise always show as mispaired.
 func collectCompletions(d Deps, dir string, entries []os.DirEntry) []CompletionEntry {
 	hasCompletion := make(map[string]bool)
 	hasSpec := make(map[string]bool)
@@ -205,6 +205,12 @@ func collectCompletions(d Deps, dir string, entries []os.DirEntry) []CompletionE
 			hasCompletion[name] = true
 		case strings.HasSuffix(n, ".fish"):
 			name := strings.TrimSuffix(n, ".fish")
+			if name == "" || name == "compleo" {
+				continue
+			}
+			hasCompletion[name] = true
+		case strings.HasSuffix(n, ".nu"):
+			name := strings.TrimSuffix(n, ".nu")
 			if name == "" || name == "compleo" {
 				continue
 			}

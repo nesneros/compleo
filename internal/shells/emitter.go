@@ -45,7 +45,7 @@ type CompletionEmitter interface {
 	// (e.g. zsh's "autoload -Uz _name && compdef ..."), for EmitGenerated to report.
 	ActivationHint(name string) string
 	// CompletionFileName is the snippet's base name in the completion directory.
-	// zsh and bash use "_<name>" (an autoload/source target); fish uses "<name>.fish".
+	// zsh and bash use "_<name>" (an autoload/source target); fish uses "<name>.fish"; nu uses "<name>.nu".
 	CompletionFileName(name string) string
 
 	// Quote returns s quoted for this shell.

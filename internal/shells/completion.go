@@ -7,10 +7,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Completion returns carapace's completion snippet for shell, the name from Emitter.Name.
-// The snippet is the same for every shell except that name.
+// Completion returns carapace's completion snippet for emitter.
+// The snippet is the same for every shell except the shell name carapace is given.
+// compleo calls nu "nu" (the process name); carapace's snippet name for it is "nushell".
 func Completion(cmd *cobra.Command, emitter CompletionEmitter) (string, error) {
-	snippet, err := carapace.Gen(cmd).Snippet(emitter.Name())
+	snippet, err := carapace.Gen(cmd).Snippet(carapaceShell(emitter.Name()))
 	if err != nil {
 		return "", err
 	}
@@ -19,4 +20,11 @@ func Completion(cmd *cobra.Command, emitter CompletionEmitter) (string, error) {
 		snippet += "\n"
 	}
 	return snippet, nil
+}
+
+func carapaceShell(name string) string {
+	if name == "nu" {
+		return "nushell"
+	}
+	return name
 }

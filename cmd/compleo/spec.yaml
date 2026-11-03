@@ -6,11 +6,11 @@ commands:
   - name: activate
     description: Enable Tab-completion for compleo-wrapped scripts in this shell. Add to .zshrc before compinit runs, e.g. eval "$(compleo activate)".
     flags:
-      --shell=: {description: "Shell to install completion for (zsh, bash, or fish). Auto-detected from the parent process when omitted.", type: {kind: enum, values: [zsh, bash, fish]}}
+      --shell=: {description: "Shell to install completion for (zsh, bash, fish, or nu). Auto-detected from the parent process when omitted.", type: {kind: enum, values: [zsh, bash, fish, nu, nushell]}}
   - name: generate
     description: Generate Tab-completion for a compleo-wrapped script. Run once after writing or editing the script.
     flags:
-      --shell=: {description: "Shell to generate completion for (zsh, bash, or fish). Auto-detected from the parent process when omitted.", type: {kind: enum, values: [zsh, bash, fish]}}
+      --shell=: {description: "Shell to generate completion for (zsh, bash, fish, or nu). Auto-detected from the parent process when omitted.", type: {kind: enum, values: [zsh, bash, fish, nu, nushell]}}
     positionals:
       - name: script
         description: The script to generate completion for — a bare name resolved via $PATH, or a full path to the script.
@@ -20,7 +20,7 @@ commands:
     description: Parse the wrapped script's command line against the spec piped on stdin, printing shell code for the script to eval. Most scripts should use "up" instead; reach for this directly when you need control over the name, shell, or arguments passed.
     flags:
       --name=: "The script's own name (e.g. \"${0:t}\"), shown in --help/error text and used for completion. Lets the spec's heredoc skip name: and stay quoted, so nothing needs escaping."
-      --shell=: {description: "The wrapping script's own shell (zsh or bash) — what the printed code must be valid for. Auto-detected from the parent interpreter when omitted.", type: {kind: enum, values: [zsh, bash]}}
+      --shell=: {description: "The wrapping script's own shell (zsh, bash, or nu) — what the printed code must be valid for. Auto-detected from the parent interpreter when omitted.", type: {kind: enum, values: [zsh, bash, nu]}}
     positionals:
       - name: args
         variadic: true

@@ -14,6 +14,7 @@ import (
 	"github.com/nesneros/compleo/internal/cmdutil"
 	"github.com/nesneros/compleo/internal/shells/bash"
 	"github.com/nesneros/compleo/internal/shells/fish"
+	"github.com/nesneros/compleo/internal/shells/nu"
 	"github.com/nesneros/compleo/internal/shells/zsh"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -387,6 +388,23 @@ func TestRunWithActivateFishWritesFishCompletion(t *testing.T) {
 	content, err := os.ReadFile(filepath.Join(dir, "compleo.fish"))
 	require.NoError(t, err)
 	assert.Contains(t, string(content), "complete -c 'compleo'")
+	_, err = os.Stat(filepath.Join(dir, "_compleo"))
+	assert.True(t, os.IsNotExist(err))
+}
+
+func TestRunWithActivateNuWritesNuCompletion(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv(cmdutil.EnvCompletionDir, dir)
+
+	var stdout bytes.Buffer
+	err := run([]string{"activate", "--shell=nu"}, false, strings.NewReader(""), &stdout, &bytes.Buffer{}, "")
+	require.NoError(t, err)
+	assert.Contains(t, stdout.String(), "$env."+cmdutil.EnvCompletionShell+" = "+nu.Em.Quote("nu"))
+	assert.Contains(t, stdout.String(), "_COMPLEO_NU_DISPATCHER")
+
+	content, err := os.ReadFile(filepath.Join(dir, "compleo.nu"))
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "_carapace nushell")
 	_, err = os.Stat(filepath.Join(dir, "_compleo"))
 	assert.True(t, os.IsNotExist(err))
 }

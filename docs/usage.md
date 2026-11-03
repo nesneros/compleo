@@ -116,6 +116,24 @@ to `$fish_complete_path` and writes `compleo.fish`. Put that in `config.fish`.
 `compleo generate --shell=fish greet` writes `greet.fish` into the same directory. `parse`
 and `up` do not accept `--shell=fish`.
 
+Nu is a completion shell and a script shell. Nushell has no `eval` and one external completer, so
+`compleo activate` (or `--shell=nu`; `--shell=nushell` is the same) prints a dispatcher
+that reads each command's spec file. The process name is `nu`. Save that script and source
+it from `config.nu`:
+
+```nu
+compleo activate | save -f $"($nu.default-config-dir)/compleo-activate.nu"
+source $"($nu.default-config-dir)/compleo-activate.nu"
+```
+
+`compleo generate --shell=nu examples/greet.nu` writes the completion file `greet.nu` into
+the completions directory (not `examples/greet.nu`). `examples/greet.nu` is the script.
+It runs `compleo parse --shell=nu` and reads the nuon record with `from nuon`. After
+activate is sourced, a new spec file is picked up by the dispatcher. The printed hint,
+`source "/path/greet.nu"`, registers that command's closure in the current session.
+Nushell only accepts a literal path as `source`'s argument, so activate cannot loop
+over the directory itself.
+
 If Tab-completion for a wrapped script never seems to do anything (no error, no candidates),
 the most likely causes are: `compleo generate <script>` was never run (or run before the most
 recent edit — re-run it, and remember the spec it captured is frozen until you do), or
