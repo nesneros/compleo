@@ -1,5 +1,0 @@
-# Personal, machine-specific overrides - not shared with the team.
-settings.local.json
-
-# Claude Code internal bookkeeping.
-.cc-writes/
