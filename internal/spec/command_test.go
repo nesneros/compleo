@@ -161,7 +161,7 @@ commands:
 
 	var names []string
 	var first *Command
-	for c := range cmd.All() {
+	for c := range cmd.all() {
 		if first == nil {
 			first = c
 		}
@@ -183,7 +183,7 @@ commands:
 	require.NoError(t, err)
 
 	var names []string
-	for c := range cmd.All() {
+	for c := range cmd.all() {
 		names = append(names, c.Name)
 		if c.Name == "a" {
 			break

@@ -48,8 +48,8 @@ func (f Flag) Validate(s string) error {
 	return f.Type.Validate(s)
 }
 
-// Name returns Longhand if set, else Shorthand — mirrors command.Flag.Name().
-func (f Flag) Name() string {
+// name returns Longhand if set, else Shorthand — mirrors command.Flag.Name().
+func (f Flag) name() string {
 	if f.Longhand != "" {
 		return f.Longhand
 	}
@@ -188,7 +188,7 @@ func (fs *FlagSet) UnmarshalYAML(value *yaml.Node) error {
 			return fmt.Errorf("flag %q: invalid value", k)
 		}
 
-		flagSet[f.Name()] = f
+		flagSet[f.name()] = f
 	}
 	*fs = flagSet
 	return nil

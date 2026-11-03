@@ -44,14 +44,14 @@ type Command struct {
 	ScriptShell string `yaml:"scriptShell,omitempty"`
 }
 
-// All yields c and every command nested under it, depth-first in spec order.
-func (c *Command) All() iter.Seq[*Command] {
+// all yields c and every command nested under it, depth-first in spec order.
+func (c *Command) all() iter.Seq[*Command] {
 	return func(yield func(*Command) bool) {
 		if c == nil || !yield(c) {
 			return
 		}
 		for i := range c.Commands {
-			for sub := range c.Commands[i].All() {
+			for sub := range c.Commands[i].all() {
 				if !yield(sub) {
 					return
 				}
@@ -64,7 +64,7 @@ func (c *Command) All() iter.Seq[*Command] {
 // Within a command: flags, then persistent flags, each in name order, then positionals in spec order.
 func (c *Command) Completions() iter.Seq[string] {
 	return func(yield func(string) bool) {
-		for cmd := range c.All() {
+		for cmd := range c.all() {
 			if !yieldFlagCompletions(cmd.Flags, yield) || !yieldFlagCompletions(cmd.PersistentFlags, yield) {
 				return
 			}
