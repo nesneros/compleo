@@ -3,6 +3,7 @@ go = "1.27.1"
 golangci-lint = "2.14.0"
 goreleaser = "2.18.3"
 act = "0.2.89"
+"go:github.com/kojah/gohawk" = "v0.7.1"
 
 [env]
 # So "go run ./cmd/compleo activate" during development writes into the project
@@ -42,6 +43,10 @@ run = [
   "golangci-lint run ./...",
   "go test ./...",
 ]
+
+[tasks.gohawk]
+description = "Run gohawk's complete static analysis across the module"
+run = "gohawk -enable-all -tier=experimental ./..."
 
 [tasks.install]
 description = "Install the compleo binary"
