@@ -1,9 +1,11 @@
-github.com/carapace-sh/carapace v1.16.3 h1:oM8SUvbavyEaE0Lnvurs6ty4ENB+9rWP4lo4prxXBJM=
-github.com/carapace-sh/carapace v1.16.3/go.mod h1:5MUSHyLN9GGb5/NY/j9VI68/TcZV4ApRCAHGg4WeU0s=
+github.com/carapace-sh/carapace v1.18.2 h1:LrnlU9kMOqnaeVp/Iqmsl2rCVJ13C9E2DQenFXznR8s=
+github.com/carapace-sh/carapace v1.18.2/go.mod h1:/YNH4iLD7Gf8qjkwnetq4/v+u5pInb4QDPbszoI0hKI=
 github.com/carapace-sh/carapace-pflag v1.3.0 h1:RT1xJ+2p4c2WqYXPZZA7zu2jIi6Vt+pmalZf75yFzBM=
 github.com/carapace-sh/carapace-pflag v1.3.0/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
 github.com/carapace-sh/carapace-shlex v1.1.1 h1:ccmNeetAYZOk4IcV36youFDsXusT9uCNW2Njkw+QS+Q=
 github.com/carapace-sh/carapace-shlex v1.1.1/go.mod h1:lJ4ZsdxytE0wHJ8Ta9S7Qq0XpjgjU0mdfCqiI2FHx7M=
+github.com/carapace-sh/carapace-shlex/v2 v2.1.4 h1:v6YFX1MqaSQSzISZN1sa28Y6aFD4zGXiMkg4xJkAMI0=
+github.com/carapace-sh/carapace-shlex/v2 v2.1.4/go.mod h1:07CXBqTrzzdZRgkFRpnDQ9zvIcGbKppjmaxNLyP+zgY=
 github.com/carapace-sh/carapace-spec v1.9.0 h1:x/ufsyREoW2zxuMFdnGh/j1aJW9ywoGnRc4qJXhffaU=
 github.com/carapace-sh/carapace-spec v1.9.0/go.mod h1:IdOQmzDeIl5bWEZJLpM9Feix8xS078VZu0W2r99eTlI=
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
@@ -36,8 +38,8 @@ github.com/tklauser/numcpus v0.12.0/go.mod h1:ABHeXzJnr/qqwguhClkZKT1/8VABcYrsyU
 github.com/yusufpapurcu/wmi v1.2.4 h1:zFUKzehAFReQwLys1b/iSMl+JQGSCSjtVqQn9bBrPo0=
 github.com/yusufpapurcu/wmi v1.2.4/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=
 go.yaml.in/yaml/v3 v3.0.4/go.mod h1:DhzuOOF2ATzADvBadXxruRBLzYTpT36CKvDb3+aBEFg=
-go.yaml.in/yaml/v3 v3.0.5 h1:N6y/pJk8buWs9NY5ERU2HSMfm+IuD/OtfdAnq6kESPw=
-go.yaml.in/yaml/v3 v3.0.5/go.mod h1:HVTZu1O7/Vkt2N+BFy8Zza+lnLsABggaTM2ZpNIGuKg=
+go.yaml.in/yaml/v3 v3.0.6 h1:zcDfvjXEqTQmpjniUBLc91xYJMB2c4QOFxEF/LCEckM=
+go.yaml.in/yaml/v3 v3.0.6/go.mod h1:HVTZu1O7/Vkt2N+BFy8Zza+lnLsABggaTM2ZpNIGuKg=
 golang.org/x/sys v0.0.0-20190916202348-b4ddaad3f8a3/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20201204225414-ed752295db88/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.1.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
