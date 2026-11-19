@@ -1,7 +1,6 @@
-// Package nu completes in an interactive Nushell and emits a nuon record a wrapped
-// script reads with `from nuon`. Nu resolves `source` before the script runs, so
-// generated code cannot be sourced in the same run. The process name is "nu";
-// carapace calls the snippet shell "nushell".
+// Package nu completes in an interactive Nushell. It is not an eval shell: a wrapped
+// script is still zsh or bash. The process name is "nu"; carapace calls the snippet
+// shell "nushell" — both names are registered here for the same emitter.
 package nu
 
 import (
@@ -15,8 +14,8 @@ import (
 	"github.com/nesneros/compleo/internal/shells"
 )
 
-// Emitter writes the nuon record a script reads, and nu completion wiring.
-// Nushell is not a POSIX shell, so this does not embed posix.Emitter.
+// Emitter writes nu completion wiring. Nushell is not a POSIX shell, so this does not
+// embed posix.Emitter (that would also expose EmitHelp and EmitError).
 type Emitter struct {
 	out io.Writer
 }
@@ -24,7 +23,7 @@ type Emitter struct {
 // Em is the nu emitter, unbound to any stream. New returns one bound to real streams.
 var Em Emitter
 
-var _ shells.Emitter = Em
+var _ shells.CompletionEmitter = Em
 
 // Name returns "nu", the process name ParentProcessName reports.
 func (Emitter) Name() string { return "nu" }
@@ -37,17 +36,15 @@ func (Emitter) Quote(s string) string {
 	return `"` + nuQuote.Replace(s) + `"`
 }
 
-// New returns a nu emitter whose output methods write to out.
-func New(out, _ io.Writer) shells.Emitter {
+// New returns a nu emitter whose EmitActivate writes to out.
+func New(out, _ io.Writer) shells.CompletionEmitter {
 	return Emitter{out: out}
 }
 
 func init() {
-	shells.RegisterEmitterFactory("nu", New)
+	shells.RegisterCompletionEmitterFactory("nu", New)
 	// Carapace's own name for this shell. Same emitter; Name() stays "nu".
-	shells.RegisterCompletionEmitterFactory("nushell", func(out, err io.Writer) shells.CompletionEmitter {
-		return New(out, err)
-	})
+	shells.RegisterCompletionEmitterFactory("nushell", New)
 }
 
 // CompletionFileName is "<command>.nu" in the shared completion directory.

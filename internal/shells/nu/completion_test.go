@@ -49,10 +49,8 @@ func TestActivationHintSourcesTheNuFile(t *testing.T) {
 	assert.Equal(t, "source "+Em.Quote("/completions/greet.nu"), Em.ActivationHint("greet"))
 }
 
-func TestEvalEmitterSeesNu(t *testing.T) {
-	evalEm := shells.EvalEmitterForShell("nu", io.Discard, io.Discard)
-	require.NotNil(t, evalEm)
-	assert.Equal(t, "nu", evalEm.Name())
+func TestEvalEmitterDoesNotSeeNu(t *testing.T) {
+	assert.Nil(t, shells.EvalEmitterForShell("nu", io.Discard, io.Discard))
 	assert.Nil(t, shells.EvalEmitterForShell("nushell", io.Discard, io.Discard))
 	completionEm, err := shells.CompletionEmitterForShell("nu", io.Discard, io.Discard)
 	require.NoError(t, err)
