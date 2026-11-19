@@ -8,13 +8,13 @@ import (
 
 	carapacespec "github.com/carapace-sh/carapace-spec"
 	"github.com/carapace-sh/carapace/pkg/command"
-	yaml "gopkg.in/yaml.v3"
+	yaml "go.yaml.in/yaml/v3"
 )
 
 // Command is a compleo spec's command definition, with the same field names and YAML tags as
 // carapace-sh/carapace's pkg/command.Command (imported here as "command"), plus Positionals.
 //
-// https://github.com/carapace-sh/carapace/blob/v1.16.3/pkg/command/command.go
+// https://github.com/carapace-sh/carapace/blob/v1.18.2/pkg/command/command.go
 type Command struct {
 	Name        string          `yaml:"name"`
 	Aliases     []string        `yaml:"aliases,omitempty"`
@@ -93,7 +93,7 @@ func yieldFlagCompletions(fs FlagSet, yield func(string) bool) bool {
 
 // Documentation holds extra help text for a command, keyed by flag name or positional index.
 //
-// https://github.com/carapace-sh/carapace/blob/v1.16.3/pkg/command/command.go
+// https://github.com/carapace-sh/carapace/blob/v1.18.2/pkg/command/command.go
 type Documentation struct {
 	Command       string            `yaml:"command,omitempty"`
 	Flag          map[string]string `yaml:"flag,omitempty"`

@@ -6,13 +6,13 @@ import (
 	"strings"
 
 	"github.com/carapace-sh/carapace/pkg/command"
-	yaml "gopkg.in/yaml.v3"
+	yaml "go.yaml.in/yaml/v3"
 )
 
 // Flag is a compleo spec's flag definition, with the same fields as carapace-sh/carapace's
 // pkg/command.Flag (imported here as "command"), plus Type.
 //
-// https://github.com/carapace-sh/carapace/blob/v1.16.3/pkg/command/flag.go
+// https://github.com/carapace-sh/carapace/blob/v1.18.2/pkg/command/flag.go
 type Flag struct {
 	Longhand    string
 	Shorthand   string
@@ -83,7 +83,7 @@ func (f Flag) toCarapace() command.Flag {
 
 // FlagSet mirrors carapace-sh/carapace's pkg/command.FlagSet.
 //
-// https://github.com/carapace-sh/carapace/blob/v1.16.3/pkg/command/flagset.go
+// https://github.com/carapace-sh/carapace/blob/v1.18.2/pkg/command/flagset.go
 type FlagSet map[string]Flag
 
 // toCarapace converts every flag in fs.

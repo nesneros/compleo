@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	carapacespec "github.com/carapace-sh/carapace-spec"
+	"github.com/carapace-sh/carapace/pkg/command"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -525,4 +526,20 @@ func TestFlagValidateWithNilTypeAcceptsAnything(t *testing.T) {
 func TestPositionalValidateWithNilTypeAcceptsAnything(t *testing.T) {
 	p := Positional{}
 	assert.NoError(t, p.Validate("anything at all"))
+}
+
+// run:'s list/alias form only decodes via command.Run's own UnmarshalYAML — the thing the
+// compleo yaml.v3/go.yaml.in pin exists to keep working (see AGENTS.md's "YAML library pin
+// matters"). A plain script/macro string would decode fine either way, since Run's underlying
+// type is already string.
+func TestParseRunAliasList(t *testing.T) {
+	cmd, err := decodeYAML(`
+name: mytool
+run: ["git", "status"]
+`)
+	require.NoError(t, err)
+
+	want, err := command.Alias("git", "status")
+	require.NoError(t, err)
+	assert.Equal(t, want, cmd.Run)
 }
