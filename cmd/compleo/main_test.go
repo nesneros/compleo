@@ -387,7 +387,7 @@ func TestRunWithActivateFishWritesFishCompletion(t *testing.T) {
 
 	content, err := os.ReadFile(filepath.Join(dir, "compleo.fish"))
 	require.NoError(t, err)
-	assert.Contains(t, string(content), "complete -c 'compleo'")
+	assert.Contains(t, string(content), "complete -c compleo")
 	_, err = os.Stat(filepath.Join(dir, "_compleo"))
 	assert.True(t, os.IsNotExist(err))
 }

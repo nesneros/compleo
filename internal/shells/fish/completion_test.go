@@ -24,7 +24,7 @@ func TestWrappedCompletionInjectsSpecFile(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, snippet, "function _greet_completion\n")
 	assert.Contains(t, snippet, "set -lx "+cmdutil.EnvSpecFile+" "+Em.Quote("/tmp/spec.yaml"))
-	assert.Contains(t, snippet, "complete -c 'greet'")
+	assert.Contains(t, snippet, "complete -c greet")
 	assert.Contains(t, snippet, "_carapace fish")
 }
 
