@@ -4,7 +4,7 @@ go 1.27.2
 
 require (
 	github.com/carapace-sh/carapace v1.18.2
-	github.com/carapace-sh/carapace-spec v1.9.0
+	github.com/carapace-sh/carapace-spec v1.10.2
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.1.0
@@ -13,7 +13,6 @@ require (
 )
 
 require (
-	github.com/carapace-sh/carapace-shlex v1.1.1 // indirect
 	github.com/carapace-sh/carapace-shlex/v2 v2.1.4 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
