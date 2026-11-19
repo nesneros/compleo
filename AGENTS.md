@@ -99,17 +99,17 @@ Early design phase, but the core pipeline is implemented: `go.mod` at `github.co
 
 Use **mise** for tool versions and tasks. Do not add a Makefile.
 
-- Tool versions (Go, golangci-lint, goreleaser, act) are pinned in `mise.toml` under `[tools]`.
+- Tool versions (Go, golangci-lint, goreleaser, act, `gohawk`) are pinned in `mise.toml` under `[tools]`.
 - Simple tasks live in `mise.toml` under `[tasks.*]`; longer scripts are file tasks under `mise-tasks/` (e.g. `mise-tasks/ci-local`) with a `#MISE description=...` header — both run with `mise run <task>`.
-- Tasks: `build`, `test`, `lint`, `fmt`, `check` (fmt check, vet, lint, test), `install`, `release-check` (`goreleaser check`, no build), `release-dry-run` (local snapshot build, no publish), `ci-local` (runs `ci.yml` locally via `act`, Docker required).
+- Tasks: `build`, `test`, `lint`, `fmt`, `check` (fmt check, vet, lint, test), `install`, `release-check` (`goreleaser check`, no build), `release-dry-run` (local snapshot build, no publish), `ci-local` (runs `ci.yml` locally via `act`, Docker required), `gohawk` (`gohawk -enable-all -tier=experimental ./...` — a separate, opt-in static-analysis pass; not part of `check` or `ci.yml`, run it by hand).
 - If a task you need doesn't exist, add it rather than documenting a raw command here.
 - `mise.toml`'s `[env]`: `COMPLEO_COMPLETION_DIR={{config_root}}/.completions` so a mise-activated shell (or `mise x -- ...`) writes into the project instead of the real `~/.local/share/compleo/completions` (`.completions/` is gitignored). `_.path = ["{{config_root}}/examples"]` puts the demo scripts (`greet`, `macros`) on `$PATH` by bare name, since their generated completions need that to work at all (see "Generating and serving a wrapped script's own completion" above).
 
 ## Release & CI
 
-- `.goreleaser.yml`: builds `cmd/compleo` for linux/darwin × amd64/arm64. Relies on GoReleaser's implicit default ldflags (see "Versioning" above) rather than declaring its own.
+- `.goreleaser.yml`: a `before.hooks` of `go mod tidy`, then builds `cmd/compleo` for linux/darwin × amd64/arm64 (relying on GoReleaser's implicit default ldflags, see "Versioning" above, rather than declaring its own), then a `homebrew_casks` block publishing to the `nesneros/homebrew-tap` repo (with a macOS post-install hook that removes the Gatekeeper quarantine attribute from the installed binary).
 - `.github/workflows/ci.yml`: `check-ubuntu`/`check-macos` (literal `runs-on`, **not** `strategy: matrix` — see below) run `mise run check`; `release-check` validates `.goreleaser.yml` on every PR.
-- `.github/workflows/release.yml`: runs GoReleaser on `v*` tag pushes.
+- `.github/workflows/release.yml`: runs GoReleaser on `v*` tag pushes, with `GITHUB_TOKEN` set to `secrets.HOMEBREW_TAP_TOKEN` (not the default `GITHUB_TOKEN`) so GoReleaser's Homebrew-cask push can write to the separate `homebrew-tap` repo.
 - `.github/dependabot.yml`: weekly `gomod` + `github-actions` update PRs.
 - **act gotchas** (all handled in `mise-tasks/ci-local`, don't re-break them):
   - act doesn't read Docker contexts; `DOCKER_HOST` must be set explicitly from `docker context inspect --format '{{.Endpoints.docker.Host}}'`.
